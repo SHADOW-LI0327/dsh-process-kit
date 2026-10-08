@@ -1,8 +1,19 @@
 # dsh-process-kit
 
-把「单人开发 + LLM 角色协作」流程做成一个可安装的 [DSH](https://github.com/) 插件。
+[![CI](https://github.com/SHADOW-LI0327/dsh-process-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/SHADOW-LI0327/dsh-process-kit/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/dsh-process-kit)](https://www.npmjs.com/package/dsh-process-kit)
+[![license](https://img.shields.io/npm/l/dsh-process-kit)](./LICENSE)
 
-装上它，任何仓库都能立刻拥有：**一套文件状态机驱动的开发流程 + 7 个角色 subagent + 门禁脚本 + GUI 状态看板**。流程状态仍然写在你的仓库里（`docs/process/**` 的 frontmatter 是唯一真源），插件只负责确定性的读、渲染、安全追加与脚手架落地。
+把「单人开发 + LLM 角色协作」流程做成一个可安装的 [DSH](https://github.com/deepseek-ai/deepseek-harness) 插件。
+
+装上它，任何仓库都能立刻拥有：**一套文件状态机驱动的开发流程 + 7 个角色 subagent + 门禁脚本 + 界面状态看板**。流程状态仍然写在你的仓库里（`docs/process/**` 的 frontmatter 是唯一真源），插件只负责确定性的读、渲染、安全追加与脚手架落地。
+
+> **术语**：插件由两个部分组成，后面统一用这两个词，不再用「Host 半 / 浏览器半」。
+>
+> - **服务端部分**（`lib/index.js`）：在 dsh 进程里跑，负责四个工具、角色技能注册、看板数据路由。
+> - **页面部分**（`lib/client.js`）：在网页里跑，负责右下角那个「流程看板」浮层。
+>
+> 两者独立更新：改页面部分刷新浏览器即可；改服务端部分要重启 `dsh web`（原因见「安装」一节）。
 
 ## 它解决什么
 
@@ -18,12 +29,12 @@
 
 ```
 dsh-process-kit/
-├── lib/index.js         Host 半：4 个工具 + 角色技能 provider + 看板路由 + 唤醒提示
-├── lib/client.js        浏览器半：右下角「流程看板」浮层（只读）
-├── skills/              7 个通用角色技能（打包，rank 600）
-├── scaffold/            流程骨架：装到目标仓库 docs/process/**
-├── scripts/             门禁与流程脚本（零依赖 .mjs）
-└── test/                冒烟测试（node test/*.test.mjs）
+├── lib/index.js          服务端部分：4 个工具 + 角色技能注册 + 看板数据路由 + 常驻提醒
+├── lib/client.js         页面部分：右下角「流程看板」浮层（只读）
+├── skills/               7 个通用角色技能（打包，rank 600）
+├── scaffold/             流程骨架：装到目标仓库 docs/process/**
+├── scripts/              门禁与流程脚本（零依赖 .mjs）
+└── test/                 冒烟测试（node test/*.test.mjs）
 ```
 
 ### 工具
@@ -47,25 +58,42 @@ dsh-process-kit/
 
 ## 安装
 
-插件不 import 任何 `@deepseek-ai/*` 运行时依赖，clone 下来即可安装。
+插件不 import 任何 `@deepseek-ai/*` 运行时包（只用一个 `peerDependencies` 声明宿主版本区间，见下），因此**无需构建**，clone 下来即可用。
+
+安装统一走 DSH 自己的 `plugin_manager`（或等价的 `dsh plugin --profile <名> add <spec>`），三种 spec 任选：
+
+| 方式 | spec | 说明 |
+|---|---|---|
+| npm（推荐） | `dsh-process-kit` | 需要已发到 npm；升级即改版本号 |
+| GitHub | `github:SHADOW-LI0327/dsh-process-kit` | 免 npm，直接拉默认分支；锁版本用 `#<tag>` 或 `#<commit>` |
+| 本地 clone | 绝对路径 `/Users/<you>/dsh-plugins/dsh-process-kit` | 改插件源码自用时用这个 |
 
 ```bash
-git clone <repo-url> ~/dsh-plugins/dsh-process-kit
+# 方式二 / 三需要先有本地目录
+git clone https://github.com/SHADOW-LI0327/dsh-process-kit ~/dsh-plugins/dsh-process-kit
 
-# 在 DSH 里安装（用 plugin_manager，target 为绝对路径）
+# 然后在 DSH 里用 plugin_manager：
 #   action: install_bundle
-#   target: /Users/<you>/dsh-plugins/dsh-process-kit
+#   target: dsh-process-kit                      （npm）
+#   target: github:SHADOW-LI0327/dsh-process-kit （git）
+#   target: /Users/<you>/dsh-plugins/dsh-process-kit （绝对路径）
 ```
 
 > **首次安装即时生效**（工具、技能、看板路由立刻可用），不需要重启。
-> **改已加载插件的 Host 半代码**（`lib/index.js`）才需要重启 `dsh web`——Node 的 ESM 模块缓存不会重新加载已导入的模块；浏览器半（`lib/client.js`）改完刷新页面即可。
+> **改已加载插件的服务端代码**（`lib/index.js`）才需要重启 `dsh web`——Node 的 ESM 模块缓存不会重新加载已导入的模块；**页面部分**（`lib/client.js`）改完刷新页面即可。
+
+### 宿主版本要求
+
+`peerDependencies` 声明 `@deepseek-ai/dsh: ">=0.1.7-rc.2 <0.3.0"`。DSH 在安装前（npm spec）或安装后（git/tarball spec）会用宿主实际版本比对这个区间，不匹配就**拒绝安装并回滚**，而不是装上一个静默失效的插件。dsh 升到 0.3.x 之后需要同步放宽这个区间。
+
+> 插件的四个工具用 `inject` 拿到 `tools` / `systemPrompt` / `webServer` / `connection` / `sessions` / `sessionQuery` 六个服务；这些服务在 0.2.x 上尚未变更，但**未逐一承诺稳定**，所以上限设在 `<0.3.0`。
 
 **⚠ 升级/替换时注意工具重名**：如果之前装过别的流程包（例如早期的原型包）并注册了同名工具（`process_status` / `gate_summary` / `process_journal`），新包激活会报 `tool "process_status" is already registered` 并且**整行不激活**。处置：先 `remove_bundle`（或 `set_bundle enabled=false`）旧包，再把新包 `set_bundle enabled=false → true` 触发重新激活。
 
 ## 使用
 
 ```text
-1. 装好插件、重启一次 dsh web（Host 半生效）。
+1. 装好插件、重启一次 dsh web（服务端部分生效）。
 2. 在目标仓库里让 Agent 调用 process_init  → 落地 docs/process/** 与 scripts/process/*.mjs。
 3. 编辑 docs/process/PROJECT.md            → 填端与目录、命令槽、产物属主表（唯一接口）。
 4. 在 package.json 里加 npm scripts（示例见 process_init 的回报）。
@@ -121,15 +149,28 @@ GUI 右下角的「流程看板」会跟着工作区自动显示状态，每 6 �
 
 - 目标仓库的 `docs/process/**` 文件是**唯一真源**，插件不另存状态；
 - 插件只做「读 + 渲染 + 安全追加 journal + 只增不改地初始化」，**不代写流程产物**；
-- 不引入 `@deepseek-ai/*` 依赖，不引入插件 `Config`（profile 用 `link:` 安装，不装被链接包自身的依赖）。
+- 不 import 任何 `@deepseek-ai/*` 运行时包（仅在 `peerDependencies` 里声明宿主版本区间供 DSH 兼容门禁比对），不引入插件 `Config`（profile 支持 `link:` 安装，被链接包自身依赖不会被安装）。
 
-## 发布
+## 生态准入状态
+
+社区那套插件清单（图标、多语言 README、`locale/*.json` 展示元数据等）**目前刻意不做**，只把差距与证据记录在 [`docs/ECOSYSTEM.md`](./docs/ECOSYSTEM.md)。已完成的「可标准安装」部分：npm / GitHub / 本地路径三条 spec、`peerDependencies` 兼容门禁、`files` 白名单、`keywords` 与 GitHub topic。
+
+## 发布（维护者）
 
 ```bash
-cd dsh-process-kit
-git init && git add -A
-git commit -m "feat: dsh-process-kit v0.1.0"
-git remote add origin <repo-url> && git push -u origin main
+# 1. 发 GitHub
+git remote add origin https://github.com/SHADOW-LI0327/dsh-process-kit.git
+git push -u origin main
+
+# 2. 发 npm（需先 npm login；首次发布用 --access public）
+npm publish
+```
+
+发版前检查：
+
+```bash
+npm test                      # 四项冒烟测试
+npm pack --dry-run            # 确认 files 白名单内容正确（不应含 test/ 与 .github/）
 ```
 
 ## License
