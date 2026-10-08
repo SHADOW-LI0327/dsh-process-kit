@@ -21,6 +21,7 @@
 - 修 `dsh.client.inject`：由空数组改为 `["@deepseek-ai/dsh-client-ui-layout"]`——页面部分注册进 `shell.overlay`，而该 slot 由 layout 提供；官方四个同样注册进 `shell.overlay` 的包（chat / schedule / settings-account / shortcuts）都声明了这一项，此前只有本插件漏了，客户端加载器因此拿不到到达顺序约束。
 - 补 `files` 白名单（此前 `npm pack` 会把 `test/**` 一起打进包里）、`repository` / `homepage` / `bugs` / `keywords` / `engines` / `publishConfig`。
 - 文档去黑话：「Host 半 / 浏览器半」统一改为「服务端部分 / 页面部分」，并补术语说明与三条安装通道。
+- README 拆分为使用者视角：把实现细节、踩坑记录、设计说明移到 `docs/DESIGN.md`，把 PROJECT.md 配置契约移到 `docs/CONFIGURATION.md`，维护备忘与发布步骤并入 `CONTRIBUTING.md`；README 只留「它解决什么 / 安装 / 使用 / 能力 / 配置入口 / 文档索引」。交叉文档链接一律用绝对 URL，保证在 npm 页面上也可点。
 
 **修复**（在净室初始化实测中发现并复现）
 

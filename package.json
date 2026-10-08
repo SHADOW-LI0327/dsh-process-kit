@@ -38,9 +38,11 @@
     "skills",
     "scaffold",
     "scripts",
+    "docs",
     "AGENTS.template.md",
     "cordis.patch.yml",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "CONTRIBUTING.md"
   ],
   "scripts": {
     "test": "node test/host.test.mjs && node test/client.test.mjs && node test/skill-registry.test.mjs && node test/scripts.test.mjs"
