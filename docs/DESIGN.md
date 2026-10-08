@@ -55,6 +55,31 @@ dsh-process-kit/
 
 所以现在不做目录门禁，改用环境变量这把显式的开关。
 
+## 为什么声明 peerDependencies 是安全的
+
+插件声明了 `peerDependencies: { "@deepseek-ai/dsh": ">=0.1.7-rc.2 <0.3.0" }`，但**宿主运行时不会被装进用户的 profile**。原因是 DSH 的 profile 目录里自带 `pnpm-workspace.yaml`：
+
+```yaml
+nodeLinker: hoisted
+autoInstallPeers: false
+```
+
+`autoInstallPeers: false` 让 pnpm 只把这条声明当作版本校验依据，不去真装它——所以既拿到了 DSH 的兼容门禁，又不会拖进整个 dsh 运行时（280+ 个 `@deepseek-ai/*` 包，含 node-pty / koffi 等需要原生构建的依赖）。
+
+### 复现安装行为时，必须带上这份 pnpm 配置
+
+在裸目录（比如 `/tmp`）里直接 `pnpm add github:...` 会得到**完全错误的结论**：默认 `autoInstallPeers` 为 true，pnpm 会去装整个 dsh 运行时，最后因为原生构建脚本未批准而以非零码退出——看起来像「这个插件装不上」，实际只是测试装置没有复刻真实环境。
+
+忠实复刻的最小装置：
+
+```bash
+mkdir /tmp/repro && cd /tmp/repro
+printf 'packages:\n  - .\n\nnodeLinker: hoisted\nautoInstallPeers: false\n' > pnpm-workspace.yaml
+printf '{"name":"dsh-profile-web","private":true}\n' > package.json
+pnpm add github:SHADOW-LI0327/dsh-process-kit
+# 期望：Packages: +1（不是 +500）；会出现一条 peer 未满足的 WARN，那是正确行为
+```
+
 ## 测试
 
 ```bash
