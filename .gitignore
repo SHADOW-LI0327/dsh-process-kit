@@ -1,0 +1,6 @@
+node_modules/
+*.log
+.DS_Store
+# 编辑器原子写留下的临时产物（不得进仓库，也不得被 process_init 落地）
+*.tmp
+*.tmpdir/

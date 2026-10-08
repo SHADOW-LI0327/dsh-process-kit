@@ -1,0 +1,24 @@
+{
+  "name": "dsh-process-kit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "通用单人开发流程框架：文件状态机 + Gate 必停 + 角色分离。自带 7 个角色 subagent、流程骨架文档、门禁脚本与 process_init 初始化工具。",
+  "type": "module",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "node test/host.test.mjs && node test/client.test.mjs && node test/skill-registry.test.mjs && node test/scripts.test.mjs"
+  },
+  "exports": {
+    ".": { "default": "./lib/index.js" },
+    "./client": { "default": "./lib/client.js" },
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "inject": [],
+      "platform": "web"
+    }
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,8 @@
+# 通用单人开发流程框架（dsh-process-kit）。
+#
+# 三个流程工具 + 初始化工具 + 自带角色技能 + 只读看板路由 + 唤醒提示。
+# 流程状态仍以目标仓库的 docs/process/** 文件为唯一真源，本插件只做确定性的
+# 读、渲染、安全追加与脚手架落地。
+- insert:
+    - id: process-kit
+      name: 'dsh-process-kit'
