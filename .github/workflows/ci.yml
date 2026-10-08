@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 与 package.json 的 engines.node 保持一致
+        node: ['22.19.0', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      # 插件零依赖、无构建步骤，因此无需 install
+      - name: Run smoke tests
+        run: npm test
+
+  pack:
+    name: npm pack 内容核对
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: 确认 files 白名单不含测试与 CI 文件
+        run: |
+          npm pack --dry-run --json > pack.json
+          node -e '
+            const files = JSON.parse(require("fs").readFileSync("pack.json", "utf8"))[0].files.map((f) => f.path);
+            const required = ["lib/index.js", "lib/client.js", "cordis.patch.yml", "AGENTS.template.md"];
+            const forbidden = files.filter((p) => p.startsWith("test/") || p.startsWith(".github/"));
+            const missing = required.filter((p) => !files.includes(p));
+            if (missing.length) throw new Error(`npm 包里缺必需文件: ${missing.join(", ")}`);
+            if (forbidden.length) throw new Error(`npm 包里混入了不该发布的文件: ${forbidden.join(", ")}`);
+            console.log(`pack ok: ${files.length} 个文件`);
+          '
