@@ -11,8 +11,16 @@
 - 流程骨架 `scaffold/`：总纲、调度手册、项目适配槽位 `PROJECT.md`（§1–§7）、核对件 / PRD / 设计与说明模板、过程载体登记区说明。
 - `AGENTS.md` 项目级常驻指针：`process_init` 在缺失时按 `AGENTS.template.md` 建一份（已存在则**绝不改写**，只打印待并入的「开发流程」段落），`agents: false` 可跳过。补上「框架级 systemPrompt 段」之外的**项目级常驻层**——插件是跨仓库通用包，替不了「本项目流程真源在哪」这句话。
 - 零依赖门禁脚本 `scripts/*.mjs`：`journal-append`、`check-artifact-paths`、`check-rules`、`sync-prd-version`、`check-uat-readiness`（均只用 `node:` 内置模块，可直接 `node` 跑）。
-- 浏览器半看板：右下角浮层，展示每包 status / Gate 四灯 / 下一步动作 / open bugs / 状态位不一致警告。
+- 页面部分看板：右下角浮层，展示每包 status / Gate 四灯 / 下一步动作 / open bugs / 状态位不一致警告。
 - 测试：`test/host.test.mjs`（工具与状态机）、`test/client.test.mjs`（看板渲染）、`test/skill-registry.test.mjs`（挂进真实 `@deepseek-ai/dsh-skill` 注册表验证候选/定义/优先级）。
+
+**分发（首发前加固）**
+
+- 三条标准安装 spec 全部可用：npm 包名、`github:SHADOW-LI0327/dsh-process-kit`、本地绝对路径。
+- 新增 `peerDependencies: { "@deepseek-ai/dsh": ">=0.1.7-rc.2 <0.3.0" }`：让 DSH 的兼容门禁在装不上时**明确拒绝**，而不是装上一个静默失效的插件。
+- 修 `dsh.client.inject`：由空数组改为 `["@deepseek-ai/dsh-client-ui-layout"]`——页面部分注册进 `shell.overlay`，而该 slot 由 layout 提供；官方四个同样注册进 `shell.overlay` 的包（chat / schedule / settings-account / shortcuts）都声明了这一项，此前只有本插件漏了，客户端加载器因此拿不到到达顺序约束。
+- 补 `files` 白名单（此前 `npm pack` 会把 `test/**` 一起打进包里）、`repository` / `homepage` / `bugs` / `keywords` / `engines` / `publishConfig`。
+- 文档去黑话：「Host 半 / 浏览器半」统一改为「服务端部分 / 页面部分」，并补术语说明与三条安装通道。
 
 **修复**（在净室初始化实测中发现并复现）
 
