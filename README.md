@@ -22,15 +22,28 @@
 
 ## 安装
 
-通过 DSH 的 `plugin_manager` 安装，或使用等价的 `dsh plugin --profile <name> add <spec>`：
+推荐从 npm 安装，也可以从 GitHub 或本地目录安装：
 
-| 方式 | target |
-| --- | --- |
-| npm | `dsh-process-kit` |
-| GitHub | `github:SHADOW-LI0327/dsh-process-kit` |
-| 本地目录 | 绝对路径，如 `/Users/<you>/dsh-plugins/dsh-process-kit` |
+| 方式 | target | 说明 |
+| --- | --- | --- |
+| npm（推荐） | `dsh-process-kit` | 已发布 `0.1.0`，升级只需改版本号 |
+| GitHub | `github:SHADOW-LI0327/dsh-process-kit` | 免 npm；锁版本用 `#<tag>` 或 `#<commit>` |
+| 本地目录 | 绝对路径，如 `/Users/<you>/dsh-plugins/dsh-process-kit` | 需要改插件源码时用 |
 
-本地目录方式需要先 clone：
+在 DSH 里调用 `plugin_manager`，`target` 填上表任一项：
+
+```text
+action: install_bundle
+target: dsh-process-kit
+```
+
+也可以走等价的命令行：
+
+```bash
+dsh plugin --profile <name> add dsh-process-kit
+```
+
+后两种方式需要先 clone：
 
 ```bash
 git clone https://github.com/SHADOW-LI0327/dsh-process-kit ~/dsh-plugins/dsh-process-kit
