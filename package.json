@@ -1,6 +1,6 @@
 {
   "name": "dsh-process-kit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "通用单人开发流程框架：文件状态机 + Gate 必停 + 角色分离。自带 8 个角色 subagent、流程骨架文档、门禁脚本与 process_init 初始化工具。",
   "type": "module",
   "license": "MIT",

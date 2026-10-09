@@ -83,6 +83,20 @@ await writeFile(
 	'utf8',
 );
 
+// uiDesign: required ⇒ 派单必须显式带上 ui-designer（人在 Gate0 做的选择，不靠主控推断）
+await writeFile(
+	join(dir, 'input', 'FEAT-203-需求核对件.md'),
+	`---\nid: FEAT-203\nkind: requirement-check\nstatus: confirmed\ngate0: approved\nflow: full\nuiDesign: required\n---\n\n# 要 UI 设计\n`,
+	'utf8',
+);
+
+// 冲突夹具：快速路径不建 PRD、不过 Gate1，承载不了 UI 规格 ⇒ 必须出状态位冲突警告
+await writeFile(
+	join(dir, 'input', 'FEAT-204-需求核对件.md'),
+	`---\nid: FEAT-204\nkind: requirement-check\nstatus: confirmed\ngate0: approved\nflow: fast\nuiDesign: required\n---\n\n# 冲突\n`,
+	'utf8',
+);
+
 // ---- 捕获注册，直接驱动工具 ----------------------------------------
 
 const registered = { tools: [], sections: [], routes: [], providers: [] };
@@ -137,7 +151,7 @@ assert.match(renderedNotFound, /未找到流程目录/);
 
 const snapshot = await byName.process_status.execute({}, { ...exec, agent: { session: { header: { cwd: root } } } });
 assert.equal(snapshot.found, true);
-assert.equal(snapshot.packages.length, 5);
+assert.equal(snapshot.packages.length, 7);
 
 const pkg101 = snapshot.packages.find((p) => p.id === 'FEAT-101');
 assert.equal(pkg101.status, 'red');
@@ -169,6 +183,27 @@ assert.equal(full.flow, 'full');
 assert.equal(full.next.gate, 'Gate1', '全流程核对件必须停等 Gate1');
 assert.equal(full.next.short, '调 pm');
 
+// uiDesign 默认 not-needed：不得凭空建议派 ui-designer
+assert.equal(full.uiDesign, 'not-needed', '未声明 uiDesign 应默认 not-needed');
+assert.doesNotMatch(full.next.action, /ui-designer/, 'uiDesign 未声明时不得建议派 ui-designer');
+
+// uiDesign: required ⇒ 派单显式带上 ui-designer 与产物落点
+const uiPkg = snapshot.packages.find((p) => p.id === 'FEAT-203');
+assert.equal(uiPkg.uiDesign, 'required');
+assert.equal(uiPkg.next.gate, 'Gate1');
+assert.equal(uiPkg.next.short, '调 pm');
+assert.match(uiPkg.next.action, /ui-designer/, 'uiDesign: required 必须派 ui-designer');
+assert.match(uiPkg.next.action, /ui-spec\.md/, '必须写明 UI 规格落点');
+
+// 冲突：快速路径 + 要 UI 规格 ⇒ 报状态位冲突，不替人修
+const uiConflict = snapshot.packages.find((p) => p.id === 'FEAT-204');
+assert.equal(uiConflict.flow, 'fast');
+assert.equal(uiConflict.uiDesign, 'required');
+assert.ok(
+	snapshot.warnings.some((w) => w.includes('FEAT-204') && w.includes('uiDesign=required')),
+	'flow=fast 与 uiDesign=required 必须报警',
+);
+
 assert.equal(snapshot.openBugCount, 2);
 assert.equal(snapshot.orphanBugs.length, 1);
 assert.equal(snapshot.orphanBugs[0].id, 'BUG-9-01');
@@ -178,6 +213,7 @@ assert.match(text, /FEAT-101/);
 assert.match(text, /调 dev 实现/);
 assert.match(text, /FEAT-102/);
 assert.match(text, /未挂包的 open bugs/);
+assert.match(text, /🎨UI 设计/, 'uiDesign: required 应在快照里可见');
 
 // ---- gate_summary ----------------------------------------------------
 
@@ -234,7 +270,7 @@ const res = { headers: {}, ended: '', statusCode: 0, setHeader(k, v) { this.head
 await registered.routes[0].handler({ headers: {} }, res);
 const routePayload = JSON.parse(res.ended);
 assert.equal(routePayload.found, true);
-assert.equal(routePayload.packages.length, 5);
+assert.equal(routePayload.packages.length, 7);
 assert.equal(res.headers['cache-control'], 'no-store');
 
 // ---- 角色技能 provider（安装即得基础 subagent）------------------------

@@ -106,11 +106,15 @@ function globToRegExp(glob) {
 /** 会进提交的未跟踪文件（已排除 gitignore 覆盖项）。 */
 function untrackedNotIgnored(root) {
   try {
-    const out = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], {
+    // **必须用 `-z`**：git 默认 `core.quotePath=true`，会把非 ASCII 路径按八进制转义并加引号输出，
+    // 于是 `FEAT-01-需求核对件.md` 变成 `"FEAT-01-\351\234\200\346\261\202..."` ——
+    // 那串文本匹配不上任何通配，**所有中文命名的产物都会被误判越界**。
+    // `-z` 以 NUL 分隔且不转义，顺带也解决了路径含空格 / 换行的情况。
+    const out = execFileSync("git", ["ls-files", "-z", "--others", "--exclude-standard"], {
       cwd: root,
       encoding: "utf8",
     });
-    return out.split("\n").filter((l) => l.trim() !== "");
+    return out.split("\0").filter((l) => l !== "");
   } catch (err) {
     fail(
       `无法枚举未跟踪文件（${err.message}）。本脚本依赖 git，请确认仓库根存在 .git ` +

@@ -12,6 +12,7 @@ title: <一句话标题>
 status: pending # pending / confirmed
 gate0: pending # pending / approved / rejected —— 人签后置 approved，才允许出 PRD
 flow: full # full（全流程）/ fast（快速路径）—— fast 时不建 PRD、不产生 Gate1/Gate2，直派 dev + 存量回归
+uiDesign: not-needed # required / not-needed —— required 才派 ui-designer 出原型图与 UI 规格（prototypes/<ID>/ + prd/<ID>-ui-spec.md），随 Gate1 一并审
 author: <作者角色，通常为 orchestrator>
 createdAt: <YYYY-MM-DD>
 ---
@@ -28,6 +29,7 @@ createdAt: <YYYY-MM-DD>
 - 人裁定条数：`R-01` ~ `R-NN` 共 N 条（逐条复述，不得曲解 / 遗漏）。
 - 待确认项：`Q-1` ~ `Q-N`，是否**已裁定收敛**（未收敛则不得进 Gate0 签署）。
 - 端覆盖：<端清单，写清各自**涉及 / 不涉及 + 理由**>。
+- UI 设计：<frontmatter `uiDesign` 的取值 + 一句话理由>（`required` ⇒ 本包要出**原型图**与 UI 规格，随 Gate1 一并审）。
 - 本件性质：<全流程包 / 快速路径 / 轻量件>（分级判据见流程总纲）。
 - 最后更新轮次：<rN>
 
@@ -60,6 +62,7 @@ createdAt: <YYYY-MM-DD>
 ### 3.1 端覆盖表
 
 > 逐端声明**涉及 / 不涉及 + 理由**；涉及的端必须给出落点，不涉及的必须给理由（防"后端之外的范围被静默切掉"）。
+> **本表不回答「要不要做 UI 设计」** —— 那是 frontmatter `uiDesign` 的事（它决定要不要派 `ui-designer`）。两者独立：某端「涉及」不等于需要 UI 设计，反之亦然。
 
 | 端 | 是否涉及 | 理由 | 落点 |
 | --- | --- | --- | --- |

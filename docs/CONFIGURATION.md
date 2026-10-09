@@ -39,6 +39,7 @@
 | `journal-append.mjs` | 安全追加 journal（锁 + 指纹校验 + 原子替换） |
 | `check-artifact-paths.mjs` | 校验产物是否落在 §3 允许的路径内 |
 | `check-rules.mjs` | 校验流程规则（Gate、状态位、属主表） |
+| `check-ui-geometry.mjs` | 校验 UI 原型的**客观可判**部分：几何溯源 / 溢出 / 重叠 / 过挤 / 居中 / 边距 / 网格 / 文字对比度 / 深验证 / 项目令牌一致性 |
 | `sync-prd-version.mjs` | 同步 PRD 版本号 |
 | `project-config.mjs` | 上面几个脚本共用的 PROJECT.md 解析件 |
 

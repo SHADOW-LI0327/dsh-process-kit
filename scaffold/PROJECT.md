@@ -64,9 +64,9 @@ processVersion: 1
 ```markdown
 | 角色 | 可写路径 | 禁止 |
 | --- | --- | --- |
-| `<role-orchestrator>`（主控） | `docs/process/README.md` · `docs/process/orchestrator.md` · `docs/process/PROJECT.md` · `docs/process/input/**` · `docs/process/tools/README.md`（登记区） · `docs/process/prd/*.journal.jsonl` · `scripts/process/**`（框架自带门禁 / journal / 初始化脚本，常驻） · `reports/orchestrator/**` | 写实现 / 写测试 / 替人做 Gate 决策 |
+| `<role-orchestrator>`（主控） | `docs/process/README.md` · `docs/process/orchestrator.md` · `docs/process/PROJECT.md` · `docs/process/input/**` · `docs/process/ui/**`（框架落地的 UI 默认层：tokens / recipe） · `docs/process/tools/README.md`（登记区） · `docs/process/prd/*.journal.jsonl` · `scripts/process/**`（框架自带门禁 / journal / 初始化脚本，常驻） · `reports/orchestrator/**` | 写实现 / 写测试 / 替人做 Gate 决策 |
 | `<role-pm>` | `docs/process/prd/**` · `docs/process/contracts/**` · `docs/process/uat/<ID>-checklist.md` · `reports/pm-review/**` | 读业务实现 / 测试 / e2e / 日志；写实现 |
-| `<role-ui-designer>` | `docs/process/prd/<ID>-ui-spec.md` | 改实现源码；读后端实现 / 前端组件内部实现 / 测试 / e2e / 日志；写其它角色产物 |
+| `<role-ui-designer>` | `docs/process/prd/<ID>-ui-spec.md` · `docs/process/prototypes/<ID>/**` | 改实现源码；读后端实现 / 前端组件内部实现 / 测试 / e2e / 日志；写其它角色产物 |
 | `<role-test>` | `<test-dir>/packages/<ID>/**` · `<test-dir>/fixtures/<ID>-*` · `docs/process/rules/**` · `reports/test/**` · `docs/process/tools/<ID>/**` | 改 `src`；读业务实现细节（签名 / schema 除外） |
 | `<role-dev>` | `<app-a>/src/**` · `<app-b>/src/**` · `<app-c>/src/**` · `scripts/<ID>-<用途>.{ts,sql}`（仅生产迁移 / 运维脚本，且须先登记） | 改 `test/` · 改 `e2e/` |
 | `<role-uat>` | `docs/process/uat/**` · `reports/uat/**`（含 `evidence/`） · `<e2e-dir>/**` | 读任何代码 / 测试 / 日志；判功能对错以外的事 |
@@ -84,7 +84,7 @@ processVersion: 1
 
 ## 4. 项目配置
 
-> 本节是**门禁脚本的项目专属配置**入口：`check-rules.mjs` / `sync-prd-version.mjs` 读本节的测试目录与台账位置，`check-artifact-paths.mjs` 读本节的登记区文件。**每一行都可选**，删掉整行即用默认值；取值用反引号、多个用 `、` 分隔、值内不含空格。
+> 本节是**门禁脚本的项目专属配置**入口：`check-rules.mjs` / `sync-prd-version.mjs` 读本节的测试目录与台账位置，`check-artifact-paths.mjs` 读本节的登记区文件，`check-ui-geometry.mjs` 读本节的 UI 原型目录与几何阈值。**每一行都可选**，删掉整行即用默认值；取值用反引号、多个用 `、` 分隔、值内不含空格。
 > **未填 = 未配置**：取值列的 `<...>` 是占位符，**不填就拿到「说明」列承诺的默认值**；含 `<` 或 `>` 的取值一律被脚本忽略（示例值只写在「说明」列里，不参与解析）。``` 代码块内部不参与解析。
 > **不得写死技术栈假设**：命令、目录、类型词表全部由本表提供，脚本只做确定性的读与判定。
 
@@ -102,6 +102,14 @@ processVersion: 1
 | 台账目录 | `<目录>` | 可选，默认 `docs/process/rules`（示例：`docs/process/rules`）。`<ID>.yaml` 台账所在目录 |
 | PRD 目录 | `<目录>` | 可选，默认 `docs/process/prd`（示例：`docs/process/prd`）。`<ID>.md` 与 `<ID>-design.md` 所在目录 |
 | 登记区文件 | `<路径>` | 可选，默认 `docs/process/tools/README.md`（示例：`docs/process/tools/README.md`）。`check-artifact-paths` 读取其 `## 登记区` 小节里以反引号登记过的路径（登记即放行） |
+| UI 项目令牌 | `<路径>` | 可选，默认不配（示例：`web/src/styles/tokens.css`、`tailwind.config.ts`）。**项目已有的主题 / 设计令牌 / 设计系统包的位置**（多个用 `、` 分隔）。配了它 ⇒ UI 设计**必须先照抄这份令牌**，不得自创配色与间距；不配 ⇒ 回落到 `docs/process/ui/tokens.md` 的通用默认值。**两者不可混用**：同一包内一半抄项目、一半用默认，比全用默认更糟。**配了它 ⇒ 门禁 ⑩ 会判**：从这份令牌源里抽出色板（CSS 变量 / 散落色值都认），要求画面主色**全部**能由该色板推导出来（允许色板内两色按任意 α 叠加）；采到「用了整套别的色板」判 ❌。未配 ⇒ ⑩ 只 ⚠ 提示 |
+| UI 原型目录 | `<目录>` | 可选，默认 `docs/process/prototypes`（示例：`docs/process/prototypes`）。每个包一个子目录 `<目录>/<ID>/`：其中 `geometry.json` 是**适配器从产物导出的几何**（`bounds` 禁手写），`intent.json` 是作者意图（哪些元素应居中、内容带在哪）。`check-ui-geometry` 据此判定 |
+| UI 几何网格 | `<数字>` | 可选，默认 `8`（示例：`8`）。仅用于「网格符合率」⚠ 提示，偏严可调小 |
+| UI 文字最小间隙 | `<数字>` | 可选，默认 `4`（示例：`4`，单位 px）。同列文字行盒垂直间隙低于此值判 ❌（这是「字挤在一起」的可判定形态） |
+| UI 居中偏差上限 | `<数字>` | 可选，默认 `1`（示例：`1`，单位 px）。`intent.json` 里声明了 `align` 的元素，在容器内居中偏差超过此值判 ❌ |
+| UI 边距对称容差 | `<数字>` | 可选，默认 `1`（示例：`1`，单位 px）。内容区左右边距之差超过此值判 ⚠ |
+| UI 对比度下限 | `<数字>` | 可选，默认 `4.5`（示例：`4.5`）。WCAG AA 正文对比度：文字与背景低于此值判 ❌。**颜色从产物像素采样**（`info` 不给图层颜色，只能量合成结果——那正好等于人眼看到的） |
+| UI 大字号对比度下限 | `<数字>` | 可选，默认 `3.0`（示例：`3.0`）。≥24pt 的大字号适用（WCAG AA）。**小字别贴着 4.5 走**：12px 中文笔画只有 1px 宽，渲染后连最亮像素都达不到名义色（实测会掉到 3.9:1） |
 
 > **放行来源二选一说明**：产物落点门禁的放行 = §3「可写路径」列 **或** 本节「登记区文件」的登记区；两者都没有的一次性文件一律判 ❌。
 
