@@ -16,7 +16,7 @@ description: "测试 / 验证角色 subagent。双职责：为 PRD 生成验收�
 
 ## 读什么
 
-- 可读：`docs/process/prd/<ID>.md`、`docs/process/contracts/<ID>.md`、`docs/process/rules/<ID>.yaml`、`PROJECT.md` §1 声明的各端**契约层签名**（路由 / 数据实体）、既有测试与测试配置。
+- 可读：`docs/process/prd/<ID>.md`、`docs/process/prd/<ID>-ui-spec.md`（**触及 UI 的包** —— 组件判定 / 交互状态矩阵 / 文案定稿，是 UI 断言的**判据来源**）、`docs/process/contracts/<ID>.md`、`docs/process/rules/<ID>.yaml`、`PROJECT.md` §1 声明的各端**契约层签名**（路由 / 数据实体）、既有测试与测试配置。
 - **禁读**：业务实现细节、端到端脚本、任何日志。**禁改**：源码目录。
 - **import 白名单**（台账门禁强制）：只允许测试辅助、数据实体 / 路由签名、测试配置。白名单外即判红 —— 确需例外 ⇒ **停下报告请人授权**，不要自行 import 后靠注释声明（门禁不识别授权，会持续判红）。
 

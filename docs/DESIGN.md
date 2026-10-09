@@ -10,7 +10,7 @@
 dsh-process-kit/
 ├── lib/index.js          服务端部分：4 个工具 + 角色技能注册 + 看板数据路由 + 常驻提醒
 ├── lib/client.js         页面部分：右下角「流程看板」浮层（只读）
-├── skills/               7 个通用角色技能（打包，rank 600）
+├── skills/               8 个通用角色技能（打包，rank 600）
 ├── scaffold/             流程骨架：装到目标仓库 docs/process/**
 ├── scripts/              门禁与流程脚本（零依赖 .mjs）
 └── test/                 冒烟测试（node test/*.test.mjs）
@@ -45,7 +45,7 @@ dsh-process-kit/
 
 ## 技能广播机制
 
-7 个角色技能由插件在 **rank 600**（DSH 定义的 bundled 档）注册，**默认在所有工作区广播**——「装上就有角色」是核心承诺，不依赖目标仓库是否已初始化流程。项目自己的 `.dsh/skills/**`（rank 100/200）永远覆盖同名插件技能。`PROCESS_KIT_SKILLS=off` 可关闭广播。
+8 个角色技能由插件在 **rank 600**（DSH 定义的 bundled 档）注册，**默认在所有工作区广播**——「装上就有角色」是核心承诺，不依赖目标仓库是否已初始化流程。项目自己的 `.dsh/skills/**`（rank 100/200）永远覆盖同名插件技能。`PROCESS_KIT_SKILLS=off` 可关闭广播。
 
 ### 已踩过的陷阱：不要改回「按目录存在与否门禁」
 

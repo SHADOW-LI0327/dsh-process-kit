@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## 未发布
+
+**新增**
+
+- 第 8 个角色 **`ui-designer`（UI 设计）**：把《设计与说明》里**触及 UI 的条目**翻译成可验收的 **UI 规格** —— 组件判定（`reuse` / `change` / `new`，新增必附理由）+ 交互状态矩阵（默认 / 加载 / 空 / 错误 / 无权限 / 禁用）+ 用户可见文案定稿。
+  - **位置 = pm 之后、test 之前**：test 要据此写 UI 断言，而**判据必须有人审过**，所以**随 Gate1 一并送审** —— 复用现有 Gate，**不新增停点、不新增状态位**。
+  - **条件触发**：仅触及 UI（页面 / 组件 / 交互 / 用户可见文案）的包派单；**纯后端包流程完全不变**。
+  - **边界**：只翻译不发明业务口径（需要新口径 ⇒ 回流 PRD 由人裁定）；**禁改任何实现源码**；禁读后端实现与前端组件内部实现；**不出验收结论**（那是 uat）。
+- 新模板 `scaffold/prd/_UI_SPEC_TEMPLATE.md`。
+
+**配套同步（按 DESIGN.md 的「三处必须同步」）**
+
+- **状态机两处**：`lib/index.js` 的 `nextAction` 与 `scaffold/orchestrator.md` §2 状态→动作表同步扩展。
+- **角色与总纲**：`scaffold/README.md` §2 角色矩阵新增一行；§2.1 由「两组关键边界」扩为**三组**（新增「ui-designer 定状态 vs uat 判体验」）；Gate1 审件包、§4.1 摘要专项、§4.2 强制附加项、§12 最短路径同步。
+- **接力闭环**：`test-agent` 与 `dev-agent` 的读源清单补入 UI 规格 —— 否则新角色产出无人消费、等于悬空。**`uat-agent` 刻意不补**：它是唯一全禁角色、不直读本件，预期由 pm 汇总进 UAT 清单后交给它。
+- 角色计数 7 → 8：`README.md` · `docs/DESIGN.md` · `AGENTS.template.md` · `lib/index.js` · `package.json` · `scaffold/PROJECT.md` · `test/host.test.mjs` · `test/skill-registry.test.mjs`。
+
 ## v0.1.0 — 首个通用版
 
 从一套实战跑通的「单人开发 + LLM 角色协作」流程中抽出，做成可安装、可上传 git 的通用框架。

@@ -66,6 +66,7 @@ processVersion: 1
 | --- | --- | --- |
 | `<role-orchestrator>`（主控） | `docs/process/README.md` · `docs/process/orchestrator.md` · `docs/process/PROJECT.md` · `docs/process/input/**` · `docs/process/tools/README.md`（登记区） · `docs/process/prd/*.journal.jsonl` · `scripts/process/**`（框架自带门禁 / journal / 初始化脚本，常驻） · `reports/orchestrator/**` | 写实现 / 写测试 / 替人做 Gate 决策 |
 | `<role-pm>` | `docs/process/prd/**` · `docs/process/contracts/**` · `docs/process/uat/<ID>-checklist.md` · `reports/pm-review/**` | 读业务实现 / 测试 / e2e / 日志；写实现 |
+| `<role-ui-designer>` | `docs/process/prd/<ID>-ui-spec.md` | 改实现源码；读后端实现 / 前端组件内部实现 / 测试 / e2e / 日志；写其它角色产物 |
 | `<role-test>` | `<test-dir>/packages/<ID>/**` · `<test-dir>/fixtures/<ID>-*` · `docs/process/rules/**` · `reports/test/**` · `docs/process/tools/<ID>/**` | 改 `src`；读业务实现细节（签名 / schema 除外） |
 | `<role-dev>` | `<app-a>/src/**` · `<app-b>/src/**` · `<app-c>/src/**` · `scripts/<ID>-<用途>.{ts,sql}`（仅生产迁移 / 运维脚本，且须先登记） | 改 `test/` · 改 `e2e/` |
 | `<role-uat>` | `docs/process/uat/**` · `reports/uat/**`（含 `evidence/`） · `<e2e-dir>/**` | 读任何代码 / 测试 / 日志；判功能对错以外的事 |
@@ -76,7 +77,7 @@ processVersion: 1
 
 - 一次性探针 / 夹具播种 / 清理 / 截图 / 取证脚本落到受版本控制的 `scripts/` 根层 ⇒ 归 `docs/process/tools/<ID>/`；
 - `scripts/` 下**未在载体侧登记区登记**的任何新文件；
-- `docs/process/` 根层级（只放总纲 · 调度手册 · 本文件与三份模板）；
+- `docs/process/` 根层级（只放总纲 · 调度手册 · 本文件与四份模板）；
 - 任何**未被忽略规则覆盖**的一次性产物（它一定会进人的提交）——「用完即删」不构成豁免。
 
 ---

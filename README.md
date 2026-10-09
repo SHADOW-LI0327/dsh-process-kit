@@ -10,13 +10,13 @@
 
 为 [DSH](https://github.com/deepseek-ai/deepseek-harness) 增加一套文件驱动的开发流程。需求包的状态、Gate 签署、journal 与 bug 记录都写在目标仓库的 `docs/process/**` 里；插件只做读取、渲染、安全追加和脚手架落地，不另外保存状态。
 
-同时内置 7 个角色 subagent，彼此有硬边界：写实现的不写测试，写测试的不做验收。
+同时内置 8 个角色 subagent，彼此有硬边界：写实现的不写测试，写测试的不做验收。
 
 ## 特性
 
 - **文件状态机**：进度存在 `docs/process/**` 的 frontmatter 中。每轮唤醒调用 `process_status` 即可恢复上下文，不依赖聊天记录。
 - **Gate 门禁**：只在 Gate0/1/2/4 停下等人确认，每次输出两段式摘要（✅ 已完成 / ❓ 待裁定）。
-- **角色分离**：7 个角色技能随插件注册，项目内 `.dsh/skills/**` 的同名技能可覆盖。
+- **角色分离**：8 个角色技能随插件注册，项目内 `.dsh/skills/**` 的同名技能可覆盖。
 - **零依赖**：不 import 任何 `@deepseek-ai/*` 包，无构建步骤。
 - **只增不改**：`process_init` 落到目标仓库的文件只创建，不覆盖。
 
@@ -82,7 +82,7 @@ git clone https://github.com/SHADOW-LI0327/dsh-process-kit ~/dsh-plugins/dsh-pro
 
 ## 角色
 
-`product-manager`、`test-agent`、`dev-agent`、`uat-agent`、`code-review-agent`、`security-review-agent`、`logic-review-agent`
+`product-manager`、`ui-designer`、`test-agent`、`dev-agent`、`uat-agent`、`code-review-agent`、`security-review-agent`、`logic-review-agent`
 
 安装即注册，无需配置。技能在所有工作区可用，与仓库是否已初始化流程无关；项目内 `.dsh/skills/**` 的同名技能优先级更高。设置环境变量 `PROCESS_KIT_SKILLS=off` 可关闭。
 

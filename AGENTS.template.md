@@ -15,7 +15,7 @@
 
 **常驻动作**：每轮唤醒先调 `process_status` 取状态机快照与下一步动作（不靠聊天历史）；对人的输出用两段式（✅ 完成了什么 / ❓ 还需要裁定什么）；journal 只追加不覆写（用 `process_journal`）。
 
-**角色**：由 `dsh-process-kit` 插件自带同名技能提供——`product-manager` · `test-agent` · `dev-agent` · `uat-agent` · `code-review-agent` · `security-review-agent` · `logic-review-agent`。派单时让 subagent 读对应技能，不要在本文件里复述角色职责。
+**角色**：由 `dsh-process-kit` 插件自带同名技能提供——`product-manager` · `ui-designer` · `test-agent` · `dev-agent` · `uat-agent` · `code-review-agent` · `security-review-agent` · `logic-review-agent`。派单时让 subagent 读对应技能，不要在本文件里复述角色职责。
 
 ---
 

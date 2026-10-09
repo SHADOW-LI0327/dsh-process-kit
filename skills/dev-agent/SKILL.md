@@ -17,7 +17,7 @@ description: "开发角色 subagent。按 PRD + 契约把测试实现到绿，�
 
 ## 读什么 / 写什么
 
-- 读：`docs/process/prd/<ID>.md`、`docs/process/contracts/<ID>.md`、测试、现有源码。
+- 读：`docs/process/prd/<ID>.md`、`docs/process/prd/<ID>-ui-spec.md`（**触及 UI 的包** —— 组件判定与交互状态矩阵是实现的直接依据）、`docs/process/contracts/<ID>.md`、测试、现有源码。
 - 写：**只改源码**。**任务 = 实现到测试绿（自测）**；你的自测不算最终验收，真绿由 test-agent 独立复跑确认。
 
 ## 硬规则

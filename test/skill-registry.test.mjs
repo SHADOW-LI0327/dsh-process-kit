@@ -84,8 +84,8 @@ const summaries = await registry.snapshot({ cwd: repo });
 const names = summaries.skills.map((s) => s.name).sort();
 assert.deepEqual(
 	names,
-	['code-review-agent', 'dev-agent', 'logic-review-agent', 'product-manager', 'security-review-agent', 'test-agent', 'uat-agent'],
-	'真注册表必须收下 7 个打包角色',
+	['code-review-agent', 'dev-agent', 'logic-review-agent', 'product-manager', 'security-review-agent', 'test-agent', 'uat-agent', 'ui-designer'],
+	'真注册表必须收下 8 个打包角色',
 );
 assert.equal(summaries.complete, true, '发现过程应完整（provider 没抛错）');
 for (const summary of summaries.skills) {
@@ -103,7 +103,7 @@ assert.ok(!loaded.content.startsWith('---'), '正文应已剥掉 frontmatter');
 // ---- 广播范围：默认任何工作区都有角色；环境变量可静默 -----------------
 
 const strangerSummaries = await registry.snapshot({ cwd: stranger });
-assert.equal(strangerSummaries.skills.length, 7, '默认应在任何工作区广播角色技能');
+assert.equal(strangerSummaries.skills.length, 8, '默认应在任何工作区广播角色技能');
 
 // 用**另一个** cwd 验证 opt-out（注册表按 cwd 缓存，复用 stranger 会命中缓存）
 const quietCwd = await mkdtemp(join(tmpdir(), 'process-kit-quiet-'));
