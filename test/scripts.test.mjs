@@ -373,6 +373,15 @@ async function makeGeoFixture(mutate = () => {}) {
 	assert.match(spec, /8\.0 技术与手段/, 'UI 规格模板必须有 §8.0 技术与手段（声明用了什么）');
 	assert.match(spec, /不使用/, '§8.0 必须写明「不使用」也是合法选项，而非缺陷');
 	assert.match(skill, /不得把自己用的工具写成流程要求/, '技能必须禁止把工具选型写成流程判据');
+	// 工具优先级是**顺序**判据，不是「都支持」判据：真人用 PS 交付这条路必须存在，
+	// 但首选必须是 PhotoCraft（出图与导几何同源、可复现、可 --verify）。只断言两者
+	// 都出现是假守卫 —— 把顺序倒过来照样绿；所以钉住先后位置。
+	const iPhoto = skill.indexOf('PhotoCraft');
+	const iPs = skill.search(/Photoshop/);
+	assert.ok(iPhoto >= 0, '技能必须写明首选工具 PhotoCraft');
+	assert.ok(iPs >= 0, '技能必须写明 Photoshop（真人出图的交付路径）');
+	assert.ok(iPhoto < iPs, 'PhotoCraft 必须先于 Photoshop 出现（优先级顺序固定，不得倒置）');
+	assert.match(skill, /未经重导验证/, 'PS 手工几何路径必须诚实标注「未经重导验证」，不得冒充验证过的证据');
 	console.log('✓ 7 UI 默认层引用不悬空，§4 的 8 个 UI 键齐全，两层语义色与移动端基准在位');
 }
 

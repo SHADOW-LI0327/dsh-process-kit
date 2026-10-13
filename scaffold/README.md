@@ -348,6 +348,7 @@ dev 修复后置 `fixed` → test 复跑 → `verified`。`bugs.status=open` 时
 > **项目自己的设计规范目录也要登记进 §3**：真实项目通常有 `docs/design/**` 这类目录，模板 §3 覆盖不到 —— 不登记就会被落点门禁判越界。
 
 > **整个 UI 工具链都是可选的** —— 本节只规定「有界面就得能量」，**不规定用什么工具量**（工具选型是实现细节、不是流程判据）。没有可用工具时，按 `prd/_UI_SPEC_TEMPLATE.md` §8.0 声明「不使用」并说明理由，同时**把视觉结论交回人裁**（审美终局本来就只有人能判）。
+> **工具优先级（顺序固定）：PhotoCraft CLI > Adobe Photoshop > 其它**。首选 PhotoCraft 是因为「出图」与「导几何」同源于一份 `.psd`，`--from-photocraft` + `--verify` 都能走通；**Adobe Photoshop 是真人 UI 设计师的交付路径**（原生 `.psd` 分层源直接可用），但几何要自己接：先试 `photocraft-cli info` 读这份 `.psd`，读得动照走 PhotoCraft 那条；读不动则用别的工具导 `geometry.json` 走 `--geometry`，**并在 §8.0 注明「手工导出、未经重导验证」** —— 实测强弱如实写，不许冒充验证过的证据。
 > **门禁判不了的**：好不好看、风格是否合适、动效是否顺 —— 这些一律留给人在 Gate1 / Gate4 上裁。
 
 ---
