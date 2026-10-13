@@ -24,7 +24,7 @@
 
 | 方式 | target | 说明 |
 | --- | --- | --- |
-| npm（推荐） | `dsh-process-kit` | 从官方 npm 仓库安装，已发布 `0.2.0`，升级只需改版本号 |
+| npm（推荐） | `dsh-process-kit` | 从官方 npm 仓库安装，已发布 `0.3.0`，升级只需改版本号 |
 | GitHub | `github:SHADOW-LI0327/dsh-process-kit` | 免 npm；锁版本用 `#<tag>` 或 `#<commit>` |
 | 本地目录 | 绝对路径，如 `/Users/<you>/dsh-plugins/dsh-process-kit` | 需要改插件源码时用，先 clone 到本地 |
 
