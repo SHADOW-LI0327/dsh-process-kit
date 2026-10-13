@@ -26,7 +26,7 @@ npm test
 
 - 提交信息用 `<type>: <summary>`，`type` 取 `feat` / `fix` / `docs` / `test` / `chore`。
 - 一次提交只做一件事；改状态机或 journal 语义时，在提交信息里点明「三处同步」改了哪几处。
-- 有行为变更就往 `CHANGELOG.md` 追加（只追加，不改写已发布条目）。
+- `CHANGELOG.md` 是本插件自身的日志：按 GitHub 风格（`Added` / `Changed` / `Fixed` / `Removed`）**简要记录功能与行为变更**。只记变更本身 —— 发现过程、反向实验、实测数值这类开发过程写在提交信息里，不进 CHANGELOG。
 
 ## 装到本地 DSH 里验证
 
