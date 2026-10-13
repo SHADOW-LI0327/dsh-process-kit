@@ -64,7 +64,7 @@ processVersion: 1
 ```markdown
 | 角色 | 可写路径 | 禁止 |
 | --- | --- | --- |
-| `<role-orchestrator>`（主控） | `docs/process/README.md` · `docs/process/orchestrator.md` · `docs/process/PROJECT.md` · `docs/process/input/**` · `docs/process/ui/**`（框架落地的 UI 默认层：tokens / recipe） · `docs/process/tools/README.md`（登记区） · `docs/process/prd/*.journal.jsonl` · `scripts/process/**`（框架自带门禁 / journal / 初始化脚本，常驻） · `reports/orchestrator/**` | 写实现 / 写测试 / 替人做 Gate 决策 |
+| `<role-orchestrator>`（主控） | `docs/process/README.md` · `docs/process/orchestrator.md` · `docs/process/PROJECT.md` · `docs/process/input/**` · `docs/process/ui/**`（框架落地的 UI 默认层：tokens / recipe） · `docs/process/tools/README.md`（登记区） · `docs/process/prd/*.journal.jsonl*` · `scripts/process/**`（框架自带门禁 / journal / 初始化脚本，常驻） · `reports/orchestrator/**` | 写实现 / 写测试 / 替人做 Gate 决策 |
 | `<role-pm>` | `docs/process/prd/**` · `docs/process/contracts/**` · `docs/process/uat/<ID>-checklist.md` · `reports/pm-review/**` | 读业务实现 / 测试 / e2e / 日志；写实现 |
 | `<role-ui-designer>` | `docs/process/prd/<ID>-ui-spec.md` · `docs/process/prototypes/<ID>/**` | 改实现源码；读后端实现 / 前端组件内部实现 / 测试 / e2e / 日志；写其它角色产物 |
 | `<role-test>` | `<test-dir>/packages/<ID>/**` · `<test-dir>/fixtures/<ID>-*` · `docs/process/rules/**` · `reports/test/**` · `docs/process/tools/<ID>/**` | 改 `src`；读业务实现细节（签名 / schema 除外） |
@@ -72,6 +72,9 @@ processVersion: 1
 | `<role-uat>` | `docs/process/uat/**` · `reports/uat/**`（含 `evidence/`） · `<e2e-dir>/**` | 读任何代码 / 测试 / 日志；判功能对错以外的事 |
 | `<role-logic-review>` · `<role-code-review>` · `<role-security-review>` | `reports/<角色>/**` | 改 `src`；贴大段代码 |
 ```
+
+> **`journal.jsonl` 后面那个 `*` 不能省**：journal 追加会旁挂一个 `<ID>.journal.jsonl.meta.json` 指纹文件（锁与指纹校验要用）。只写 `*.journal.jsonl` 时，只要项目把 pm 行收窄成 `prd/*.md`（§3 明说变量路径用 `*` 通配，这是很自然的写法），**框架自己的 audit 文件就会被框架自己的落点门禁判越界**。口径：**拥有 journal 的那一行必须自己覆盖它**，不能靠别人的 `prd/**` 顺带兜住。
+> 注意：这条说明只能写在这里 —— **别把含 `<...>` 的备注写进路径单元格**，那会让整条路径被当成未替换的占位符丢掉。
 
 **禁止落点（任何角色一律不得写入）**：
 

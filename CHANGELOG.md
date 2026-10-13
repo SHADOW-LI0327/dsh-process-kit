@@ -26,6 +26,15 @@
   - 技能与模板里的示例版本号同步 `0.5.0 → 0.6.0`，`run` 的示例也从过时的 `run build.mjs` 改成实测可用的 `run <psd> --cmd <id> --params <json> --out <图>`。
   - **仍未验证的一项（如实标注）**：Adobe Photoshop 亲手产出的 `.psd` 能否被 `photocraft-cli info` 读动 —— 本机没有 PS，无法实测；技能里因此写成「先试读，读得动走首选、读不动降级声明」的两分支，不假设。
 
+---
+
+**§3 示例行漏了 journal 的旁挂指纹文件（演示工作区里被自己的门禁抓到）**
+
+- **缺陷原貌**：`scripts/journal-append.mjs` 追加成功后会**旁挂一个 `<ID>.journal.jsonl.meta.json`**（锁 + 指纹校验要用），而 `scaffold/PROJECT.md` §3 示例行只写了 `docs/process/prd/*.journal.jsonl`。示例行本身被 pm 那条 `docs/process/prd/**` 顺带兜住了，所以**照抄模板不会立刻出事**；但只要项目按 §3 自己教的写法把 pm 行收窄成 `prd/*.md`（变量路径用 `*` 通配是文档推荐的写法），**框架自己的 audit 文件就会被框架自己的落点门禁判越界**。真实演示工作区 `pwr-ui-demo` 就是这样中的：`check-artifact-paths` exit 1，唯一 ❌ 是 `FEAT-UI-001.journal.jsonl.meta.json`，而那是主控自己用命令槽写 journal 产生的。
+- **改法**：示例行改为 `docs/process/prd/*.journal.jsonl*`（**尾部 `*` 不能省**），并在 §3 表后补一条口径 —— **拥有 journal 的那一行必须自己覆盖它，不能靠别人的 `prd/**` 兜**；同时写明「这条备注不能写进路径单元格」（含 `<...>` 的条目会被整条当成未替换占位符丢掉 —— 我第一版就是把备注塞进单元格，测试立刻变红，属于被自己的守卫抓回来）。
+- **配套**：`scaffold/README.md` 保留策略清单与「角色注意」两处补上 `.meta.json` 旁挂文件，免得它在归档时变成孤儿。
+- **回归守卫（6l 扩写，且做了反向实验）**：不只验「照抄示例行无越界」（那在修前修后都绿，是假守卫），而是**只留 orchestrator 那一行当 §3**、把 journal 与其 `.meta.json` 落成未跟踪文件 ⇒ 必须放行。实测把示例行改回 `*.journal.jsonl` 即报 `journal 的属主行必须覆盖 journal 工具产出的全部文件`，还原即绿。
+
 ## 0.2.0
 
 **本次发布要点**

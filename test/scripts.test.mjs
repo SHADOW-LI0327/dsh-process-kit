@@ -507,10 +507,40 @@ async function makeGeoFixture(mutate = () => {}) {
 		.join('\n');
 	await writeFile(projectPath, md.replace(placeholderRow, realRows), 'utf8');
 
+	// journal 追加会**旁挂一个指纹文件** `<ID>.journal.jsonl.meta.json`（见 journal-append.mjs：
+	// 锁 + 指纹校验要用它）。§3 里**拥有 journal 的那一行**必须自己覆盖它 ——
+	// 靠 pm 的 `docs/process/prd/**` 顺带兜住是不算数的：真实项目把 pm 行收窄成 `prd/*.md`
+	// 很常见（§3 明说变量路径用 `*` 通配），那时框架自己的 audit 文件就会被框架自己的门禁判越界。
+	//
+	// 只留 **orchestrator**（journal 的属主）那一行当 §3 ⇒ 旁挂文件仍必须放行。
+	const orchRow = exampleLines
+		.filter((l) => l.includes('<role-orchestrator>'))
+		.map((l) => `| role-orch |${l.split('|')[2]}| - |`)
+		.join('\n');
+	assert.ok(orchRow.includes('role-orch'), '模板 §3 示例里应有 orchestrator 行');
+	await writeFile(projectPath, md.replace(placeholderRow, orchRow), 'utf8');
+	// 先把脚手架本身标记为已跟踪（未跟踪 = 会进下一次提交的东西，门禁只查这些），
+	// 再落 journal 的两个文件 —— 否则「orchestrator 单行」这一场会把整套脚手架算成越界。
+	execFileSync('git', ['add', '-A'], { cwd: root });
+	await mkdir(join(root, 'docs/process/prd'), { recursive: true });
+	await writeFile(join(root, 'docs/process/prd/FEAT-01.journal.jsonl'), '', 'utf8');
+	await writeFile(
+		join(root, 'docs/process/prd/FEAT-01.journal.jsonl.meta.json'),
+		'{}\n',
+		'utf8',
+	);
+	const owned = runGate(root, 'check-artifact-paths.mjs');
+	assert.equal(
+		owned.status,
+		0,
+		`journal 的属主行必须覆盖 journal 工具产出的全部文件（含 .meta.json 旁挂指纹）\n${owned.out}`,
+	);
+
+	await writeFile(projectPath, md.replace(placeholderRow, realRows), 'utf8');
 	const { status, out } = runGate(root, 'check-artifact-paths.mjs');
 	assert.equal(status, 0, `脚手架落地的文件必须全部被 §3 示例放行\n${out}`);
 	assert.match(out, /✓ 无越界落点/, `即便照抄示例行也应无越界\n${out}`);
-	console.log('✓ 6l 脚手架落地的每个文件都被 §3 示例覆盖');
+	console.log('✓ 6l 脚手架落地的每个文件都被 §3 示例覆盖（含 journal 属主行覆盖 .meta.json）');
 }
 
 // ── 6m. 空目录前缀与 `-z` 下的空输出不得制造幻影条目 ──────────────────────

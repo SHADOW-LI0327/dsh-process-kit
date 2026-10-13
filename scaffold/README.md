@@ -36,7 +36,7 @@
 
 > 原则：**流程必须的文件保留，每个需求的都不要**。目的：下一批**干净重新开始**，历史文件不影响新批次，也才能真正验证流程优化。
 
-- **需求专属**（工作区内产生 → 包收口即随批归档 → **不留在工作区**）：`input/**`、`prd/<ID>.md`、`prd/<ID>-design.md`、`prd/<ID>-ui-spec.md`、`contracts/<ID>.md`、`rules/<ID>.yaml`、`bugs/<ID>*.md`、`uat/<ID>-checklist.md`、`prd/*.journal.jsonl`、**原型图目录** `prototypes/<ID>/**`（原型图 + 分层源 + `geometry.json` + `intent.json`，见 §5 UI 几何门禁）、**需求专属测试**（含设备脚本与夹具种子）。具体清单见 `PROJECT.md` §1。
+- **需求专属**（工作区内产生 → 包收口即随批归档 → **不留在工作区**）：`input/**`、`prd/<ID>.md`、`prd/<ID>-design.md`、`prd/<ID>-ui-spec.md`、`contracts/<ID>.md`、`rules/<ID>.yaml`、`bugs/<ID>*.md`、`uat/<ID>-checklist.md`、`prd/*.journal.jsonl` 与其旁挂指纹 `prd/*.journal.jsonl.meta.json`、**原型图目录** `prototypes/<ID>/**`（原型图 + 分层源 + `geometry.json` + `intent.json`，见 §5 UI 几何门禁）、**需求专属测试**（含设备脚本与夹具种子）。具体清单见 `PROJECT.md` §1。
 - **过程产物**：`reports/**`（uat / pm / dev / test / review / gaps / 证据 / dev-patches）—— **不含 `reports/_archives/**`（那是恢复源，属保留）**。
 - **恢复方式与常驻例外**：上述一切都在批次归档包里（`reports/_archives/`），需要时解包即可，**不留存 ≠ 丢弃**；流程骨架自带的**示范台账与其配对测试**是唯一保留的台账对（用于证明门禁本身可用，见 §6.7）。
 
@@ -45,7 +45,7 @@
 - 复盘的**唯一目的**是**优化流程自身**；交付物是**对规范的改动**——落到本文件 / `orchestrator.md` / 各角色技能定义里。**规范改完，复盘文档即销毁**（连同问卷、一手执行台账、交叉核对稿一并进 `reports/` 归档区）。
 - **推论**：复盘里凡「该做但没做」的东西，必须在销毁前**转化为规范条款或缺陷单**二选一；**不得**以「写在复盘里了」代替落地。复盘**过程**需要落文件，但落在**过程区** `reports/`（随批归档）；**不新增保留类文档、不占根层级**。
 
-**角色注意**：`reports/` 与 `prd/*.journal.jsonl` 会随角色交付按需重建，这是预期行为；主控在包收口 / 阶段结束时统一清理，角色不必因目录被删而改变交付方式。
+**角色注意**：`reports/` 与 `prd/*.journal.jsonl`（含 `.meta.json` 指纹旁挂文件）会随角色交付按需重建，这是预期行为；主控在包收口 / 阶段结束时统一清理，角色不必因目录被删而改变交付方式。
 
 ---
 
