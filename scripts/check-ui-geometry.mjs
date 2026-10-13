@@ -7,7 +7,7 @@
  * 溢出画布、左右边距不对称。这些都能用包围盒算出来。
  * 本门禁就只判这一部分：主观的留给人在 Gate 上裁，客观的在这里钉死。
  *
- * 两条口径（纵深防御，不靠作者自觉）：
+ * 口径（纵深防御，不靠作者自觉）：
  *   ① **测量必须来自产物**：`geometry.json` 里的 `bounds` 只能由适配器从产物导出。
  *      缺 `source` 判 ❌（无法追溯）；缺 `adapter` 判 ⚠（可能是手写的）。
  *      **`source` 只是自述字符串，拦不住手写** —— 真正可机器验证的是 `artifact`：
@@ -25,6 +25,12 @@
  *      也就是**主题层**——抓的是"用了整套别的色板"。占比更小的**小字 / 描边 / 图标用色它不管**，
  *      那一层由 **⑧ 对比度**（按渲染实测）兜。两者是**分工不是替代**：
  *      **⑩ 管「用没用你的色板」，⑧ 管「这个色看不看得清」。**
+ *
+ *   ④ **空转不得打绿**：③④⑧ 三条只在**文字层**（`kind: text`）之间有判据。一份文字被
+ *      栅格化成像素层的产物（HTML→PSD 导出、或"导出为图片"类流程）**一条都没跑**，
+ *      旧文案却会打印 `✓ 0 个文字层无重叠`、⑧ 连行都不出现 —— 那是把"没判"读成"判过"。
+ *      现在：0 个文字层时三条一律降级为 **⚠ 并点名原因**；⚠ 不计 ❌、但会在摘要里报数，
+ *      人一眼能看出「这几项这次没验」。**通用纪律：判不了就说判不了。**
  *
  * 用法：
  *   node scripts/process/check-ui-geometry.mjs                      # 扫全部原型包
@@ -46,6 +52,8 @@
  *     ⚠️ **⑨ 的能力边界（别过度信任它）**：⑨ 重跑适配器再比 bounds，证明的是「测量来自产物」，
  *       **不是**「测量像素级准确」—— 适配器对同尺寸的卡可能报同一个 bounds、实绘却差 1–2px。
  *       实测 PhotoCraft 0.5.0：`info` 报 `[246,y,1164,h]`（x1=1409），实绘边框在 1407。
+ *       0.6.0 复测（macOS universal）：无描边的圆角矩形 `rect:[16,100,358,120]` 报 `bounds` 宽 359，
+ *       逐像素实绘为 x=16..373（宽 358）—— 同样**宽报 1px**，说明这是适配器口径而非某个版本的 bug。
  *       这类偏差 ⑨ 看不见，⑥/② 也已按「适配器偏差带」区分「测量偏差」与「设计走样」。
  *
  * 退出码：0 = 无 ❌（⚠ 不计入）；1 = 存在 ❌，或配置缺失（PROJECT.md 不存在）
@@ -89,6 +97,12 @@ const err = (m) => errors.push(`❌ ${m}`);
 const ok = (m) => oks.push(`✓ ${m}`);
 // ⚠ 通道：可见但不计 ❌（用于"检查器自身的盲区"与"主观看法的客观征兆"）
 const warn = (m) => warns.push(`⚠ ${m}`);
+
+// 「0 个文字层」为什么必须报 ⚠ 而不是 ✓：③④⑧ 三条只在 text 层之间有判据，一旦文字被
+// 栅格化成像素层（HTML→PSD 导出、或"导出为图片"类流程），这三条会**一条都没跑**却可能
+// 打印绿勾（③ 旧文案就是 `✓ 0 个文字层无重叠`），⑧ 更会连行都不出现。
+// 那是本仓库反复消灭的「空转打绿」：把"没判"读成"判过"。所以这类空转一律降级为 ⚠ 并点名原因。
+const NO_TEXT_REASON = "0 个文字层 —— 本项无判据（文字可能已被栅格化成像素层，或本图纯图形）";
 
 /** 沿目录向上找仓库根：命中 `docs/process/` 或 `.git` 即认定。 */
 function findRepoRoot(start) {
@@ -330,6 +344,10 @@ function checkOverflow(geo, label) {
 /** ③ 文字真实重叠（矩形相交即判）—— 判定只在 text 之间。 */
 function checkOverlap(geo, label) {
   const texts = geo.elements.filter((el) => el.kind === "text");
+  if (texts.length === 0) {
+    warn(`③ ${label} ${NO_TEXT_REASON}`);
+    return 0;
+  }
   const hits = [];
   for (let i = 0; i < texts.length; i += 1) {
     for (let j = i + 1; j < texts.length; j += 1) {
@@ -347,6 +365,10 @@ function checkOverlap(geo, label) {
 /** ④ 同列文字过挤：水平有交集的文字对，垂直间隙须 ≥ minGap。 */
 function checkCrowding(geo, label, minGap) {
   const texts = geo.elements.filter((el) => el.kind === "text");
+  if (texts.length === 0) {
+    warn(`④ ${label} ${NO_TEXT_REASON}`);
+    return;
+  }
   const tight = [];
   let minSeen = Infinity;
   for (let i = 0; i < texts.length; i += 1) {
@@ -609,7 +631,10 @@ function modeOf(samples) {
 
 function checkContrast(geo, label, tol, tolLarge) {
   const texts = geo.elements.filter((el) => el.kind === "text");
-  if (texts.length === 0) return;
+  if (texts.length === 0) {
+    warn(`⑧ ${label} ${NO_TEXT_REASON}`);
+    return;
+  }
   if (typeof geo.artifact !== "string" || geo.artifact.trim() === "") {
     warn(`⑧ ${label} 无 artifact，跳过对比度检查（颜色只能从产物像素采样）`);
     return;

@@ -401,6 +401,23 @@ async function makeGeoFixture(mutate = () => {}) {
 }
 
 {
+	// 6z. 0 个文字层 ⇒ ③④⑧ 必须**降级为 ⚠**，绝不打绿。
+	//     缺陷原貌（真实产物上发现的）：一份 38 层、文字全被栅格化成像素层的 PSD，
+	//     ③ 打印 `✓ 0 个文字层无重叠`、④ 打印 `✓ … n/a`、⑧ 连行都不出现 —— 三条文字类
+	//     判据一条都没跑，看上去却是绿的。**空转打绿 = 把"没判"读成"判过"。**
+	const root = await makeGeoFixture((g) => {
+		g.elements = g.elements.filter((el) => el.kind !== 'text');
+	});
+	const { status, out } = runGate(root, 'check-ui-geometry.mjs');
+	assert.equal(status, 0, `空转只降级、不判红\n${out}`);
+	for (const n of ['③', '④', '⑧']) {
+		assert.match(out, new RegExp(`⚠ ${n} .*0 个文字层`), `${n} 无文字层时必须 ⚠ 并点名原因\n${out}`);
+		assert.doesNotMatch(out, new RegExp(`✓ ${n} `), `${n} 不得打绿（空转不是通过）\n${out}`);
+	}
+	console.log('✓ 6z 0 个文字层 ⇒ ③④⑧ 降级为 ⚠（空转不再打绿）');
+}
+
+{
 	// 6j. 一个包可以有**多个屏幕**：geometry.json 与 geometry.<屏幕名>.json 都要被判，
 	//     且各自优先取同名 intent.<屏幕名>.json。一包一图不现实，真实需求都是多屏。
 	const root = await makeGeoFixture();
