@@ -13,6 +13,10 @@
 
 - `process_init` 支持 `upgrade: true`：升级已初始化仓库 —— 框架自有文件（总纲 / 调度手册 / 模板 / 门禁脚本）内容有变才覆盖，旧版备份为 `<文件>.bak-<时间戳>`；`PROJECT.md`、`ui/tokens.md`、`ui/recipe.md` **永不覆盖**，只列入「需人工比对」；数据文件从不触碰。`PROJECT.md` 的 `processVersion` 落后时提示手工合并；`dryRun` 可先预览。
 
+### Fixed
+
+- **升级备份不再触发落点门禁**：`process_init(upgrade: true)` 把旧版备份写在被覆盖文件旁边，而落点门禁把「未跟踪且不在属主表内」一律判越界 ⇒ **升级完立刻 exit 1**（框架自己的产物被自己判红）。门禁现在把 `<文件>.bak-<时间戳>` 当临时件排除，并报「已排除临时件 N 个」提醒删除；无时间戳的 `.bak` 仍照判越界。
+
 ### Changed
 
 - 本插件现在是**纯服务端 bundle**，不注册任何客户端 slot；服务端依赖随之收窄：`inject` 由 6 项减为 `['tools', 'systemPrompt']`（原 `webServer` / `connection` / `sessions` / `sessionQuery` 只服务看板）。

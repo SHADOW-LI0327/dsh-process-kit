@@ -103,7 +103,14 @@ function globToRegExp(glob) {
   return new RegExp(hasWildcard ? `^${re}$` : `^${re}(?:/.*)?$`);
 }
 
-/** 会进提交的未跟踪文件（已排除 gitignore 覆盖项）。 */
+/**
+ * 临时件：由工具产生、核对完即删，**不是产物**，不参与落点判定。
+ * 目前只有 `process_init(upgrade: true)` 的旧版备份 `<文件>.bak-<时间戳>` ——
+ * 它和被覆盖的文件同目录，不认识它就会把升级本身判成越界（自伤）。
+ */
+const TRANSIENT_RE = /\.bak-\d{8,}$/;
+
+/** 会进提交的未跟踪文件（已排除 gitignore 覆盖项与临时件）。 */
 function untrackedNotIgnored(root) {
   try {
     // **必须用 `-z`**：git 默认 `core.quotePath=true`，会把非 ASCII 路径按八进制转义并加引号输出，
@@ -243,7 +250,9 @@ function main() {
 
   const registry = registeredPaths(root, registryRel);
   const registeredGlobs = [...registry.set].map(globToRegExp);
-  const files = untrackedNotIgnored(root);
+  const candidates = untrackedNotIgnored(root);
+  const transient = candidates.filter((p) => TRANSIENT_RE.test(p));
+  const files = candidates.filter((p) => !TRANSIENT_RE.test(p));
 
   /** 命中任一可写路径或登记项即放行；否则给出正确去处提示。 */
   const violations = [];
@@ -267,6 +276,11 @@ function main() {
   if (allow.ignored.length > 0) {
     process.stdout.write(
       `  ⚠ 已忽略 §3 占位符条目 ${allow.ignored.length} 条（含 \`<...>\`，视为未配置）：若是模板没替换，请换成真实路径；若是 \`<ID>\` 这类变量写法，请改用 \`*\` 通配或走登记区逐件登记\n`,
+    );
+  }
+  if (transient.length > 0) {
+    process.stdout.write(
+      `  ⚠ 已排除临时件 ${transient.length} 个（\`*.bak-*\` 升级备份，不判落点）：核对无误后请删除\n`,
     );
   }
   if (registry.ignored > 0) {

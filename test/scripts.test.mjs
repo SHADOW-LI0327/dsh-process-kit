@@ -561,6 +561,32 @@ async function makeGeoFixture(mutate = () => {}) {
 	console.log('✓ 6m 含空格的中文路径整体放行（-z 分隔正确）');
 }
 
+// ── 6m-bis. 升级备份 `<文件>.bak-<时间戳>` 属临时件，不得判越界 ───────────────
+//
+// 缺陷原貌：`process_init(upgrade: true)` 把旧版备份写在被覆盖文件旁边，
+// 落点门禁不认识它 ⇒ **升级完立刻 exit 1**，框架自己的产物被自己判越界。
+
+{
+	const root = await makeTemplateRepo();
+	const projectPath = join(root, projectRel);
+	const md = (await readFile(projectPath, 'utf8')).replace(
+		placeholderRow,
+		'| orchestrator | `docs/process/**` · `scripts/process/**` | `<禁止>` |',
+	);
+	await writeFile(projectPath, md, 'utf8');
+	await writeFile(join(root, 'README.md.bak-20261014044441'), '# 旧版\n', 'utf8');
+	const transient = runGate(root, 'check-artifact-paths.mjs');
+	assert.equal(transient.status, 0, `升级备份应被当作临时件排除\n${transient.out}`);
+	assert.match(transient.out, /已排除临时件 1 个/, `应报告排除数量\n${transient.out}`);
+
+	// 反向约束：只有 `<文件>.bak-<时间戳>` 这个形状算临时件，其它 `.bak` 仍照判越界。
+	await rm(join(root, 'README.md.bak-20261014044441'));
+	await writeFile(join(root, 'README.md.bak'), '# 旧版\n', 'utf8');
+	const control = runGate(root, 'check-artifact-paths.mjs');
+	assert.equal(control.status, 1, `无时间戳的 .bak 不是升级备份，仍应判越界\n${control.out}`);
+	console.log('✓ 6m-bis 升级备份排除、其它 .bak 照判越界');
+}
+
 // ── 6n. §4 的 UI 配置键必须真的被读到（非默认值才算数） ──────────────────────
 //
 // 缺陷原貌：`readSection(text, isNumberedSection.bind(null, 4))` —— readSection 按
