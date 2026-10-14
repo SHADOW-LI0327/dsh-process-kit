@@ -23,7 +23,7 @@ async function exists(path) {
 const { apply, inject, name } = await import('../lib/index.js');
 
 assert.equal(name, 'process-kit');
-assert.deepEqual(inject.sort(), ['connection', 'sessionQuery', 'sessions', 'systemPrompt', 'tools', 'webServer']);
+assert.deepEqual(inject.sort(), ['systemPrompt', 'tools']);
 
 // ---- 造最小流程仓 --------------------------------------------------
 
@@ -99,7 +99,7 @@ await writeFile(
 
 // ---- 捕获注册，直接驱动工具 ----------------------------------------
 
-const registered = { tools: [], sections: [], routes: [], providers: [] };
+const registered = { tools: [], sections: [], providers: [] };
 const ctx = {
 	logger: { warn: () => {}, info: () => {} },
 	effect: (factory) => {
@@ -112,10 +112,6 @@ const ctx = {
 	},
 	tools: { register: (definition) => { registered.tools.push(definition); return () => {}; } },
 	systemPrompt: { section: (section) => { registered.sections.push(section); return () => {}; } },
-	webServer: { register: (route) => { registered.routes.push(route); return () => {}; } },
-	connection: { requestRejection: () => undefined },
-	sessions: { list: () => [{ seq: 7, header: { cwd: root, origin: undefined } }] },
-	sessionQuery: { listSessions: async () => [] },
 	skills: {
 		registerProvider: (create) => {
 			registered.providers.push(create({ signal: new AbortController().signal, invalidate: () => {} }));
@@ -128,8 +124,6 @@ apply(ctx);
 assert.deepEqual(registered.tools.map((t) => t.name).sort(), ['gate_summary', 'process_init', 'process_journal', 'process_status']);
 assert.equal(registered.sections.length, 1);
 assert.equal(registered.sections[0].name, 'process-kit-wake');
-assert.equal(registered.routes.length, 1);
-assert.equal(registered.routes[0].path, '/process-kit');
 assert.equal(registered.providers.length, 1);
 assert.equal(registered.providers[0].name, 'process-kit-skills');
 
@@ -263,15 +257,6 @@ await assert.rejects(() => byName.process_journal.execute({ id: '../evil', actor
 // 快照里 journal 尾部可见
 const snapshot2 = await byName.process_status.execute({}, journalExec);
 assert.equal(snapshot2.packages.find((p) => p.id === 'FEAT-101').journal.lines, 2);
-
-// ---- 路由（直接调 handler，绕过 HTTP）--------------------------------
-
-const res = { headers: {}, ended: '', statusCode: 0, setHeader(k, v) { this.headers[k] = v; }, end(body) { this.ended = body; }, writableEnded: false };
-await registered.routes[0].handler({ headers: {} }, res);
-const routePayload = JSON.parse(res.ended);
-assert.equal(routePayload.found, true);
-assert.equal(routePayload.packages.length, 7);
-assert.equal(res.headers['cache-control'], 'no-store');
 
 // ---- 角色技能 provider（安装即得基础 subagent）------------------------
 

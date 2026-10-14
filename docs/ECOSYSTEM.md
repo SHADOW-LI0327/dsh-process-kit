@@ -28,11 +28,10 @@ DSH 官方**没有**插件市场或插件目录。在官方安装包（`@deepsee
 | Host-only bundle 无需依赖 / 安装脚本 / 构建工具 | `references/host-plugin.md:7` | ✅ 零依赖、无构建 |
 | `index.js` 导出 `apply(ctx, config)`（+ 可选 `inject` / `Config`），不得混用导出形态 | `references/host-plugin.md:49-52` | ✅ |
 | 资源注册走 `ctx.effect` / `ctx.on` 并返回清理 | `references/host-plugin.md:54` | ✅ |
-| 客户端 `exports["./client"]` + `dsh.client.platform` | `references/ui-plugin.md:3`；`dsh-client-modules/lib/index.js:170,719` | ✅ |
-| `dsh.client.inject` 要为「提供所注册 slot 的包」 | `templates/decoration/package.json`；官方 chat/schedule/settings-account/shortcuts 四包一致 | ✅ 2026-10 修复（原为空数组） |
+| 客户端 `exports["./client"]` + `dsh.client.platform`、`dsh.client.inject` | `references/ui-plugin.md:3`；`dsh-client-modules/lib/index.js:170,719` | — **不适用**：页面部分已移除，本插件是纯服务端 bundle |
 | 展示元数据：`locale/en.json` 的 `meta.title/description`、顶层 `icon` | `references/host-plugin.md:29-45`；`dsh-app-boot/lib/index.js` `readPluginMeta` | ⏸ 延期 |
-| 不 import Harness 客户端包（如 `dsh-client-ui-primitives`） | `SKILL.md:21` | ✅ 未 import |
-| 不替换 app root、不向 `document.body` 追加第二个应用 | `references/ui-plugin.md:13` | ✅ 仅注册 `shell.overlay` 一个 slot |
+| 不 import Harness 客户端包（如 `dsh-client-ui-primitives`） | `SKILL.md:21` | ✅ 无客户端代码 |
+| 不替换 app root、不向 `document.body` 追加第二个应用 | `references/ui-plugin.md:13` | ✅ 无客户端代码 |
 
 ## 3. 已完成（可标准安装）
 
@@ -41,7 +40,7 @@ DSH 官方**没有**插件市场或插件目录。在官方安装包（`@deepsee
 - [x] 去掉 `private`，补 `publishConfig.access`，具备 `npm publish` 条件
 - [x] `files` 白名单（`npm pack` 此前会把 `test/**` 打进包里）
 - [x] `repository` / `homepage` / `bugs` / `keywords` / `engines` / `author`
-- [x] 修 `dsh.client.inject`
+- [x] 移除页面部分（0.4.0 起）：不再有 `exports["./client"]`、`dsh.client` 与 `GET /process-kit` 路由
 - [x] CI（`npm test` × node 22.19 / 24 + `npm pack` 内容核对）
 
 ## 4. 延期项（社区规范，非官方要求）

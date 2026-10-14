@@ -58,8 +58,6 @@
 
 角色由插件自带技能提供，安装即注册，无需配置。技能在所有工作区可用，与仓库是否已初始化流程无关；项目内 `.dsh/skills/**` 的同名技能优先级更高。设置环境变量 `PROCESS_KIT_SKILLS=off` 可关闭。
 
-工作区右下角提供只读的「流程看板」，展示当前工作区的流程状态。
-
 ### 已发布（8 个）
 
 `0.1.0` 起可用 7 个，`0.2.0` 补上 `ui-designer`，`0.3.0` 给 `ui-designer` 固定工具优先级（PhotoCraft CLI > Adobe Photoshop > 其它）并把几何门禁的空转判据补硬：
@@ -107,7 +105,7 @@
 npm test
 ```
 
-四项冒烟测试：`test/host.test.mjs`、`test/client.test.mjs`、`test/skill-registry.test.mjs`、`test/scripts.test.mjs`。
+三项冒烟测试：`test/host.test.mjs`、`test/skill-registry.test.mjs`、`test/scripts.test.mjs`。
 
 ## License
 

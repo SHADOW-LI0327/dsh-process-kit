@@ -2,6 +2,16 @@
 
 本插件自身的变更日志。按 GitHub 风格简要记录功能与行为变更，只记变更本身、不记开发过程。
 
+## 0.4.0
+
+### Removed
+
+- **流程看板（页面部分）**：右下角浮层与它的 `GET /process-kit` 数据路由一并移除 —— 面板按需拉取、更新不实时，价值不抵维护成本。连带删掉 `lib/client.js`、`test/client.test.mjs`、`package.json` 的 `exports["./client"]` 与 `dsh.client`。
+
+### Changed
+
+- 本插件现在是**纯服务端 bundle**，不注册任何客户端 slot；服务端依赖随之收窄：`inject` 由 6 项减为 `['tools', 'systemPrompt']`（原 `webServer` / `connection` / `sessions` / `sessionQuery` 只服务看板）。
+
 ## 0.3.0
 
 ### Changed

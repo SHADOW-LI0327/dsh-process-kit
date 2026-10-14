@@ -16,11 +16,11 @@
 npm test
 ```
 
-四项冒烟测试：`test/host.test.mjs`（工具与状态机）、`test/client.test.mjs`（看板渲染）、`test/skill-registry.test.mjs`（挂进真实 `@deepseek-ai/dsh-skill` 注册表）、`test/scripts.test.mjs`（门禁脚本回归）。
+三项冒烟测试：`test/host.test.mjs`（工具与状态机）、`test/skill-registry.test.mjs`（挂进真实 `@deepseek-ai/dsh-skill` 注册表）、`test/scripts.test.mjs`（门禁脚本回归）。
 
 `skill-registry.test.mjs` 在本机找不到 DSH 安装时会**跳过并退出 0**，这是故意的——没有 DSH 的机器也要能跑通。
 
-改动 `lib/index.js`（服务端部分）后需要重启 `dsh web` 才能在真实会话里看到效果；改动 `lib/client.js`（页面部分）刷新页面即可。
+改动 `lib/index.js` 后需要重启 `dsh web` 才能在真实会话里看到效果：Node 的 ESM 模块缓存不会重新加载已导入的模块。
 
 ## 提交
 
