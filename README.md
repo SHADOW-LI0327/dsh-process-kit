@@ -24,7 +24,7 @@
 
 | 方式 | target | 说明 |
 | --- | --- | --- |
-| npm（推荐） | `dsh-process-kit` | 从官方 npm 仓库安装，已发布 `0.3.0`，升级只需改版本号 |
+| npm（推荐） | `dsh-process-kit` | 从官方 npm 仓库安装，已发布 `0.4.0`，升级只需改版本号 |
 | GitHub | `github:SHADOW-LI0327/dsh-process-kit` | 免 npm；锁版本用 `#<tag>` 或 `#<commit>` |
 | 本地目录 | 绝对路径，如 `/Users/<you>/dsh-plugins/dsh-process-kit` | 需要改插件源码时用，先 clone 到本地 |
 
@@ -75,7 +75,7 @@ process_init({ upgrade: true })                 // 再落地
 
 ### 已发布（8 个）
 
-`0.1.0` 起可用 7 个，`0.2.0` 补上 `ui-designer`，`0.3.0` 给 `ui-designer` 固定工具优先级（PhotoCraft CLI > Adobe Photoshop > 其它）并把几何门禁的空转判据补硬：
+`0.1.0` 起可用 7 个，`0.2.0` 补上 `ui-designer`，`0.3.0` 给 `ui-designer` 固定工具优先级（PhotoCraft CLI > Adobe Photoshop > 其它）并把几何门禁的空转判据补硬；`0.4.0` 移除流程看板（改为纯服务端 bundle）、流程骨架按「单 session 单包」精简并把 Gate 送审件换成实物、给 `process_init` 加上 `upgrade` 升级路径（技能未变，仍是这 8 个）：
 
 | 角色 | 职责 | 自 |
 | --- | --- | --- |
