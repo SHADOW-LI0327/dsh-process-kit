@@ -9,6 +9,10 @@
 - **通知槽**：流程骨架不再有通知渠道（Gate 就在对话里，"人不在场"的场景不覆盖）。总纲 §4.2 / §11.6 与 `PROJECT.md` §7 相关条款删除，`PROJECT.md` §7 只保留编号占位。
 - **流程看板（页面部分）**：右下角浮层与它的 `GET /process-kit` 数据路由一并移除 —— 面板按需拉取、更新不实时，价值不抵维护成本。连带删掉 `lib/client.js`、`test/client.test.mjs`、`package.json` 的 `exports["./client"]` 与 `dsh.client`。
 
+### Added
+
+- `process_init` 支持 `upgrade: true`：升级已初始化仓库 —— 框架自有文件（总纲 / 调度手册 / 模板 / 门禁脚本）内容有变才覆盖，旧版备份为 `<文件>.bak-<时间戳>`；`PROJECT.md`、`ui/tokens.md`、`ui/recipe.md` **永不覆盖**，只列入「需人工比对」；数据文件从不触碰。`PROJECT.md` 的 `processVersion` 落后时提示手工合并；`dryRun` 可先预览。
+
 ### Changed
 
 - 本插件现在是**纯服务端 bundle**，不注册任何客户端 slot；服务端依赖随之收窄：`inject` 由 6 项减为 `['tools', 'systemPrompt']`（原 `webServer` / `connection` / `sessions` / `sessionQuery` 只服务看板）。

@@ -1,6 +1,6 @@
 ---
 project: <项目名>
-processVersion: 1
+processVersion: 2
 ---
 
 # 项目适配（PROJECT）

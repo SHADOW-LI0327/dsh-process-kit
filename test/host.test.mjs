@@ -5,7 +5,7 @@
  * 用法：node test/host.test.mjs
  */
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, rm, stat } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -325,6 +325,45 @@ assert.equal(await readFile(join(target, 'docs/process/README.md'), 'utf8'), '# 
 // skills=true：可把角色技能就地落地以便定制
 const withSkills = await byName.process_init.execute({ skills: true, dryRun: true }, initExec);
 assert.ok(withSkills.created.some((f) => f.startsWith('.dsh/skills/')), 'skills=true 应报告角色技能落点');
+
+// ---- process_init upgrade（框架自有覆盖 + 备份；项目文件永不覆盖）------
+
+const upTarget = await mkdtemp(join(tmpdir(), 'process-kit-upgrade-'));
+const upExec = { ...exec, agent: { session: { header: { cwd: upTarget } } } };
+await byName.process_init.execute({ agents: false }, upExec);
+
+// 制造偏差：框架自有文件被改、项目可定制文件被改、数据文件已存在
+await writeFile(join(upTarget, 'docs/process/README.md'), '# 旧总纲\n', 'utf8');
+await writeFile(join(upTarget, 'docs/process/PROJECT.md'), '---\nprocessVersion: 1\n---\n\n# 我填的 PROJECT\n', 'utf8');
+await writeFile(join(upTarget, 'docs/process/ui/tokens.md'), '# 我的令牌\n', 'utf8');
+await writeFile(join(upTarget, 'docs/process/prd/FEAT-900.md'), '# 我的包\n', 'utf8');
+await writeFile(join(upTarget, 'scripts/process/journal-append.mjs'), '// 本地改过\n', 'utf8');
+
+// dry-run：只报告、不写盘
+const upDry = await byName.process_init.execute({ upgrade: true, agents: false, dryRun: true }, upExec);
+assert.ok(upDry.updated.includes('docs/process/README.md'), 'dry-run 应报告将更新的框架文件');
+assert.ok(upDry.manual.includes('docs/process/PROJECT.md'), 'dry-run 应报告需人工比对的文件');
+assert.equal(await readFile(join(upTarget, 'docs/process/README.md'), 'utf8'), '# 旧总纲\n', 'dry-run 不得写盘');
+
+const up = await byName.process_init.execute({ upgrade: true, agents: false }, upExec);
+assert.ok(up.updated.includes('docs/process/README.md'), '框架自有文件应被更新');
+assert.ok(up.updated.includes('scripts/process/journal-append.mjs'), '门禁脚本应被更新');
+assert.ok(up.report.includes('旧版备份'), '更新必须留下备份说明');
+assert.ok((await readFile(join(upTarget, 'docs/process/README.md'), 'utf8')).length > 500, '应恢复为包内总纲');
+const backups = (await readdir(join(upTarget, 'docs/process'))).filter((f) => f.startsWith('README.md.bak-'));
+assert.equal(backups.length, 1, '框架文件更新前必须备份旧版');
+assert.equal(await readFile(join(upTarget, 'docs/process', backups[0]), 'utf8'), '# 旧总纲\n', '备份 = 覆盖前版本');
+assert.equal(await readFile(join(upTarget, 'docs/process/PROJECT.md'), 'utf8'), '---\nprocessVersion: 1\n---\n\n# 我填的 PROJECT\n', 'PROJECT.md 永不覆盖');
+assert.equal(await readFile(join(upTarget, 'docs/process/ui/tokens.md'), 'utf8'), '# 我的令牌\n', '令牌永不覆盖');
+assert.equal(await readFile(join(upTarget, 'docs/process/prd/FEAT-900.md'), 'utf8'), '# 我的包\n', '数据文件永不触碰');
+assert.ok(up.manual.includes('docs/process/PROJECT.md') && up.manual.includes('docs/process/ui/tokens.md'), '项目可定制文件应进人工比对清单');
+assert.ok(up.report.includes('processVersion'), '版本差异应提示手工合并');
+
+// 幂等：内容一致时不再更新、不再备份
+const upAgain = await byName.process_init.execute({ upgrade: true, agents: false }, upExec);
+assert.equal(upAgain.updated.length, 0, '内容一致时不应重复更新');
+assert.equal((await readdir(join(upTarget, 'docs/process'))).filter((f) => f.startsWith('README.md.bak-')).length, 1, '不应产生多余备份');
+await rm(upTarget, { recursive: true, force: true });
 
 // ---- AGENTS.md：项目级常驻指针（缺失则建，存在绝不改）------------------
 

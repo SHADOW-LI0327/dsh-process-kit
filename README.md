@@ -18,7 +18,7 @@
 - **Gate 门禁**：只在 Gate0/1/2/4 (需求核对，设计，开发，验收环节) 停下进行确认，每次输出两段式摘要（✅ 已完成 / ❓ 待裁定）。
 - **角色分离**：角色技能随插件注册，项目内 `.dsh/skills/**` 的同名技能可覆盖。
 - **零依赖**：不导入插件外库，无构建步骤。
-- **只增不改**：`process_init` 落到目标仓库的文件只创建，不覆盖。
+- **只增不改**：`process_init` 默认只创建、不覆盖；已有仓库用 `process_init(upgrade: true)` 升级 —— 框架自有文件覆盖前先备份，`PROJECT.md` 与令牌类项目可定制文件永不覆盖、只报告差异。
 
 ## 安装
 
@@ -45,6 +45,21 @@
 - `scripts/process/` — `journal-append.mjs`、`check-artifact-paths.mjs`、`check-rules.mjs`、`check-ui-geometry.mjs`、`sync-prd-version.mjs`
 - `AGENTS.md` — 仅在不存在时创建；已存在则不改写，只输出待合并段落。传 `agents: false` 可跳过。
 
+### 升级已有仓库
+
+```js
+process_init({ upgrade: true, dryRun: true })   // 先看会动哪些文件
+process_init({ upgrade: true })                 // 再落地
+```
+
+| 文件 | 升级行为 |
+| --- | --- |
+| 框架自有：`README.md`（总纲）、`orchestrator.md`、四份模板、`tools/README.md`、`scripts/process/*.mjs` | 内容有变才覆盖，旧版备份为 `<文件>.bak-<时间戳>` |
+| 项目可定制：`PROJECT.md`、`ui/tokens.md`、`ui/recipe.md` | **永不覆盖**，只列入「需人工比对」并给出包内模板路径 |
+| 数据：`input/**`、`prd/<ID>*`、`bugs/**`、`reports/**` 等 | 从不触碰 |
+
+`PROJECT.md` 的 `processVersion` 落后时，报告会提示对照包内模板手工合并。
+
 ## 工具
 
 | 工具 | 说明 |
@@ -52,7 +67,7 @@
 | `process_status` | 扫描 `docs/process`，返回每个包的状态、Gate 四灯、journal 尾部、未关闭的 bug 与下一步动作 |
 | `gate_summary` | 生成指定包的 Gate 两段式摘要骨架，依据自动填充，✅ / ❓ 留空待填 |
 | `process_journal` | 安全追加 journal：锁 + 指纹校验 + 原子替换，时间取机器时间 |
-| `process_init` | 将流程骨架与脚本初始化到当前仓库，只创建不覆盖 |
+| `process_init` | 将流程骨架与脚本初始化到当前仓库：默认只创建不覆盖；`upgrade: true` 升级已有仓库（框架自有文件覆盖前备份，项目文件永不覆盖） |
 
 ## 角色与路线图
 
