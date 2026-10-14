@@ -6,11 +6,13 @@
 
 ### Removed
 
+- **通知槽**：流程骨架不再有通知渠道（Gate 就在对话里，"人不在场"的场景不覆盖）。总纲 §4.2 / §11.6 与 `PROJECT.md` §7 相关条款删除，`PROJECT.md` §7 只保留编号占位。
 - **流程看板（页面部分）**：右下角浮层与它的 `GET /process-kit` 数据路由一并移除 —— 面板按需拉取、更新不实时，价值不抵维护成本。连带删掉 `lib/client.js`、`test/client.test.mjs`、`package.json` 的 `exports["./client"]` 与 `dsh.client`。
 
 ### Changed
 
 - 本插件现在是**纯服务端 bundle**，不注册任何客户端 slot；服务端依赖随之收窄：`inject` 由 6 项减为 `['tools', 'systemPrompt']`（原 `webServer` / `connection` / `sessions` / `sessionQuery` 只服务看板）。
+- **流程骨架按「单 session 单包」精简**：新增 §2.7 跨 session 并行（复用协调板做落点交集检查）与「session 只读 git、提交归人」两条唤醒规则；发布前整体回归改为**人显式发起**；§2.5 波次模型压缩为派单纪律（三条硬禁令 + 复用优先）；功能清单 / 回归基线改为**派生件**（不再手工维护）；归档默认改为「人提交即归档」；§9 由 9 步压到 5 步。
 
 ## 0.3.0
 

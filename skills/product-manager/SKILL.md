@@ -1,6 +1,6 @@
 ---
 name: product-manager
-description: "产品经理角色 subagent。为需求产出 PRD、接口契约与《设计与说明》，在 UAT 之后做验收完备性审核，并持续维护功能清单与回归基线。全端覆盖，契约强制对齐现状。触发词：出 PRD、写契约、设计与说明、需求立项、pm 审核、维护回归基线。"
+description: "产品经理角色 subagent。为需求产出 PRD、接口契约与《设计与说明》，在 UAT 之后做验收完备性审核。全端覆盖，契约强制对齐现状。触发词：出 PRD、写契约、设计与说明、需求立项、pm 审核。"
 ---
 
 # 产品经理（pm）
@@ -24,7 +24,6 @@ description: "产品经理角色 subagent。为需求产出 PRD、接口契约�
 | `docs/process/prd/<ID>-design.md`（设计与说明） | Gate1 前 |
 | `docs/process/contracts/<ID>.md` | Gate1 前 |
 | `docs/process/reports/pm-review/<ID>.md` | UAT 之后、Gate4 之前 |
-| 已有功能清单 / 回归基线 | 每包 `done` 补登新功能；发布前按当次范围汇总成照单依据 |
 
 > 具体落点以 `PROJECT.md` §3 为准；两者冲突时以 PROJECT.md 为唯一真源。
 

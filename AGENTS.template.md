@@ -9,7 +9,7 @@
 **功能开发必须走 [`docs/process`](docs/process/README.md) 流程，禁止绕过流程直接改源码。**
 
 - **唯一真源**：[`docs/process/README.md`](docs/process/README.md)（总纲 + 续跑锚点）。**流程分级 · 状态续跑 · Gate 必停与摘要格式 · 产物属主 · subagent 复用 · journal · git 纪律 · 命令集一律以该文件为准。**
-- **项目适配**：[`docs/process/PROJECT.md`](docs/process/PROJECT.md)（端与目录 / 命令槽 / 产物属主表 / 脚本配置 / 凭据 / 通知）。**一切项目专属信息只从那里读。**
+- **项目适配**：[`docs/process/PROJECT.md`](docs/process/PROJECT.md)（端与目录 / 命令槽 / 产物属主表 / 脚本配置 / 凭据 / 并行会话协调板）。**一切项目专属信息只从那里读。**
 - **调度手册**：[`docs/process/orchestrator.md`](docs/process/orchestrator.md)（与总纲冲突时以总纲为准）。
 - **本文件不复述流程细则**——复述只会产生过期副本。
 
