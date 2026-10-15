@@ -1323,5 +1323,110 @@ const DEV_WRITE = {
 	console.log('✓ 8l ⑫ 边界：流程目录下的普通产物（PRD/设计稿/规则表）⇒ 不红、不跳过（不会恒红）');
 }
 
+// ── 9a. 落点门禁：`git add` / 入库之后不得「空放行」（实测：69/69 → 0/0，两次都绿）─────
+
+{
+	const root = await makeTemplateRepo();
+	await writeFile(
+		join(root, projectRel),
+		(await readFile(join(root, projectRel), 'utf8')).replace(
+			placeholderRow,
+			'| orchestrator | `docs/process/**` · `scripts/process/**` | `<禁止>` |',
+		),
+		'utf8',
+	);
+	const stray = '乱放/越界产物.md';
+	await mkdir(join(root, '乱放'), { recursive: true });
+	await writeFile(join(root, stray), '# 越界\n', 'utf8');
+	// 一个正常的仓库根文件（真实项目里 package.json 就这么出现）：它同样不在 §3 里
+	await writeFile(join(root, 'package.json'), '{"name":"x"}\n', 'utf8');
+
+	const before = runGate(root, 'check-artifact-paths.mjs');
+	assert.equal(before.status, 1, `未跟踪的越界文件必须判红\n${before.out}`);
+	assert.match(before.out, /乱放\/越界产物\.md/);
+
+	execFileSync('git', ['add', '-A'], { cwd: root });
+
+	// ★ 核心回归：`git add` 之后默认模式看不见它 ⇒ 必须如实报「空转」，且**不得打绿**
+	const afterAdd = runGate(root, 'check-artifact-paths.mjs');
+	assert.match(afterAdd.out, /⚠ 空转/, `git add 之后默认模式一片空白，必须报空转\n${afterAdd.out}`);
+	assert.doesNotMatch(afterAdd.out, /✓ 无越界落点/, `空转不许输出「无越界落点」这个结论\n${afterAdd.out}`);
+
+	const staged = runGate(root, 'check-artifact-paths.mjs', ['--staged']);
+	assert.equal(staged.status, 1, `--staged 必须补上 git add 的盲区\n${staged.out}`);
+	assert.match(staged.out, /乱放\/越界产物\.md/);
+
+	execFileSync('git', ['-c', 'user.email=t@e.local', '-c', 'user.name=t', 'commit', '-qm', 'c1'], { cwd: root });
+
+	const committed = runGate(root, 'check-artifact-paths.mjs', ['--committed']);
+	assert.equal(committed.status, 1, `--committed 必须能事后审计已入库的越界产物\n${committed.out}`);
+	assert.match(committed.out, /乱放\/越界产物\.md/);
+
+	// 反向对照：只**修改**已入库文件（不新增）的提交不得判红 —— 这正是 --diff-filter=A 的理由
+	await writeFile(join(root, 'package.json'), '{"name":"x","v":2}\n', 'utf8');
+	execFileSync('git', ['add', '-A'], { cwd: root });
+	execFileSync('git', ['-c', 'user.email=t@e.local', '-c', 'user.name=t', 'commit', '-qm', 'c2'], { cwd: root });
+	const edited = runGate(root, 'check-artifact-paths.mjs', ['--committed']);
+	assert.equal(edited.status, 0, `只改不增的提交不得判越界（否则每次改 README 都红）\n${edited.out}`);
+	assert.doesNotMatch(edited.out, /❌ 越界/);
+
+	// 合并提交：`git show` 默认不展开 ⇒ 必须报空转并说明「这是合并提交」，
+	// 不能让人把它误读成「这个提交没有新增文件」
+	execFileSync('git', ['-c', 'user.email=t@e.local', '-c', 'user.name=t', 'checkout', '-qb', 'side'], { cwd: root });
+	await writeFile(join(root, '乱放/合并产物.md'), '# x\n', 'utf8');
+	execFileSync('git', ['add', '-A'], { cwd: root });
+	execFileSync('git', ['-c', 'user.email=t@e.local', '-c', 'user.name=t', 'commit', '-qm', 'side'], { cwd: root });
+	execFileSync('git', ['-c', 'user.email=t@e.local', '-c', 'user.name=t', 'checkout', '-q', '-'], { cwd: root });
+	execFileSync('git', ['-c', 'user.email=t@e.local', '-c', 'user.name=t', 'merge', '--no-ff', '-qm', 'merge', 'side'], { cwd: root });
+	const merged = runGate(root, 'check-artifact-paths.mjs', ['--committed']);
+	assert.match(merged.out, /合并提交/, `合并提交必须说明原因\n${merged.out}`);
+	assert.doesNotMatch(merged.out, /✓ 无越界落点/, merged.out);
+
+	// 参数拼错必须拒绝，不能静默退回默认模式
+	const badArg = runGate(root, 'check-artifact-paths.mjs', ['--stagedd']);
+	assert.equal(badArg.status, 1, '不认识的参数必须拒绝');
+	assert.match(badArg.out, /不认识的参数/);
+	console.log('✓ 9a 落点门禁：--staged / --committed 补上 add 与入库后的盲区，空转不打绿');
+}
+
+// ── 9b. sync-prd-version：产物存在但缺 prdVersion 字段行 ⇒ 判不一致（曾被当跳过）──────
+
+{
+	const root = await makeTemplateRepo();
+	await writeFile(
+		join(root, 'docs/process/prd/FEAT-09.md'),
+		'---\nid: FEAT-09\nstatus: draft\nprdVersion: 3\n---\n\n# PRD\n',
+		'utf8',
+	);
+	await mkdir(join(root, 'docs/process/rules'), { recursive: true });
+	await writeFile(join(root, 'docs/process/rules/FEAT-09.yaml'), 'prdVersion: 3\ncases: []\n', 'utf8');
+
+	// 控制组：设计件**不存在** ⇒ 跳过（fail-open，不能误伤还没产出设计件的包）
+	const noDesign = runGate(root, 'sync-prd-version.mjs', ['FEAT-09', '--check']);
+	assert.equal(noDesign.status, 0, `没有设计件时应跳过而不是判红\n${noDesign.out}`);
+
+	// 实验组：设计件存在但没有 prdVersion 字段行 ⇒ 判红
+	await writeFile(
+		join(root, 'docs/process/prd/FEAT-09-design.md'),
+		'---\nid: FEAT-09\n---\n\n# 设计与说明\n',
+		'utf8',
+	);
+	const missing = runGate(root, 'sync-prd-version.mjs', ['FEAT-09', '--check']);
+	assert.equal(missing.status, 1, `缺字段行必须判红（曾被当跳过 ⇒ CI 抓不到）\n${missing.out}`);
+	assert.match(missing.out, /没有 prdVersion 字段行/);
+	assert.match(missing.out, /声明位不齐/);
+
+	// 反向对照：补上且一致 ⇒ 回归绿
+	await writeFile(
+		join(root, 'docs/process/prd/FEAT-09-design.md'),
+		'---\nid: FEAT-09\nprdVersion: 3\n---\n\n# 设计与说明\n',
+		'utf8',
+	);
+	const ok = runGate(root, 'sync-prd-version.mjs', ['FEAT-09', '--check']);
+	assert.equal(ok.status, 0, `字段齐备且一致时必须绿\n${ok.out}`);
+	assert.match(ok.out, /文件级头已全部一致/);
+	console.log('✓ 9b sync-prd-version：缺 prdVersion 字段行判不一致，缺文件仍跳过');
+}
+
 await Promise.all(temps.map((d) => rm(d, { recursive: true, force: true })));
 console.log('\nscripts.test.mjs 全部通过');

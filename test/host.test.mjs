@@ -309,6 +309,60 @@ await assert.rejects(() => byName.process_journal.execute({ id: '../evil', actor
 const snapshot2 = await byName.process_status.execute({}, journalExec);
 assert.equal(snapshot2.packages.find((p) => p.id === 'FEAT-101').journal.lines, 2);
 
+// ---- 契约 2 的强制项：approve 必须能回答「哪个 Gate / 谁签的」 ------------------
+
+const root2 = await mkdtemp(join(tmpdir(), 'process-kit-journal-'));
+await mkdir(join(root2, 'docs/process/prd'), { recursive: true });
+const exec2 = { ...exec, agent: { session: { header: { cwd: root2 } } } };
+
+// 缺 gate / 缺 via / gate 取值越界：都必须在写入前拒绝
+// （存量仓库实测：9 条批准记录里 0 条有 gate、0 条有 via ⇒ 「谁签的」只能靠读自然语言）
+await assert.rejects(
+	() => byName.process_journal.execute({ id: 'FEAT-101', actor: 'orchestrator', action: 'approve' }, exec2),
+	/必须带 gate/,
+	'approve 缺 gate：批准记录必须能回答「哪个 Gate」',
+);
+await assert.rejects(
+	() => byName.process_journal.execute({ id: 'FEAT-101', actor: 'orchestrator', action: 'approve', gate: 'gate2' }, exec2),
+	/必须带 via/,
+	'approve 缺 via：批准记录必须能回答「谁签的」',
+);
+await assert.rejects(
+	() => byName.process_journal.execute({ id: 'FEAT-101', actor: 'orchestrator', action: 'approve', gate: 'gate3', via: 'human' }, exec2),
+	/gate0 \/ gate1 \/ gate2 \/ gate4/,
+	'gate 取值越界必须拒绝',
+);
+await assert.rejects(
+	() => byName.process_journal.execute({ id: 'FEAT-101', actor: 'orchestrator', action: 'note', gate: 'gate2' }, exec2),
+	/只在 action=run/,
+	'gate 只在 run / approve 时有意义',
+);
+const okApprove = await byName.process_journal.execute(
+	{ id: 'FEAT-101', actor: 'orchestrator', action: 'approve', gate: 'gate2', via: 'ai-hosted' },
+	exec2,
+);
+assert.equal(okApprove.linesAfter, 1, '齐备的 approve 必须写成功');
+// 反向对照：**批准记录 + 当轮门禁证据**是合法且有价值的写法（实例验收的 journal 里真有一条
+// approve 同时带 command + exitCode:0），不得判红 —— 收紧字段前先看真实数据里有没有人在用。
+const approveWithEvidence = await byName.process_journal.execute(
+	{ id: 'FEAT-101', actor: 'orchestrator', action: 'approve', gate: 'gate2', via: 'human', command: 'node scripts/process/check-rules.mjs', exitCode: 0 },
+	exec2,
+);
+assert.equal(approveWithEvidence.linesAfter, 2, 'approve 可同时带当轮门禁证据（command + exitCode）');
+
+// 未声明字段必须报错，不得静默丢弃（0.4.0 实测丢过 command / exitCode，留下残缺证据）
+await assert.rejects(
+	() => byName.process_journal.execute({ id: 'FEAT-101', actor: 'x', action: 'run', command: 'npm test', exitcode: 0 }, exec2),
+	/exitcode.*exitCode/,
+	'大小写拼错要指出正确字段名，而不是丢掉它',
+);
+await assert.rejects(
+	() => byName.process_journal.execute({ id: 'FEAT-101', actor: 'x', step: 'test', action: 'run', cmd: 'npm test', result: 'red: 3' }, exec2),
+	/result/,
+	'旧文档里的 result 字段必须被拒绝（总纲 §7 早已改成 exitCode）',
+);
+await rm(root2, { recursive: true, force: true });
+
 // ---- ② journal 完整性：读取侧必须把「篡改 / 截断 / 无从校验」与正常区分开 ----
 
 const jpath = join(dir, 'prd', 'FEAT-101.journal.jsonl');

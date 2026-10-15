@@ -56,7 +56,9 @@
 **两条带条件的硬约束**（写入侧强制，消费侧可依赖）：
 
 - `action: "run"` ⇒ **必须**同时有 `command` 与 `exitCode`。没有退出码的「跑过了」正是总纲禁止的掩盖。**这是「本 Gate 跑没跑、红没红」的唯一机器可核验来源。**
-- `action: "approve"` ⇒ 带 `gate` 与 `via`。**正式开发 `via` 只许 `human`**；`ai-hosted` 只许出现在验收 / 回归装置（例：全新项目端到端跑通一个电商 app），且不得冒充人签。
+- `action: "approve"` ⇒ **必须**带 `gate`（`gate0` / `gate1` / `gate2` / `gate4`）与 `via`（**工具层强制**：缺任一项直接报错）。**正式开发 `via` 只许 `human`**；`ai-hosted` 只许出现在验收 / 回归装置（例：全新项目端到端跑通一个电商 app），且不得冒充人签。
+
+- **未声明的字段 ⇒ 直接拒绝**（拼错的大小写也算，工具会给出「是不是想写 `exitCode`？」这类建议）。旧版本是**静默丢弃**，实测因此丢了 4 条记录的命令与退出码 —— 「我记了」变成了「其实没记」。
 
 > 状态位 `approved` 而 journal 里查不到对应 `approve` 记录 ⇒ 插件显示 `⚠无留痕`（来源无从考证）；`via:"ai-hosted"` ⇒ 显示 `gate2:approved🤖AI托管`。
 
@@ -94,18 +96,26 @@ chainHash  = fold(lines, (chain, line) => hash16(chain + line), 初始值 "")
 
 | 脚本 | 判什么 |
 | --- | --- |
-| `check-artifact-paths.mjs` | 产物落点：会进下一次提交的未跟踪文件是否落在合法根（**只判未跟踪文件** ⇒ 只在**提交前**有读数，见下方 ⚠） |
+| `check-artifact-paths.mjs` | 产物落点：**新增**文件是否落在合法根。**三种模式**：默认判未跟踪（`git add` 之后就看不见了）· `--staged` 判暂存区新增 · `--committed[=<rev>]` 判某次已入库提交新增；**只判新增**（改 `README.md` 这类正常操作不判）。见下方 ⚠ |
 | `check-rules.mjs` | 台账 ↔ 测试 ↔ PRD 三层证据链自洽、import 白名单、`prdVersion` 一致；**越界事后判定**（角色边界，fail-open） |
 | `check-uat-readiness.mjs` | UAT 前置：环境 + 账号 + 目标端点就绪 |
 | `check-ui-geometry.mjs` | UI 客观几何（溢出 / 重叠 / 过挤 / 居中 / 边距 / 对比度）；**文字层为 0 时只报 ⚠，不打绿** |
 | `journal-append.mjs` | 安全追加（锁 + 指纹 + 原子替换 + 自校验），写 meta |
-| `sync-prd-version.mjs` | 同步 `prdVersion` 的四个声明位；**某一处产物没有该字段行时只告警跳过、不判红**（PRD 本体缺字段仍判红）—— CI 里别把它当「四处齐全」的证明 |
+| `sync-prd-version.mjs` | 同步 `prdVersion` 的四个声明位；`--check` 下**产物存在却缺该字段行 ⇒ 判不一致、退出 1**（只有整个文件不存在才跳过，fail-open） |
 
 **fail-open 是刻意的**：未初始化 `docs/process`、快速路径、项目未配属主表时一律跳过并 `exit 0`，不误伤未接入流程的仓库。
 
 > ⚠ **落点门禁的读数只在「提交前」有效**（实例验收实测）：`check-artifact-paths.mjs` 判的是**未被忽略的未跟踪文件**。同一条命令在交付提交**前**跑读作 `受检未跟踪文件 69 个（放行 69）`，提交**后**跑读作 `0 个（放行 0）` —— **两次都 `exit 0`**，但第二次**什么都没检查**。
 >
-> 因此：① 它**不是** CI 门禁 —— 在 CI 里产物早已入库，得到的是「**永远绿**」，**已入库的越界文件它永远发现不了**；② 它的有效证据必须固定在**提交前**那一次，报告里要写明读数取自哪个时点；③ 已入库产物的越界复查要靠独立审计：按 `git ls-files` 全集比对 `PROJECT.md` §3 属主表（实例验收的报告里就有这样一个 `audit-ownership.mjs`，且做过反向对照 —— 造一个越界文件必须判红）。
+> 三种模式（0.5.0 起，报告里**必须写明用了哪一种**）：
+>
+> | 模式 | 判谁 | 用在哪 |
+> | --- | --- | --- |
+> | 默认 | 未跟踪未忽略的**新增**文件 | 提交前；**`git add` 之后就看不见了** |
+> | `--staged` | 暂存区里的**新增**文件 | 提交前最后一道（补上 `git add` 的盲区） |
+> | `--committed[=<rev>]` | 某次已入库提交的**新增**文件（默认 `HEAD`） | **CI / 事后审计** —— CI 里产物早已入库，只有这个模式有对象可判 |
+>
+> **受检 0 个时只报 `⚠ 空转`、绝不打绿**：一条都没判过就不算判过（「无法校验不是绿」）。三种模式都**只判新增**（`--diff-filter=A`），改 `README.md` / `package.json` 这类非产物文件不在本门禁职责内。已入库产物的越界复查也可以按 `git ls-files` 全集做独立审计（实例验收的报告里就有这样一个 `audit-ownership.mjs`，且做过反向对照 —— 造一个越界文件必须判红）。
 
 ## 契约 5：插件工具的结构化返回（agent 侧）
 
@@ -130,8 +140,8 @@ chainHash  = fold(lines, (chain, line) => hash16(chain + line), 初始值 "")
 # ① 台账 / 规则门禁：非零即红
 node scripts/process/check-rules.mjs
 
-# ② 落点门禁：只在**提交前**有意义（它判的是未跟踪文件，见契约 4 的 ⚠）
-node scripts/process/check-artifact-paths.mjs
+# ② 落点门禁：提交前用 --staged（默认模式在 `git add` 之后就看不见了）；CI 里用 --committed
+node scripts/process/check-artifact-paths.mjs --staged
 
 # ③ journal 完整性：链式指纹重算（纯 node，无依赖）
 node -e '

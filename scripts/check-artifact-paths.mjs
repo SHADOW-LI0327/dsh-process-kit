@@ -5,8 +5,15 @@
  * 用途：规范只写了「该去哪」，没有任何门禁回答「有没有写错地方」⇒ 各角色自行发明路径。
  *       本门禁把「唯一合法写入根」从"理论上不该写"变成"跑一遍就知道"。
  *
- * 判定对象：**未被 gitignore 的未跟踪文件**（`git ls-files --others --exclude-standard`）——
- *          这正是"会进下一次提交"的那一批，也是唯一真正会污染审核面的集合。
+ * 判定对象（三种模式，默认第一种）：
+ *   · 默认：**未被 gitignore 的未跟踪文件**（`git ls-files --others --exclude-standard`）——
+ *     这正是"会进下一次提交"的那一批。**但它有盲区**：`git add` 之后文件就不再是「未跟踪」，
+ *     本模式会看不见它；产物一旦入库，更是永远看不见（"空放行"）。
+ *   · `--staged`：**暂存区里新增的文件**（`git diff --cached --diff-filter=A`）—— 补上 `git add` 的盲区。
+ *   · `--committed[=<rev>]`：**某个已入库提交新增的文件**（默认 `HEAD`，`git show --diff-filter=A`）——
+ *     用于事后审计"这次交付提交有没有把产物放到越界位置"。
+ *   后两种只取**新增**（A）不看修改：改 `README.md` / `package.json` 这类非产物文件是正常操作，
+ *   判它不是本门禁的职责。
  *
  * 放行来源（"登记即放行"）：
  *   ① PROJECT.md「## 3. 产物属主表」的**可写路径**列（支持 `**` 通配）；
@@ -14,10 +21,10 @@
  *      **登记过的**仓库相对路径 —— 过程件与登记表同在载体侧，主流程文档只留规则。
  *
  * 用法：
- *   node scripts/process/check-artifact-paths.mjs
+ *   node scripts/process/check-artifact-paths.mjs [--staged | --committed[=<rev>]]
  *
  * 退出码：
- *   0 = 无越界落点
+ *   0 = 无越界落点；或**空转**（受检 0 个 —— 此时明确报 ⚠ 且**不打绿**，因为"没对象可判"不是"判过且过"）
  *   1 = 存在越界落点，或配置缺失（PROJECT.md 不存在 / §3 可写路径解析不到 / 非 git 仓库）
  *
  * 配置依赖（docs/process/PROJECT.md）：
@@ -73,24 +80,79 @@ function fail(msg) {
  */
 const TRANSIENT_RE = /\.bak-\d{8,}$/;
 
-/** 会进提交的未跟踪文件（已排除 gitignore 覆盖项与临时件）。 */
-function untrackedNotIgnored(root) {
+/**
+ * 跑一条 git 列举命令并切成路径数组。
+ *
+ * **必须用 `-z`**：git 默认 `core.quotePath=true`，会把非 ASCII 路径按八进制转义并加引号输出，
+ * 于是 `FEAT-01-需求核对件.md` 变成 `"FEAT-01-\351\234\200\346\261\202..."` ——
+ * 那串文本匹配不上任何通配，**所有中文命名的产物都会被误判越界**。
+ * `-z` 以 NUL 分隔且不转义，顺带也解决了路径含空格 / 换行的情况。
+ */
+function gitZ(root, sub, args, what) {
   try {
-    // **必须用 `-z`**：git 默认 `core.quotePath=true`，会把非 ASCII 路径按八进制转义并加引号输出，
-    // 于是 `FEAT-01-需求核对件.md` 变成 `"FEAT-01-\351\234\200\346\261\202..."` ——
-    // 那串文本匹配不上任何通配，**所有中文命名的产物都会被误判越界**。
-    // `-z` 以 NUL 分隔且不转义，顺带也解决了路径含空格 / 换行的情况。
-    const out = execFileSync("git", ["ls-files", "-z", "--others", "--exclude-standard"], {
-      cwd: root,
-      encoding: "utf8",
-    });
+    const out = execFileSync("git", [sub, "-z", ...args], { cwd: root, encoding: "utf8" });
     return out.split("\0").filter((l) => l !== "");
   } catch (err) {
     fail(
-      `无法枚举未跟踪文件（${err.message}）。本脚本依赖 git，请确认仓库根存在 .git ` +
+      `无法枚举${what}（${err.message}）。本脚本依赖 git，请确认仓库根存在 .git ` +
         `或在 git 仓库内运行。`,
     );
   }
+}
+
+/** 三种判定模式：默认未跟踪 / 暂存区新增 / 已入库提交新增。 */
+const MODES = {
+  untracked: {
+    label: "未跟踪未忽略",
+    list: (root) => gitZ(root, "ls-files", ["--others", "--exclude-standard"], "未跟踪文件"),
+    emptyHint:
+      "没有任何未跟踪文件可判（产物可能已全部入库，或已被 git add）⇒ " +
+      "判暂存区用 `--staged`，事后审计已入库的提交用 `--committed[=<rev>]`",
+  },
+  staged: {
+    label: "暂存区新增",
+    list: (root) => gitZ(root, "diff", ["--cached", "--name-only", "--diff-filter=A"], "暂存区新增文件"),
+    emptyHint: "暂存区里没有新增文件（只判新增，改已入库文件不在本门禁职责内）",
+  },
+  committed: {
+    label: "已入库提交新增",
+    list: (root, rev) =>
+      gitZ(root, "show", ["--name-only", "--diff-filter=A", "--format=", rev], `提交 ${rev} 的新增文件`),
+    // 合并提交 `git show` 默认不展开（列不出文件）—— 空转的原因必须写清，
+    // 否则会被误读成「这个提交没有新增文件」。
+    emptyHint: (root, rev) =>
+      hasSecondParent(root, rev)
+        ? `该提交是**合并提交**（\`git show\` 默认不展开合并的文件列表）⇒ 要看合并带入的新增，` +
+          `请对具体分支提交单独审计（\`--committed=<rev>\`）`
+        : "该提交没有新增文件（只判新增，改已入库文件不在本门禁职责内）",
+  },
+};
+
+/** 该提交是不是合并提交（有第二个父提交）。`rev-parse` 不认 `-z`，故不走 gitZ。 */
+function hasSecondParent(root, rev) {
+  try {
+    execFileSync("git", ["rev-parse", "-q", "--verify", `${rev}^2`], { cwd: root, stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** 解析命令行：`--staged` / `--committed[=<rev>]`，未给则默认模式。 */
+function resolveMode() {
+  const argv = process.argv.slice(2);
+  if (argv.includes("--staged")) return { name: "staged" };
+  const committed = argv.find((a) => a === "--committed" || a.startsWith("--committed="));
+  if (committed) {
+    const rev = committed.includes("=") ? committed.slice(committed.indexOf("=") + 1) : "HEAD";
+    if (rev === "") fail("--committed= 需要一个版本号（如 --committed=HEAD~1 或 --committed=abc1234）");
+    return { name: "committed", rev };
+  }
+  const unknown = argv.filter((a) => a !== "--committed");
+  if (unknown.length > 0) {
+    fail(`不认识的参数：${unknown.join(" ")}。可用：--staged / --committed[=<rev>]（不带参数 = 未跟踪未忽略）`);
+  }
+  return { name: "untracked" };
 }
 
 /** 从 PROJECT.md 解析「可写路径」列。 */
@@ -213,7 +275,8 @@ function main() {
 
   const registry = registeredPaths(root, registryRel);
   const registeredGlobs = [...registry.set].map(globToRegExp);
-  const candidates = untrackedNotIgnored(root);
+  const mode = resolveMode();
+  const candidates = MODES[mode.name].list(root, mode.rev);
   const transient = candidates.filter((p) => TRANSIENT_RE.test(p));
   const files = candidates.filter((p) => !TRANSIENT_RE.test(p));
 
@@ -233,7 +296,8 @@ function main() {
     });
   }
 
-  process.stdout.write(`落点门禁：受检未跟踪文件 ${files.length} 个（放行 ${ok}）\n`);
+  const modeLabel = MODES[mode.name].label + (mode.rev !== undefined ? ` ${mode.rev}` : "");
+  process.stdout.write(`落点门禁（${modeLabel}）：受检 ${files.length} 个（放行 ${ok}）\n`);
   process.stdout.write(`  放行来源：PROJECT.md §3 可写路径 ${allowGlobs.length} 条\n`);
   process.stdout.write(`  放行来源：登记区 ${registry.set.size} 条（${registryRel}）\n`);
   if (allow.ignored.length > 0) {
@@ -255,6 +319,18 @@ function main() {
     process.stdout.write(`  ⚠ 登记区不存在（${registryRel}）⇒ 未在 §3 内的新文件一律判 ❌\n`);
   }
 
+  if (files.length === 0) {
+    const hint =
+      typeof MODES[mode.name].emptyHint === "function"
+        ? MODES[mode.name].emptyHint(root, mode.rev)
+        : MODES[mode.name].emptyHint;
+    // **空转不打绿**：一条都没判过，就不能输出"无越界落点"这个结论（否则是拿无色当绿色）。
+    process.stdout.write(
+      `⚠ 空转：本次没有可判对象（${modeLabel}，受检 0 个）—— 这不是绿。\n` +
+        `  ${hint}\n`,
+    );
+    process.exit(0);
+  }
   if (violations.length === 0) {
     process.stdout.write("✓ 无越界落点\n");
     process.exit(0);

@@ -161,6 +161,8 @@ function main() {
 
   const want = target ?? prdBefore;
   const sites = [];
+  /** 「产物存在、但没有 prdVersion 字段行」= 不一致（不是跳过）。实测踩过：从件缺字段被当跳过，CI 抓不到。 */
+  const missingField = [];
 
   // 1) PRD frontmatter
   let prdAfter = prd;
@@ -175,7 +177,8 @@ function main() {
   if (rules !== null) {
     const before = matchFieldVersion(rules);
     if (before === null) {
-      console.warn(`  ⚠ ${rulesRel} 里没有 prdVersion 字段行，跳过`);
+      console.warn(`  ✗ ${rulesRel} 里没有 prdVersion 字段行 —— 判**不一致**（不判跳过），文末汇总`);
+      missingField.push({ label: "rules 台账", path: rulesPath });
     } else if (before !== want) {
       rulesAfter = replaceFieldVersion(rules, want);
       sites.push({ path: rulesPath, label: "rules 台账", before });
@@ -190,7 +193,8 @@ function main() {
   if (design !== null) {
     const before = matchFieldVersion(design);
     if (before === null) {
-      console.warn(`  ⚠ ${designRel} 里没有 prdVersion 字段行，跳过`);
+      console.warn(`  ✗ ${designRel} 里没有 prdVersion 字段行 —— 判**不一致**（不判跳过），文末汇总`);
+      missingField.push({ label: "设计与说明", path: designPath });
     } else if (before !== want) {
       designAfter = replaceFieldVersion(design, want);
       sites.push({ path: designPath, label: "设计与说明", before });
@@ -250,9 +254,20 @@ function main() {
     for (const p of staleInlineReport) console.warn(`      ${p}`);
   }
 
+  if (missingField.length > 0) {
+    console.warn(
+      `  ✗ ${missingField.length} 处产物**存在但没有 prdVersion 字段行**（判不一致，不判跳过）：`,
+    );
+    for (const s2 of missingField) console.warn(`      ${s2.label}：${relative(root, s2.path)}`);
+    console.warn("      本脚本不静默注入字段行，请手工补上（PRD 本体缺字段一直就是判红的）");
+  }
   if (sites.length === 0) {
-    if (missingHeader.length > 0) process.exitCode = 1;
-    console.log(`✓ ${id} 的文件级头已全部一致（= ${want}）`);
+    if (missingHeader.length > 0 || missingField.length > 0) process.exitCode = 1;
+    console.log(
+      missingField.length > 0
+        ? `✗ ${id} 的 prdVersion 声明位不齐：${missingField.length} 处缺字段行（= ${want}）`
+        : `✓ ${id} 的文件级头已全部一致（= ${want}）`,
+    );
     return;
   }
 
@@ -269,7 +284,8 @@ function main() {
   if (designAfter !== null) writeFileSync(designPath, designAfter);
   for (const [p, text] of testAfter) writeFileSync(p, text);
 
-  console.log(`\n✓ 已同步 ${sites.length} 处声明位。`);
+  console.log(`\n${missingField.length > 0 ? "⚠" : "✓"} 已同步 ${sites.length} 处声明位。`);
+  if (missingField.length > 0) process.exitCode = 1;
   console.log("  下一步：node scripts/process/check-rules.mjs 应显示 ⑥ 全绿。");
 
   // 顺手跑一次 rules 校验，把"改完是否自洽"当场暴露出来
