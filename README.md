@@ -137,7 +137,7 @@ process_init({ upgrade: true })                 // 再落地
 | **单包流程**（每个包都走） | `product-manager` · `ui-designer`（`uiDesign: required` 时）· `test-agent` · `dev-agent` · `uat-agent` | 包从 Gate0 走到 Gate4 的过程中按状态机派 |
 | **发布回归**（默认不在单包出现） | `code-review-agent` · `security-review-agent` · `logic-review-agent` | **只在「发布前整体回归」被派**，而该环节由人显式发起 |
 
-也就是说：**没发起过发布回归，就等于这三个角色一次都没跑过。** 实测四个自用仓库、5 份 journal 全文扫描，这三个角色**零命中、零份报告**——不是它们没用，是**触发权在人手上**，而发布回归一直没被发起过。
+也就是说：**没发起过发布回归，就等于这三个角色一次都没跑过。** 实测四个自用仓库的 **3 份**可读 journal（另有 1 份只剩 `.bak`，见 [ADOPTION](./docs/ADOPTION.md) §6）+ 实例端到端那一次的 **2 份**，全文扫描：这三个角色**零命中、零份报告** —— 不是它们没用，是**触发权在人手上**，而发布回归一直没被发起过。
 
 两个例外会让它们提前上场：① 人在任一 Gate 上点名；② 包触及 RBAC / 金额·分摊 / schema / 新增对外接口，主控会在 Gate 摘要里给出「是否提前跑评审」这一条。
 
