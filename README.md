@@ -161,7 +161,7 @@ process_init({ upgrade: true })                 // 再落地
 | [docs/CONTRACT.md](https://github.com/SHADOW-LI0327/dsh-process-kit/blob/main/docs/CONTRACT.md) | 机器可消费契约：frontmatter / journal / 链式指纹算法 / 退出码，**CI 不装插件即可消费** |
 | [docs/DESIGN.md](https://github.com/SHADOW-LI0327/dsh-process-kit/blob/main/docs/DESIGN.md) | 设计红线、四处必须同步的改动、已知陷阱 |
 | [docs/ECOSYSTEM.md](https://github.com/SHADOW-LI0327/dsh-process-kit/blob/main/docs/ECOSYSTEM.md) | DSH 插件生态的准入门槛、上架清单与现状 |
-| [docs/ADOPTION.md](https://github.com/SHADOW-LI0327/dsh-process-kit/blob/main/docs/ADOPTION.md) | 四仓库自用实测（走到哪一步 / 卡在哪）、一包全流程脱敏实录、试点建议 |
+| [docs/ADOPTION.md](https://github.com/SHADOW-LI0327/dsh-process-kit/blob/main/docs/ADOPTION.md) | 落地实测：四个自用仓库走到哪一步、一个包的全流程时间线与 Gate 间隔耗时、真实返工、AI 托管对照（17.9h vs 2.01h）、装置缺陷与四个可数指标 |
 | [docs/ACCEPTANCE.md](https://github.com/SHADOW-LI0327/dsh-process-kit/blob/main/docs/ACCEPTANCE.md) | 插件验收：在全新项目里跑通一个电商 app 的端到端场景、AI 托管 Gate、可机器核验的检查单 |
 | [CONTRIBUTING.md](https://github.com/SHADOW-LI0327/dsh-process-kit/blob/main/CONTRIBUTING.md) | 开发环境、测试、提交与发布 |
 
