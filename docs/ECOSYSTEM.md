@@ -52,7 +52,6 @@ DSH 官方**没有**插件市场或插件目录。在官方安装包（`@deepsee
 | `engines.node` | — | 社区 guide §8 | **已做**（`^22.19.0 \|\| >=24.0.0`） |
 | `packageManager` | 钉 `pnpm@11.7.0` | 社区 guide §8 | 本仓库零依赖、无 lockfile，钉版本只增加 corepack 摩擦 |
 | 五语 README | `README-zh/es/pt/hi.md` | 社区 guide §8 | 作者个人规范，非社区共识；维持中英一份足够 |
-| `dsh.catalog` | 目录分类元数据 | `dsh-plugin-shop` schema | **不需要**：schema 已从公开索引观察到（`catalog.category` / `catalog.summary.<lang>` / `catalog.capabilities`），shop 对已收录包**自行派生**（本包 `metadata: "derived"`），见 §7 |
 | ~~GitHub topic `dsh-plugin`~~ | 仓库设置项 | `dsh-plugin.org` / shop 发现机制 | **已移出延期项** ⇒ 它是零成本待办，见 §7 |
 | Issue / PR 模板、`SECURITY.md` | — | 通用开源惯例 | 当前无外部贡献者前不必备 |
 
@@ -75,7 +74,6 @@ node package/dist/dsh-plugin-dev.js check --cwd .
 
 1. 插件管理器里显示的原始包名造成过真实困惑（→ 做 `locale` + `icon`，约半小时）；
 2. 出现外部使用者并主动提问（→ 补 CONTRIBUTING 之外的贡献流程）；
-3. 需要被 `dsh-plugin-shop` 之类的目录按分类索引（→ 先核实 schema 再做 `dsh.catalog`，见 §7）。
 
 在那之前，判断这个插件有没有价值的**唯一**依据是：有没有人真的在自己的仓库里落地 `docs/process/**` 这套约定。
 
@@ -91,9 +89,8 @@ node package/dist/dsh-plugin-dev.js check --cwd .
 | --- | --- | --- | --- | --- |
 | 1 | **打 GitHub topic** | 仓库页 → 右上 About 齿轮 → Topics 填 `dsh-plugin`（可再加 `deepseek-harness`、`cordis`）→ 保存 | `dsh-plugin.org` 与 shop 的发现机制都读它；这是**唯一**必须手动做的一步 | ✅ **已完成**（2026-10-14 实测 `GET /repos/SHADOW-LI0327/dsh-process-kit` 返回 `topics: ["deepseek-harness","dsh","dsh-plugin"]`） |
 | 2 | 提交 `dsh-plugin.org` | 按该站 Issue 模板提一条（仓库地址 + 一句话说明） | 多一个目录曝光面；该站自报插件总数自相矛盾（§1），背书价值有限 | ⏳ 待人 |
-| 3 | `dsh.catalog` | **不需要做**。schema 已从公开索引观察：条目带 `catalog.category` / `catalog.summary.<lang>` / `catalog.capabilities`，且 shop 对已收录包自行派生（本包 `metadata: "derived"`、`category: "workflow"`），无需在 `package.json` 声明 | 无 | ✅ **确认不需要**（2026-10-14） |
-| 4 | `locale/en.json` + `icon.svg` | 见 §4 | 只影响插件管理器卡片观感 | ⏸ 延期（§6 条件 1） |
+| 3 | `locale/en.json` + `icon.svg` | 见 §4 | 只影响插件管理器卡片观感 | ⏸ 延期（§6 条件 1） |
 
 > **第 1 项为什么单独强调**：它是「加入生态」的**全部实际含义**（§1 的结论 —— 公开仓库 + 一个 topic）。其余都是展示层打磨。
 
-**清单完成的标准**：仓库页 Topics 里出现 `dsh-plugin`，且 `dsh-plugin-shop` 能搜到本包。**两项均已达成**（2026-10-14）：topics 见上表；shop 索引 `count 14843` 中已有本包条目 `dsh-process-kit`（`catalog.category: "workflow"`，`source: "npm"`）。剩下的第 2、4 项是可选曝光面，不做也不影响被收录。
+**清单完成的标准**：仓库页 Topics 里出现 `dsh-plugin`，且 `dsh-plugin-shop` 能搜到本包。**两项均已达成**（2026-10-14）：topics 见上表；shop 索引 `count 14843` 中已有本包条目 `dsh-process-kit`（`catalog.category: "workflow"`，`source: "npm"`）。剩下的第 2、3 项是可选曝光面，不做也不影响被收录。
