@@ -5,6 +5,7 @@
 ## 0.5.0
 
 ### Added
+- **目录呈现元数据 `dsh.catalog`**（`package.json` 的 `dsh` 字段下，`dsh-plugin-shop` 与 `dsh-plugin.org` 共用）：显式声明分类 `workflow`、**中英双语摘要**与能力标签 `["fs","skill"]`。此前两个目录都靠派生，把中文 description 填进了 `summary.en` 槽、`capabilities` 留空 —— 而索引里 14843 个插件只有 **16** 个填了 `zh` 摘要。能力标签按实测如实声明（只用 `node:fs` 与技能注册，**不碰** `child_process`、网络）。
 
 - **`docs/ADOPTION.md`（试点与推广）**：四个自用仓库的落地实测（各自走到哪一步、卡在哪）、一个包的全流程脱敏实录（时间线 / Gate 间隔实测耗时 / 规模量级 / 真实返工 / **现存不一致清单**）、上马建议与三个可数成功指标。
 - **三个评审角色的显式触发条件**：`code-review` / `security-review` / `logic-review` 的默认触发（只在「发布前整体回归」，由人显式发起）与两个提前入口（① 人点名；② 包触及 RBAC / 金额·分摊 / schema / 新增对外接口时，主控在 Gate 摘要里给「是否提前跑」这一条）写进各自技能正文与其 `description`，并同步 README 与总纲。

@@ -53,6 +53,14 @@
     "access": "public"
   },
   "dsh": {
-    "bundle": { "patch": "./cordis.patch.yml" }
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "catalog": {
+      "category": "workflow",
+      "summary": {
+        "zh": "通用单人开发流程框架：文件状态机 + Gate 必停 + 角色分离。自带 8 个角色 subagent、流程骨架文档、门禁脚本与 process_init 初始化工具。",
+        "en": "A file-driven development-process framework for one person plus AI: file state machine, human-signed gates, and role separation. Bundles 8 role subagents, process scaffold documents, gate scripts, and the process_init bootstrapper."
+      },
+      "capabilities": ["fs", "skill"]
+    }
   }
 }
