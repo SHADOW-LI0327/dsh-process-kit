@@ -75,6 +75,8 @@ processVersion: 2
 | `<role-logic-review>` · `<role-code-review>` · `<role-security-review>` | `reports/<角色>/**` | 改 `src`；贴大段代码 |
 ```
 
+> **状态位例外（必须写进 §3）**：`prd/<ID>.md` 的 frontmatter 里 `status` / `gate0` / `gate1` / `gate2` / `gate4` 由**主控**在各 Gate 落定 —— 总纲要求「Gate 通过后落状态位」，**只把 `prd/**` 判给 pm 会让这条规则无法同时满足**（实例验收里就出现了一轮：状态位由主控写入，而属主表没判给主控），而且判据 ⑫（越界事后判定）会把主控落状态位**误判成越界**。其余内容（PRD 正文 / 契约 / checklist）仍属 `<role-pm>`。写法二选一：主控行补 `docs/process/prd/<ID>.md`（并写明「仅状态位」），或在此处明确例外条款。
+
 > **`journal.jsonl` 后面那个 `*` 不能省**：journal 追加会旁挂一个 `<ID>.journal.jsonl.meta.json` 指纹文件（锁与指纹校验要用）。只写 `*.journal.jsonl` 时，只要项目把 pm 行收窄成 `prd/*.md`（§3 明说变量路径用 `*` 通配，这是很自然的写法），**框架自己的 audit 文件就会被框架自己的落点门禁判越界**。口径：**拥有 journal 的那一行必须自己覆盖它**，不能靠别人的 `prd/**` 顺带兜住。
 > 注意：这条说明只能写在这里 —— **别把含 `<...>` 的备注写进路径单元格**，那会让整条路径被当成未替换的占位符丢掉。
 

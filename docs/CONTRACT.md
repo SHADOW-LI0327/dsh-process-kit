@@ -94,14 +94,18 @@ chainHash  = fold(lines, (chain, line) => hash16(chain + line), 初始值 "")
 
 | 脚本 | 判什么 |
 | --- | --- |
-| `check-artifact-paths.mjs` | 产物落点：会进下一次提交的未跟踪文件是否落在合法根 |
+| `check-artifact-paths.mjs` | 产物落点：会进下一次提交的未跟踪文件是否落在合法根（**只判未跟踪文件** ⇒ 只在**提交前**有读数，见下方 ⚠） |
 | `check-rules.mjs` | 台账 ↔ 测试 ↔ PRD 三层证据链自洽、import 白名单、`prdVersion` 一致；**越界事后判定**（角色边界，fail-open） |
 | `check-uat-readiness.mjs` | UAT 前置：环境 + 账号 + 目标端点就绪 |
 | `check-ui-geometry.mjs` | UI 客观几何（溢出 / 重叠 / 过挤 / 居中 / 边距 / 对比度）；**文字层为 0 时只报 ⚠，不打绿** |
 | `journal-append.mjs` | 安全追加（锁 + 指纹 + 原子替换 + 自校验），写 meta |
-| `sync-prd-version.mjs` | 同步 `prdVersion` 的四个声明位 |
+| `sync-prd-version.mjs` | 同步 `prdVersion` 的四个声明位；**某一处产物没有该字段行时只告警跳过、不判红**（PRD 本体缺字段仍判红）—— CI 里别把它当「四处齐全」的证明 |
 
 **fail-open 是刻意的**：未初始化 `docs/process`、快速路径、项目未配属主表时一律跳过并 `exit 0`，不误伤未接入流程的仓库。
+
+> ⚠ **落点门禁的读数只在「提交前」有效**（实例验收实测）：`check-artifact-paths.mjs` 判的是**未被忽略的未跟踪文件**。同一条命令在交付提交**前**跑读作 `受检未跟踪文件 69 个（放行 69）`，提交**后**跑读作 `0 个（放行 0）` —— **两次都 `exit 0`**，但第二次**什么都没检查**。
+>
+> 因此：① 它**不是** CI 门禁 —— 在 CI 里产物早已入库，得到的是「**永远绿**」，**已入库的越界文件它永远发现不了**；② 它的有效证据必须固定在**提交前**那一次，报告里要写明读数取自哪个时点；③ 已入库产物的越界复查要靠独立审计：按 `git ls-files` 全集比对 `PROJECT.md` §3 属主表（实例验收的报告里就有这样一个 `audit-ownership.mjs`，且做过反向对照 —— 造一个越界文件必须判红）。
 
 ## 契约 5：插件工具的结构化返回（agent 侧）
 
@@ -116,48 +120,83 @@ chainHash  = fold(lines, (chain, line) => hash16(chain + line), 初始值 "")
 
 ## 消费示例
 
+> 三段片段都遵守**契约 1 的取值优先级**与**契约 2 的字段语义**：状态位只读 `prd/<ID>.md`（跳过 `_` 前缀模板，也不读 `<ID>-design.md` / `<ID>-ui-spec.md` 这类从件 —— **判据是文件名词干等于 frontmatter 的 `id`**），并且**一律 `JSON.parse` 后按字段取值，不依赖键序**。
+>
+> **别用字面量 grep 去匹配键序**：`grep -o '"gate":"gate2","actor":"[^"]*","via":"[^"]*"'` 这种写法，只要 journal 的键序一变就**永远匹配不到** —— 实例验收里 `gate2` 的批准记录**明明存在**，片段却输出「无批准留痕」。这是**假阴性**：比假阳性更危险，它会让人误判「这个 Gate 没人签」。
+
 ### CI：把「流程状态」当门禁（不装插件）
 
 ```bash
-# ① 门禁脚本：非零即红
-node scripts/process/check-artifact-paths.mjs
+# ① 台账 / 规则门禁：非零即红
 node scripts/process/check-rules.mjs
 
-# ② journal 完整性：链式指纹重算（纯 node，无依赖）
+# ② 落点门禁：只在**提交前**有意义（它判的是未跟踪文件，见契约 4 的 ⚠）
+node scripts/process/check-artifact-paths.mjs
+
+# ③ journal 完整性：链式指纹重算（纯 node，无依赖）
 node -e '
 const fs=require("fs"),c=require("crypto");
 const h=s=>c.createHash("sha256").update(s).digest("hex").slice(0,16);
-const dir="docs/process/prd"; let bad=0, checked=0;
-if(fs.existsSync(dir)) for(const f of fs.readdirSync(dir).filter(n=>n.endsWith(".journal.jsonl"))){
-  const p=`${dir}/${f}`;
-  const lines=fs.readFileSync(p,"utf8").split("\n").filter(l=>l.trim());
+const dir="docs/process/prd"; let bad=0,legacy=0,ok=0,unchecked=0;
+if(fs.existsSync(dir)) for(const f of fs.readdirSync(dir).sort().filter(n=>n.endsWith(".journal.jsonl"))){
+  const p=`${dir}/${f}`, lines=fs.readFileSync(p,"utf8").split("\n").filter(l=>l.trim());
   let chain=""; for(const l of lines) chain=h(chain+l);
   const mp=`${p}.meta.json`;
-  if(!fs.existsSync(mp)){ console.error(`⚠ ${f}: 无 meta，未校验`); continue; }
-  const m=JSON.parse(fs.readFileSync(mp,"utf8")); checked++;
-  if(m.lines!==lines.length||(m.chainHash&&m.chainHash!==chain)){ bad++; console.error(`🚨 ${f}: 完整性不符`); }
+  if(!fs.existsSync(mp)){ unchecked++; console.error(`⚠ ${f}: 无 meta —— 未校验（不是绿）`); continue; }
+  let m; try{ m=JSON.parse(fs.readFileSync(mp,"utf8")); }catch{ unchecked++; console.error(`⚠ ${f}: meta 解析失败 —— 未校验（不是绿）`); continue; }
+  if(m.lines!==lines.length || m.lastHash!==h(lines[lines.length-1]??"")){ bad++; console.error(`🚨 ${f}: 行数/末行不符 —— 篡改嫌疑`); continue; }
+  if(typeof m.chainHash!=="string"){ legacy++; console.error(`⚠ ${f}: 旧格式 meta（无 chainHash）—— 只验了行数与末行，改中间行/删行/换行查不出来`); continue; }
+  if(m.chainHash!==chain){ bad++; console.error(`🚨 ${f}: 链式指纹不符（中间行被改 / 删行 / 换行）`); continue; }
+  ok++;
 }
-console.error(`journal 已校验 ${checked} 份，可疑 ${bad} 份`); process.exit(bad?1:0);'
+console.error(`journal：已验证 ${ok} 份 · 篡改嫌疑 ${bad} 份 · 旧格式 ${legacy} 份 · 未校验 ${unchecked} 份`);
+process.exit(bad?1:0);'
 ```
 
-### 用 jq 查「哪些包在等 Gate2，且批准是人签的」
+> **判读：只有「已验证」是绿。** `旧格式` 与 `未校验` 都是「验不动」，**不是通过** —— 要绿就先在仓库里跑一次 `process_init({ upgrade: true })`，把旁挂 meta 补成链式。四种计数刻意分开显示：把「验不动」并进「通过」，就是拿无色当绿色。
+
+### 查「哪些包在等 Gate2、批准是谁签的」
 
 ```bash
-grep -l '^gate2: pending' docs/process/prd/*.md | while read -r prd; do
-  id=$(basename "$prd" .md)
-  host=$(grep -o '"gate":"gate2","actor":"[^"]*","via":"[^"]*"' "docs/process/prd/$id.journal.jsonl" 2>/dev/null | tail -1)
-  printf '%s\t%s\n' "$id" "${host:-无批准留痕}"
-done
+node -e '
+const fs=require("fs"),dir="docs/process/prd";
+for(const f of fs.readdirSync(dir).sort()){
+  if(!f.endsWith(".md")||f.startsWith("_")) continue;                    // 模板跳过（与插件加载器一致）
+  const fm=fs.readFileSync(`${dir}/${f}`,"utf8").match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if(!fm) continue;
+  const m=fm[1].match(/^id:\s*(\S+)\s*$/m); if(!m) continue;
+  const id=m[1];
+  if(f.slice(0,-3)!==id) continue;                                       // 从件不参与：契约 1 以 <ID>.md 为准
+  if(!/^gate2:\s*pending\s*$/m.test(fm[1])) continue;
+  const jp=`${dir}/${id}.journal.jsonl`; let via="无批准留痕";
+  if(fs.existsSync(jp)) for(const l of fs.readFileSync(jp,"utf8").split("\n")){
+    if(!l.trim()) continue; let e; try{ e=JSON.parse(l); }catch{ continue; }
+    if(e.action==="approve"&&e.gate==="gate2") via=e.via==="human"?"human":"🤖"+(e.via??"未记 via");
+  }
+  console.log(`${id}\t${via}`);
+}'
 ```
 
-### 取「本 Gate 的门禁证据」做发布检查
+> 这里顺带示范了加载器的两条规则：**`_` 前缀跳过**、**主件为准**。少任何一条，`_TEMPLATE.md` 或 `FEAT-001-design.md` 就会被当成一个「在等 Gate2 的包」（实例验收里两条都踩到了）。
+
+### 取「Gate 证据」做发布检查
 
 ```bash
-# 所有非零退出码的门禁执行（红即缺口，发布前必须清掉或显式豁免）
-grep -h '"action":"run"' docs/process/prd/*.journal.jsonl \
-  | grep -v '"exitCode":0' \
-  | sed -E 's/.*"command":"([^"]*)".*"exitCode":([0-9-]+).*/\1 → exit \2/'
+# 非零退出码 = 红即缺口；缺 exitCode = 未记录（两条都要清掉或显式豁免）
+node -e '
+const fs=require("fs"),dir="docs/process/prd"; let bad=0,noCode=0;
+for(const f of fs.readdirSync(dir).sort().filter(n=>n.endsWith(".journal.jsonl"))){
+  for(const l of fs.readFileSync(`${dir}/${f}`,"utf8").split("\n")){
+    if(!l.trim()) continue; let e; try{ e=JSON.parse(l); }catch{ continue; }
+    if(e.action!=="run") continue;
+    if(e.exitCode===undefined||e.exitCode===null){ noCode++; console.error(`⚠ ${f}: run 缺 exitCode（${e.command??"无命令"}）—— 未记录，不算跑过`); continue; }
+    if(e.exitCode!==0){ bad++; console.error(`🚨 ${e.gate??"?"} exit ${e.exitCode}：${e.command??"?"}`); }
+  }
+}
+console.error(`非零退出码 ${bad} 条 · 缺退出码 ${noCode} 条`); process.exit(bad?1:0);'
 ```
+
+> 「跑过了」这句话本身不是证据：**只有带真实 `exitCode` 的 `action:"run"` 才算**。写不进去就先看是不是用了只接受 7 个字段的老版本工具（契约 2）。
 
 ---
 
