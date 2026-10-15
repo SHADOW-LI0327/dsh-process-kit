@@ -35,9 +35,11 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import {
   configValue,
+  globToRegExp,
   isNumberedSection,
   isPlaceholder,
   parseTable,
+  pathsInCell,
   readSection,
   scalarValue,
   stripFencedBlocks,
@@ -62,45 +64,6 @@ function findRepoRoot(start) {
 function fail(msg) {
   process.stderr.write(`[check-artifact-paths] 失败：${msg}\n`);
   process.exit(1);
-}
-
-/** 从一个单元格里抽出路径候选：优先反引号，其次按分隔符切分；占位符不返回。 */
-function pathsInCell(cell) {
-  const out = [];
-  for (const m of cell.matchAll(/`([^`]+)`/g)) out.push(m[1].trim());
-  if (out.length === 0) {
-    for (const part of cell.split(/[、,，;；\s<>br]+/)) {
-      const v = part.replace(/[（(].*?[)）]/g, "").trim();
-      if (v) out.push(v);
-    }
-  }
-  return out.filter((v) => v && !["—", "-", "/", "无", "N/A"].includes(v));
-}
-
-/** 把路径通配（支持 `**`）编译为正则。 */
-function globToRegExp(glob) {
-  let g = glob.trim().replace(/^\.\//, "").replace(/^\/+/, "");
-  if (g.endsWith("/")) g += "**";
-  const hasWildcard = /[*?]/.test(g);
-  let re = "";
-  for (let i = 0; i < g.length; i += 1) {
-    const c = g[i];
-    if (c === "*") {
-      if (g[i + 1] === "*") {
-        i += 1;
-        if (g[i + 1] === "/") i += 1;
-        re += ".*"; // `**` 跨目录，可匹配空
-      } else {
-        re += "[^/]*";
-      }
-    } else if (c === "?") {
-      re += "[^/]";
-    } else {
-      re += c.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-    }
-  }
-  // 无通配的字面量同时视为目录前缀：`reports` 放行 `reports/子路径`
-  return new RegExp(hasWildcard ? `^${re}$` : `^${re}(?:/.*)?$`);
 }
 
 /**

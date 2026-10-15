@@ -24,7 +24,7 @@
  * 副作用文件：
  *   <journal>.lock      持锁标记（成功或失败都会释放）
  *   <journal>.bak       写入前的上一版备份（回滚用）
- *   <journal>.meta.json { lines, lastHash } 内容指纹
+ *   <journal>.meta.json { lines, lastHash, chainHash } 内容指纹（chainHash 覆盖任意一行被改）
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -132,9 +132,18 @@ function main() {
     const before = readEntries(abs);
     // 只比行数不够：并发方可能「删掉 2 条、加上 2 条」而总数不变。故记录
     // 「上一步的行数 + 末行哈希」指纹，两者任一不符即判定被并发改写并拒绝写入。
+    // 链式指纹：chain_n = hash(chain_{n-1} + line_n)，chain_0 = ""。
+    // 只存末行哈希查不出「中间某行被改 / 删行 / 换行」——链头一变就暴露。
+    // lib/index.js 的 journalChain 与本函数必须是同一个式子（见 DESIGN.md「三处必须同步」）。
+    const chainOf = (arr) => {
+      let acc = "";
+      for (const line of arr) acc = hash(`${acc}${line}`);
+      return acc;
+    };
     const fingerprintOf = (arr) => ({
       lines: arr.length,
       lastHash: hash(arr.length > 0 ? arr[arr.length - 1] : ""),
+      chainHash: chainOf(arr),
     });
     if (fs.existsSync(metaPath)) {
       let prior;
@@ -154,6 +163,13 @@ function main() {
           fail(
             `检测到既有内容被改写：第 ${prior.lines} 行与上次记录不符。` +
               `疑似并发覆盖，已拒绝写入。上一版备份见 ${backupPath}`,
+          );
+        }
+        // 链式指纹能盖住「中间某行被改」——只比末行是查不出来的
+        if (typeof prior.chainHash === "string" && chainOf(before.slice(0, prior.lines)) !== prior.chainHash) {
+          fail(
+            `检测到既有内容被改写：前 ${prior.lines} 行的链式指纹与上次记录不符` +
+              `（中间行被改 / 删行 / 换行），已拒绝写入。上一版备份见 ${backupPath}`,
           );
         }
       }

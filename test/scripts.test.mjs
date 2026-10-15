@@ -1022,5 +1022,306 @@ const stubEnv = (f) => ({
 	console.log('✓ 6y ⑨ --verify：可用则验证；拿不到适配器则直接失败；不带则不跑');
 }
 
+// ── 8. ⑫ 越界事后判定（role boundary post-hoc check） ──────────────────────
+//
+// 为什么钉它：角色边界只写在提示词里（角色管效率，交付质量由人在 Gate 上裁定）⇒
+// 「越界改了不该改的文件」在机器侧**一点痕迹都没有**，只有人碰巧翻 diff 才发现。
+// ⑫ 把**机械可判**的那部分暴露出来供人裁定 —— 它是**判定不是拦截**，而且**判不了就跳过**
+// （fail-open）：假红会把人指去改一个根本没问题的文件，比不判更糟。
+// ⚠️ 这条 fail-open 是**判据级**的：脚本级前置条件（无 docs/process / 无 PROJECT.md）不满足时
+// 仍然 exit 1（见 8h）—— 「整个脚本没法干活」和「干了活但这一条没判据」不是一回事。
+// 所以下面两个方向都测：只判红的检查等于没用，只判绿的检查等于没写。
+
+/**
+ * ⑫ 的装置：**真 git 仓库**（`git init` + 真实提交 + 真实改动），不 mock。
+ * 装置本身在改动之前就提交掉了 —— ⑫ 只看「相对 HEAD 的改动」，若装置文件混进改动集，
+ * 要判的那一条就会被「谁改了 journal / PROJECT.md」淹掉（实测踩过）。
+ * §3 填真值：dev 管 `src/**`、test 管 `test/**`、uat 管 `e2e/**`、orchestrator 管 `docs/process/**`。
+ * `extra`：额外改动（对象或数组），用于验证豁免边界 —— 新文件要 add 才进改动集。
+ */
+async function makeBoundaryFixture({ journal = [], placeholderS3 = false, change = 'test', extra = null } = {}) {
+	const root = await makeTemplateRepo();
+	const projectPath = join(root, projectRel);
+	const md = await readFile(projectPath, 'utf8');
+	if (!placeholderS3) {
+		const rows = [
+			'| orchestrator | `docs/process/**` | - |',
+			'| dev | `src/**` | `test/**` |',
+			'| test | `test/**` | `src/**` |',
+			'| uat | `e2e/**` | - |',
+		].join('\n');
+		const next = md.replace(placeholderRow, rows);
+		assert.notEqual(next, md, '未替换 §3 占位行');
+		await writeFile(projectPath, next, 'utf8');
+	}
+	await mkdir(join(root, 'docs/process/prd'), { recursive: true });
+	await writeFile(
+		join(root, 'docs/process/prd/FEAT-01.journal.jsonl'),
+		journal.map((e) => JSON.stringify(e)).join('\n') + (journal.length ? '\n' : ''),
+		'utf8',
+	);
+	await mkdir(join(root, 'test'), { recursive: true });
+	await mkdir(join(root, 'src'), { recursive: true });
+	// 测试文件**不带** @prd：否则 ② 会因为「没有 rules/FEAT-01.yaml」先判红，⑫ 就不是唯一的 ❌ 了
+	await writeFile(join(root, 'test/foo.test.mjs'), '// 测试文件\n', 'utf8');
+	await writeFile(join(root, 'src/keep.ts'), 'export const x = 1;\n', 'utf8');
+	execFileSync('git', ['add', '-A'], { cwd: root });
+	execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'fixture'], {
+		cwd: root,
+	});
+	// 真实改动（未提交）：默认 = 末条环节 dev 的改动集里出现测试文件
+	if (change === 'test') {
+		await writeFile(join(root, 'test/foo.test.mjs'), '// 测试文件\n// dev 越界改了测试\n', 'utf8');
+	} else if (change === 'src') {
+		await writeFile(join(root, 'src/keep.ts'), 'export const x = 2;\n', 'utf8');
+	} else if (change === 'misc') {
+		await mkdir(join(root, 'misc'), { recursive: true });
+		await writeFile(join(root, 'misc/thing.ts'), '// 没登记进 §3 的新文件\n', 'utf8');
+		// ⚠️ 必须 add：⑫ 的改动集只取 `git diff` + `git diff --cached`，
+		// 未跟踪又未暂存的新文件**不在其中**（那一批由落点门禁 check-artifact-paths 兜）。
+		execFileSync('git', ['add', 'misc/thing.ts'], { cwd: root });
+	} else if (change === 'journal') {
+		// 真实场景：dev 环节用 journal-append / process_journal 追加了一条 journal
+		await appendJournal(root, { ...DEV_WRITE, note: 'dev 又追加了一条 journal' });
+	}
+	// 额外改动（验证豁免边界的正/反例）：新文件要 add，否则不在 `git diff` 的改动集里（见上）。
+	for (const e of extra === null ? [] : Array.isArray(extra) ? extra : [extra]) {
+		await mkdir(dirname(join(root, e.path)), { recursive: true });
+		await writeFile(join(root, e.path), e.content, 'utf8');
+		execFileSync('git', ['add', e.path], { cwd: root });
+	}
+	return root;
+}
+
+/** 向该包的 journal 追加一条（模拟 journal-append 的落盘结果）。 */
+async function appendJournal(root, entry) {
+	const p = join(root, 'docs/process/prd/FEAT-01.journal.jsonl');
+	await writeFile(p, (await readFile(p, 'utf8')) + JSON.stringify(entry) + '\n', 'utf8');
+}
+
+const DEV_WRITE = {
+	at: '2026-01-01T01:00:00Z',
+	actor: 'subagent:dev-agent',
+	step: 'dev',
+	action: 'write',
+	note: 'dev 改实现',
+};
+
+{
+	// 8a. 正向红（最主要的一条）：dev 环节的改动集里出现测试文件，journal 无 approve。
+	const root = await makeBoundaryFixture({ journal: [DEV_WRITE] });
+	const { status, out } = runGate(root, 'check-rules.mjs', ['--id', 'FEAT-01']);
+	assert.equal(status, 1, `dev 环节改测试文件且无 approve ⇒ 必须 exit 1\n${out}`);
+	assert.match(out, /❌ ⑫a .*test\/foo\.test\.mjs/, `应点名越界的那个测试文件\n${out}`);
+	assert.match(out, /dev 环节不得改测试/, `应说清越界的性质（谁改了谁的哨子）\n${out}`);
+	// ⑫a 必须是**唯一**的 ❌：否则这条用例可能被别的红"捎带"着绿/红，断言就失去意义
+	assert.match(out, /check-rules：\d+ ✓ \/ 1 ❌/, `⑫a 应是本轮唯一的 ❌\n${out}`);
+	console.log('✓ 8a ⑫a 正向红：dev 环节改测试文件且无 approve ⇒ 判红');
+}
+
+{
+	// 8b. 反向绿：同样的改动集，journal 里有一条 approve **点名覆盖**该文件 ⇒ 放行。
+	//     关键：approve 记在**中间**、末条仍是 dev —— 绿必须来自「approve 覆盖」，
+	//     而不是末条环节碰巧变成了 test（那样这条用例就什么都没验）。
+	const root = await makeBoundaryFixture({
+		journal: [
+			{ at: '2026-01-01T00:00:00Z', actor: 'subagent:test-agent', step: 'test', action: 'write' },
+			{
+				at: '2026-01-01T00:10:00Z',
+				actor: 'orchestrator',
+				step: 'orchestrator',
+				action: 'approve',
+				note: 'dev 改测试已由人裁定',
+				files: ['test/foo.test.mjs'],
+			},
+			DEV_WRITE,
+		],
+	});
+	const { status, out } = runGate(root, 'check-rules.mjs', ['--id', 'FEAT-01']);
+	assert.equal(status, 0, `approve 点名覆盖后应放行\n${out}`);
+	assert.doesNotMatch(out, /❌ ⑫/, `被 approve 覆盖的文件不得再判红\n${out}`);
+	// 绿必须来自"approve 覆盖"，而不是"⑫ 压根没判"（跳过 / 无法判定都会留下可见的 ⚠）
+	assert.doesNotMatch(out, /⑫ 跳过|⑫ 无法判定/, `绿只能来自 approve 覆盖，不能来自跳过\n${out}`);
+	console.log('✓ 8b ⑫ 反向绿：approve 点名覆盖该文件 ⇒ 放行（与 8a 同一改动集，差异只有 approve）');
+}
+
+{
+	// 8c. 反作弊：journal 里有 approve，但点名的是**别的文件** ⇒ 照判红。
+	//     没有这一条，一个"见到 approve 就放行"的实现也能让 8b 全绿。
+	const root = await makeBoundaryFixture({
+		journal: [
+			{
+				at: '2026-01-01T00:10:00Z',
+				actor: 'orchestrator',
+				step: 'orchestrator',
+				action: 'approve',
+				files: ['src/whatever.ts'],
+			},
+			DEV_WRITE,
+		],
+	});
+	const { status, out } = runGate(root, 'check-rules.mjs', ['--id', 'FEAT-01']);
+	assert.equal(status, 1, `approve 没点名该文件 ⇒ 不得当成覆盖\n${out}`);
+	assert.match(out, /❌ ⑫a .*test\/foo\.test\.mjs/, `应仍然点名该测试文件\n${out}`);
+	console.log('✓ 8c ⑫ approve 必须点名该文件才算覆盖（点名别人不豁免）');
+}
+
+{
+	// 8d. 反向对照（防"见谁咬谁"）：dev 环节改的是自己该改的 `src/**` ⇒ 不判红。
+	//     只会判红的检查等于没用 —— 这一条保证 ⑫ 不是"有改动就红"。
+	const root = await makeBoundaryFixture({ journal: [DEV_WRITE], change: 'src' });
+	const { status, out } = runGate(root, 'check-rules.mjs', ['--id', 'FEAT-01']);
+	assert.equal(status, 0, `dev 改自己名下的 src ⇒ 不该判红\n${out}`);
+	assert.doesNotMatch(out, /❌ ⑫/, `归属一致就不得判红\n${out}`);
+	// 判成"归属一致"而不是"跳过 / 无法判定"：后者都会留下可见的 ⚠
+	assert.doesNotMatch(out, /⑫ 跳过|⑫ 无法判定/, `应判成归属一致，而不是跳过\n${out}`);
+	console.log('✓ 8d ⑫ 反向对照：dev 改自己名下的 src ⇒ 不判红（不是"有改动就红"）');
+}
+
+{
+	// 8e. fail-open：§3 全是占位符 ⇒ 跳过并 exit 0，且**明说跳过**（不得假装查过）。
+	const root = await makeBoundaryFixture({ journal: [DEV_WRITE], placeholderS3: true });
+	const { status, out } = runGate(root, 'check-rules.mjs', ['--id', 'FEAT-01']);
+	assert.equal(status, 0, `§3 未配置时无从判定 ⇒ 跳过而不是判红\n${out}`);
+	assert.match(out, /⑫ 跳过：PROJECT.md §3.*占位符/, `必须说清跳过的原因\n${out}`);
+	assert.match(out, /无法判定 1 个改动文件归谁/, `应报出无从判定的文件数\n${out}`);
+	assert.doesNotMatch(out, /❌ ⑫/, `跳过不得产出 ❌\n${out}`);
+	console.log('✓ 8e ⑫ fail-open：§3 是占位符 ⇒ 跳过并 exit 0（明说跳过）');
+}
+
+{
+	// 8f. fail-open：属主表里找不到该文件的类别 ⇒ **不判**（不猜）。
+	const root = await makeBoundaryFixture({ journal: [DEV_WRITE], change: 'misc' });
+	const { status, out } = runGate(root, 'check-rules.mjs', ['--id', 'FEAT-01']);
+	assert.equal(status, 0, `归属定不了就不判，不得靠猜判红\n${out}`);
+	assert.match(out, /⑫ 无法判定 misc\/thing\.ts 的归属/, `应逐个说明哪些文件无法判定\n${out}`);
+	assert.doesNotMatch(out, /❌ ⑫/, `无法判定不得产出 ❌\n${out}`);
+	console.log('✓ 8f ⑫ fail-open：属主表里无匹配类别 ⇒ 不判（不猜）');
+}
+
+{
+	// 8g. fail-open：没有包 ID（也没给 --id、改动集里推断不出）⇒ 跳过。
+	const root = await makeBoundaryFixture({ journal: [DEV_WRITE] });
+	const { status, out } = runGate(root, 'check-rules.mjs');
+	assert.equal(status, 0, `定不了包 ⇒ 没有 journal 可对，跳过\n${out}`);
+	assert.match(out, /⑫ 跳过：未指定需求包 ID/, `应提示用 --id 指定\n${out}`);
+	assert.doesNotMatch(out, /❌ ⑫/, `跳过不得产出 ❌\n${out}`);
+	console.log('✓ 8g ⑫ fail-open：定不了需求包 ID ⇒ 跳过并 exit 0');
+}
+
+{
+	// 8i. fail-open：末条环节归一后认不出是谁（如 step 写成「（人）」这种纯标注）⇒ 跳过。
+	//     没有这一步，"空角色名"会拿去跟每个归属比 ⇒ 见谁咬谁，整片假红。
+	const root = await makeBoundaryFixture({
+		journal: [{ at: '2026-01-01T01:00:00Z', actor: 'human', step: '（人）', action: 'note' }],
+	});
+	const { status, out } = runGate(root, 'check-rules.mjs', ['--id', 'FEAT-01']);
+	assert.equal(status, 0, `认不出环节名 ⇒ 跳过，不得拿空串去比\n${out}`);
+	assert.match(out, /⑫ 跳过：journal 末条环节.*归一后为空/, `应说清认不出环节\n${out}`);
+	assert.doesNotMatch(out, /❌ ⑫/, `跳过不得产出 ❌\n${out}`);
+	console.log('✓ 8i ⑫ fail-open：末条环节归一后为空 ⇒ 跳过（不拿空串去比）');
+}
+
+{
+	// 8h. **脚本级**前置条件：没有 docs/process/（脚本已就位、流程未初始化）⇒ **exit 1** 并说明理由。
+	//     为什么不能给 0：「整个脚本没法干活」与「干了活但这一条没判据」不是一回事 ——
+	//     前者给 0 就是把空转报成绿，CI 会把"没查"当"合格"。⑫ 的 fail-open 只到**判据级**。
+	const root = await tempRepo();
+	await cp(join(PKG, 'scripts'), join(root, 'scripts/process'), { recursive: true });
+	execFileSync('git', ['init', '-q', '.'], { cwd: root });
+	const { status, out } = runGate(root, 'check-rules.mjs');
+	assert.equal(status, 1, `流程未初始化 ⇒ 脚本级配置缺失必须 exit 1\n${out}`);
+	assert.match(out, /没有 docs\/process\//, `应说清拒绝的理由\n${out}`);
+	assert.match(out, /退出码：1（配置缺失）/, `应给出退出码口径\n${out}`);
+	assert.doesNotMatch(out, /⑫ 跳过/, `脚本级失败不是"⑫ 跳过"（那是判据级的事）\n${out}`);
+	console.log('✓ 8h 脚本级前置条件：无 docs/process ⇒ exit 1（⑫ 的 fail-open 只到判据级）');
+}
+
+{
+	// 8j. ⑫ 豁免：改动集**只含** journal 文件 ⇒ 不判红，且**不因此整轮跳过**。
+	//     journal 现在是「流程目录整棵树豁免」（见 8l）的**真子集**，本条保留作回归：
+	//     钉住"豁免 ≠ 整轮跳过"与"旁挂件（meta/bak/lock）同属豁免"这两点。
+	const root = await makeBoundaryFixture({ journal: [DEV_WRITE], change: 'journal' });
+	const { status, out } = runGate(root, 'check-rules.mjs', ['--id', 'FEAT-01']);
+	assert.equal(status, 0, `只改 journal ⇒ 不得判红\n${out}`);
+	assert.doesNotMatch(out, /❌ ⑫/, `journal 自身不得被判越界\n${out}`);
+	// 关键：豁免 ≠ 整轮跳过 —— ⑫ 不得打「跳过」，否则这条用例会掩盖「这一条根本没判」
+	assert.doesNotMatch(out, /⑫ 跳过/, `journal 豁免是"这一条不判"，不是整轮跳过\n${out}`);
+
+	// 旁挂件走的是**另一条**正则分支（journal-append 自产的指纹 / 备份 / 锁文件），逐个钉：
+	// `.meta.json` / `.bak` / `.lock` 都得豁免 —— 少放一个就是假红，多放一个就是放掉真越界。
+	for (const suffix of ['.meta.json', '.bak', '.lock']) {
+		const rel = `docs/process/prd/FEAT-01.journal.jsonl${suffix}`;
+		await writeFile(join(root, rel), 'synthetic sidecar\n', 'utf8');
+		execFileSync('git', ['add', rel], { cwd: root });
+	}
+	const sidecar = runGate(root, 'check-rules.mjs', ['--id', 'FEAT-01']);
+	assert.equal(sidecar.status, 0, `journal 旁挂的三种文件同样豁免\n${sidecar.out}`);
+	assert.doesNotMatch(sidecar.out, /❌ ⑫/, `旁挂件不得被判越界\n${sidecar.out}`);
+	assert.doesNotMatch(sidecar.out, /⑫ 跳过/, `旁挂件豁免同样不是整轮跳过\n${sidecar.out}`);
+
+	// 第二轮：让**别的**判据红起来（规则表 prdVersion=2 ≠ PRD prdVersion=1），
+	// 证明「其余判据照判」，且 journal 豁免不会顺手吃掉别的红。
+	execFileSync('git', ['add', '-A'], { cwd: root });
+	execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'journal'], {
+		cwd: root,
+	});
+	await mkdir(join(root, 'docs/process/rules'), { recursive: true });
+	await writeFile(join(root, 'docs/process/rules/FEAT-01.yaml'), 'prdVersion: 2\ncases: []\n', 'utf8');
+	await writeFile(
+		join(root, 'docs/process/prd/FEAT-01.md'),
+		'---\nid: FEAT-01\nstatus: draft\nprdVersion: 1\n---\n',
+		'utf8',
+	);
+	execFileSync('git', ['add', '-A'], { cwd: root });
+	execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'rules+prd'], {
+		cwd: root,
+	});
+	await appendJournal(root, { ...DEV_WRITE, note: '第二轮又追加了一条 journal' });
+	const second = runGate(root, 'check-rules.mjs', ['--id', 'FEAT-01']);
+	assert.match(second.out, /❌ ⑥ /, `其余判据必须照判（这一轮的红应来自 ⑥）\n${second.out}`);
+	assert.doesNotMatch(second.out, /❌ ⑫/, `journal 豁免不因别的红而失效\n${second.out}`);
+	assert.equal(second.status, 1, `红来自 ⑥，不是 ⑫\n${second.out}`);
+	console.log('✓ 8j ⑫ 豁免（窄）：只改 journal ⇒ ⑫ 不红也不跳过；同时其余判据照判');
+}
+
+{
+	// 8k. 豁免边界：同一轮里「流程目录内豁免、流程目录外照判」。
+	//     反例取**流程目录之外**的 e2e 目录（§3 归 uat）—— dev 动 uat 的东西才是真越界。
+	//     没有这一条，把豁免写宽（例如连 e2e 一起放过）也能让 8j/8l 全绿。
+	const root = await makeBoundaryFixture({
+		journal: [DEV_WRITE],
+		change: 'journal',
+		extra: { path: 'e2e/checkout.spec.ts', content: '// uat 的 e2e\n' },
+	});
+	const { status, out } = runGate(root, 'check-rules.mjs', ['--id', 'FEAT-01']);
+	assert.equal(status, 1, `流程目录之外的越界必须照判\n${out}`);
+	assert.match(out, /❌ ⑫ e2e\/checkout\.spec\.ts/, `应点名流程目录之外的那个越界文件\n${out}`);
+	assert.doesNotMatch(out, /❌ ⑫[^\n]*\.journal\.jsonl/, `流程目录内的 journal 仍不得判红\n${out}`);
+	console.log('✓ 8k ⑫ 边界：流程目录内豁免、目录外的 e2e（归 uat）照样判红');
+}
+
+{
+	// 8l. **不会恒红**（这条才是本轮改边界的理由）：dev 环节的改动集里带上流程目录下的普通产物
+	//     —— PRD（主控改状态位）、设计稿、规则表 —— 必须 **status 0、无 ❌ ⑫、且不显示「⑫ 跳过」**。
+	//     若哪天又按属主表去判流程目录，这条会立刻红：⑫ 会退回"每包每次必红"，人也就不再看了。
+	const root = await makeBoundaryFixture({
+		journal: [DEV_WRITE],
+		change: 'journal',
+		extra: [
+			// 主控在 Gate 后改的就是这个 frontmatter 状态位（属主 pm）—— 恒红推理的源头
+			{ path: 'docs/process/prd/FEAT-01.md', content: '---\nid: FEAT-01\nstatus: draft\nprdVersion: 1\n---\n' },
+			{ path: 'docs/process/prd/FEAT-01-design.md', content: '# 设计与说明\n' },
+			// prdVersion 与 PRD 保持一致：本轮只验 ⑫ 的边界，别让 ⑥ 先红了
+			{ path: 'docs/process/rules/FEAT-01.yaml', content: 'prdVersion: 1\ncases: []\n' },
+		],
+	});
+	const { status, out } = runGate(root, 'check-rules.mjs', ['--id', 'FEAT-01']);
+	assert.equal(status, 0, `流程目录下的产物不得判红（否则 ⑫ 恒红）\n${out}`);
+	assert.doesNotMatch(out, /❌ ⑫/, `流程目录整棵树都在判定边界之外\n${out}`);
+	assert.doesNotMatch(out, /⑫ 跳过/, `这是"这一条不判"，不是整轮跳过\n${out}`);
+	console.log('✓ 8l ⑫ 边界：流程目录下的普通产物（PRD/设计稿/规则表）⇒ 不红、不跳过（不会恒红）');
+}
+
 await Promise.all(temps.map((d) => rm(d, { recursive: true, force: true })));
 console.log('\nscripts.test.mjs 全部通过');

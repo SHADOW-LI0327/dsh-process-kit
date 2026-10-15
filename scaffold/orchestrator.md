@@ -33,7 +33,7 @@
 | 条件 | 动作 | 停点 |
 | --- | --- | --- |
 | 有 `input/` 原料但无需求核对件，或核对件 `gate0=pending` | **主控起草** `input/<ID>-需求核对件.md`（人的裁定逐条复述 `R-NN` / 端覆盖与落点 / 需求理解 / 待确认项 `Q-N` / 明确不做 / 风险） | 停下等 **Gate0** |
-| 仅有核对件且经裁定为**快速路径**（核对件 `flow: fast`，不建 PRD） | 不派 pm、不产生 Gate1/Gate2；直接派 dev + 存量回归，结论记 journal。触及 schema / RBAC / 金额 / 对外接口 ⇒ 退回全流程 | 无（触安全红线另计） |
+| 核对件 `gate0=approved` 且 `flow=fast`（人已在 Gate0 定档，不建 PRD） | 不派 pm、不产生 Gate1/Gate2；直接派 dev + 存量回归，结论记 journal。触及 schema / RBAC / 金额 / 对外接口 ⇒ 退回全流程（回核对件改 `flow: full`，重走 Gate0 之后的环节） | 无（仅 Gate0；触安全红线另计） |
 | `gate0=approved` 且 `status=draft` 且 `gate1=pending` | 调 **pm** 产出 PRD + 契约 + 设计与说明（设计与说明必须逐条对齐 `R-NN`）；**若核对件 `uiDesign: required`**，再调 **ui-designer** 产出**原型图**（`prototypes/<ID>/`，含分层源与几何证据）与 UI 规格 `prd/<ID>-ui-spec.md`（只翻译不发明；每条须可观察；视觉数值须给字面值） | 停下等 **Gate1** |
 | `gate1=approved` 且 `status=frozen` 且 `gate2=pending` | 调 **test** 生成 P0 测试并出红灯归因（盘点 N 绿 / M 红） | 停下等 **Gate2** |
 | `gate2=approved` 且 `status=red` | 调 **dev** 实现到绿 → 改 `status=implementing` | — |
@@ -104,7 +104,8 @@
    - 触及数据层（schema 变更）：`📎` 加「列变更 / 补偿 SQL / 回滚」，`❓` 写「是否同意该 schema 变更」。
    - 共享账号 / 数据库被改动：**摘要第一行 ⚠ 置顶**（改了什么 / 原值 / 恢复方案）——这是唯一允许出现在两段之外的行。
    - 收口说明（包 `done` / 终止）：**固定三样** —— `改了什么`（diff 摘要）· `怎么跑`（≤3 行）· `试什么`（3~5 条）。
-8. **停下等 approve**，不得自行 approve；人签后**先改 frontmatter 状态位，再记 journal**，然后照 §2 推进。
+   - **所有 Gate 共用**：把 `gate_summary` 生成的「**🔒 本轮门禁证据**」段照抄进摘要（本 Gate 跑过的门禁命令 + **真实退出码**，取自 journal 的 `action:"run"` 记录）；**查不到记录就写「未记录」** —— 「跑过了」这句话本身不是证据。若该段标出批准是 `🤖AI托管` 或 `⚠无留痕`，必须在 `❓` 里如实交代，不得含糊过去。
+8. **停下等 approve**，不得自行 approve；人签后**先改 frontmatter 状态位，再记 journal**（`action:"approve"` + `gate` + `via:"human"`，见总纲 §7 第 9 条），然后照 §2 推进。**AI 托管的批准只许出现在验收 / 回归装置里**（端到端跑通场景），且必须记 `via:"ai-hosted"` —— 它会在状态里显示成 `🤖AI托管`，**不得冒充人签**。
 
 ---
 

@@ -5,6 +5,7 @@
  * 用法：node test/host.test.mjs
  */
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -66,6 +67,25 @@ await writeFile(
 await writeFile(
 	join(dir, 'bugs', 'BUG-9-01.md'),
 	`---\nid: BUG-9-01\nprd: null\nstatus: open\nrelatedCase: null\nkind: bugfix\npath: 快速路径\n---\n\n# 快速路径 bug\n`,
+	'utf8',
+);
+
+// 回归夹具：**同 ID 的从件不得遮蔽主件**。真实仓库踩过：`<ID>-design.md`（confirmed / gate2 pending）
+// 顶掉了 `<ID>.md`（done / gate2 approved）。夹具里从件在字典序上排在主件之前，且不依赖 readdir 顺序。
+await writeFile(
+	join(dir, 'prd', 'FEAT-301.md'),
+	`---\nid: FEAT-301\nstatus: done\ngate1: approved\ngate2: approved\ngate4: approved\nprdVersion: 3\n---\n\n# PRD\n`,
+	'utf8',
+);
+await writeFile(
+	join(dir, 'prd', 'FEAT-301-design.md'),
+	`---\nid: FEAT-301\nkind: design\nprd: docs/process/prd/FEAT-301.md\nstatus: confirmed\ngate1: pending\ngate2: pending\ngate4: pending\n---\n\n# 设计与说明（从件）\n`,
+	'utf8',
+);
+// 主件缺失：只有从件可用 ⇒ 退回从件**并如实告警**（不静默顶替）
+await writeFile(
+	join(dir, 'prd', 'FEAT-302-ui-spec.md'),
+	`---\nid: FEAT-302\nkind: ui-spec\nstatus: draft\ngate1: pending\ngate2: pending\ngate4: pending\n---\n\n# UI 规格（无主件）\n`,
 	'utf8',
 );
 
@@ -145,7 +165,7 @@ assert.match(renderedNotFound, /未找到流程目录/);
 
 const snapshot = await byName.process_status.execute({}, { ...exec, agent: { session: { header: { cwd: root } } } });
 assert.equal(snapshot.found, true);
-assert.equal(snapshot.packages.length, 7);
+assert.equal(snapshot.packages.length, 9);
 
 const pkg101 = snapshot.packages.find((p) => p.id === 'FEAT-101');
 assert.equal(pkg101.status, 'red');
@@ -154,6 +174,19 @@ assert.equal(pkg101.gates.gate2, 'approved');
 assert.equal(pkg101.prdVersion, '2');
 assert.deepEqual(pkg101.openBugs, ['FEAT-101-01']);
 assert.equal(pkg101.next.short, '调 dev 实现');
+
+// 同 ID 从件不得遮蔽主件：主件 done / gate2+gate4 approved 必须胜出
+const pkg301 = snapshot.packages.find((p) => p.id === 'FEAT-301');
+assert.equal(pkg301.status, 'done', 'design 件不得顶替主件的 status');
+assert.equal(pkg301.gates.gate2, 'approved', 'design 件的 gate2=pending 不得顶替主件');
+assert.equal(pkg301.gates.gate4, 'approved');
+assert.equal(pkg301.prdVersion, '3');
+assert.match(pkg301.prd.file, /FEAT-301\.md$/, '应读主件 prd/FEAT-301.md');
+
+// 主件缺失时才退回从件，且必须告警（不静默）
+const pkg302 = snapshot.packages.find((p) => p.id === 'FEAT-302');
+assert.match(pkg302.prd.file, /FEAT-302-ui-spec\.md$/);
+assert.ok(snapshot.warnings.some((w) => w.includes('FEAT-302') && w.includes('找不到主件')), '主件缺失必须告警');
 
 const pkg102 = snapshot.packages.find((p) => p.id === 'FEAT-102');
 assert.equal(pkg102.next.gate, 'Gate1');
@@ -229,7 +262,7 @@ await assert.rejects(
 
 const journalExec = { ...exec, agent: { session: { header: { cwd: root } } } };
 const appended = await byName.process_journal.execute(
-	{ id: 'FEAT-101', actor: 'subagent:Test-Agent', step: 'test', action: 'run', note: '复跑全绿' },
+	{ id: 'FEAT-101', actor: 'subagent:Test-Agent', step: 'test', action: 'run', gate: 'gate2', command: 'npm test', exitCode: 0, note: '复跑全绿' },
 	journalExec,
 );
 assert.equal(appended.linesAfter, 1);
@@ -237,12 +270,30 @@ const line = JSON.parse(await readFile(join(dir, 'prd', 'FEAT-101.journal.jsonl'
 assert.equal(line.actor, 'subagent:Test-Agent');
 assert.equal(line.id, 'FEAT-101');
 assert.equal(line.step, 'test');
+assert.equal(line.gate, 'gate2', '门禁执行记录要标 Gate');
+assert.equal(line.exitCode, 0, 'run 记录必须带真实退出码');
 assert.ok(!Number.isNaN(Date.parse(line.at)), 'at 是机器时间');
+
+// 门禁执行记录必须自带命令与退出码：没有退出码的「跑过了」正是总纲禁止的掩盖
+await assert.rejects(
+	() => byName.process_journal.execute({ id: 'FEAT-101', actor: 'x', action: 'run', command: 'npm test' }, journalExec),
+	/必须带 exitCode/,
+);
+await assert.rejects(
+	() => byName.process_journal.execute({ id: 'FEAT-101', actor: 'x', action: 'run', exitCode: 0 }, journalExec),
+	/必须带 command/,
+);
+// via 只在 approve 时有意义
+await assert.rejects(
+	() => byName.process_journal.execute({ id: 'FEAT-101', actor: 'x', action: 'write', via: 'human' }, journalExec),
+	/只在 action=approve/,
+);
 
 // meta 指纹与仓库脚本同格式
 const meta = JSON.parse(await readFile(join(dir, 'prd', 'FEAT-101.journal.jsonl.meta.json'), 'utf8'));
 assert.equal(meta.lines, 1);
 assert.match(meta.lastHash, /^[0-9a-f]{16}$/);
+assert.match(meta.chainHash, /^[0-9a-f]{16}$/, 'meta 应带链式指纹（能盖住中间行被改）');
 
 // 追加第二条 → 指纹链衔接
 const second = await byName.process_journal.execute({ id: 'FEAT-101', actor: 'orchestrator', step: 'dispatch' }, journalExec);
@@ -257,6 +308,84 @@ await assert.rejects(() => byName.process_journal.execute({ id: '../evil', actor
 // 快照里 journal 尾部可见
 const snapshot2 = await byName.process_status.execute({}, journalExec);
 assert.equal(snapshot2.packages.find((p) => p.id === 'FEAT-101').journal.lines, 2);
+
+// ---- ② journal 完整性：读取侧必须把「篡改 / 截断 / 无从校验」与正常区分开 ----
+
+const jpath = join(dir, 'prd', 'FEAT-101.journal.jsonl');
+const metaPath = `${jpath}.meta.json`;
+const clean = await readFile(jpath, 'utf8');
+const cleanMeta = await readFile(metaPath, 'utf8');
+const hash16 = (s) => createHash('sha256').update(s).digest('hex').slice(0, 16);
+const chainOf = (arr) => arr.reduce((acc, l) => hash16(`${acc}${l}`), '');
+
+// 正常：链式指纹一致
+let snap = await byName.process_status.execute({}, journalExec);
+assert.equal(snap.packages.find((p) => p.id === 'FEAT-101').journal.integrity.state, 'verified');
+assert.match(byName.process_status.output.render({}, snap)[0].text, /✓ journal 完整性：链式指纹一致（2 行）/);
+
+// 改中间行（末行不动）：只存末行哈希是查不出来的，链式指纹必须报红
+const rows = clean.trim().split('\n');
+const forged = JSON.parse(rows[0]);
+forged.actor = 'subagent:Forged-Agent';
+rows[0] = JSON.stringify(forged);
+await writeFile(jpath, `${rows.join('\n')}\n`, 'utf8');
+snap = await byName.process_status.execute({}, journalExec);
+assert.equal(snap.packages.find((p) => p.id === 'FEAT-101').journal.integrity.state, 'tampered');
+assert.match(byName.process_status.output.render({}, snap)[0].text, /🚨 journal 完整性：\*\*篡改嫌疑\*\*/);
+assert.match(byName.process_status.output.render({}, snap)[0].text, /链式指纹不符/);
+
+// 截断（删掉末条）：行数不符
+await writeFile(jpath, `${rows[0]}\n`, 'utf8');
+snap = await byName.process_status.execute({}, journalExec);
+const truncated = snap.packages.find((p) => p.id === 'FEAT-101').journal;
+assert.equal(truncated.integrity.state, 'tampered');
+assert.match(truncated.integrity.reason, /行数不符/);
+
+// 无 meta ⇒ 「未校验」，不得当绿
+await rm(metaPath);
+snap = await byName.process_status.execute({}, journalExec);
+assert.equal(snap.packages.find((p) => p.id === 'FEAT-101').journal.integrity.state, 'unverified');
+assert.match(byName.process_status.output.render({}, snap)[0].text, /journal 完整性：\*\*未校验\*\*/);
+
+// 旧格式 meta（只有行数 + 末行）⇒ legacy：如实说「中间行不可验」，也不当绿
+await writeFile(jpath, clean, 'utf8');
+const cleanRows = clean.trim().split('\n');
+await writeFile(
+	metaPath,
+	`${JSON.stringify({ lines: cleanRows.length, lastHash: hash16(cleanRows[cleanRows.length - 1]) }, null, 2)}\n`,
+	'utf8',
+);
+snap = await byName.process_status.execute({}, journalExec);
+assert.equal(snap.packages.find((p) => p.id === 'FEAT-101').journal.integrity.state, 'legacy');
+
+// 测试自带的链式算法必须与 lib 一致（否则上面的断言会假绿）
+assert.equal(chainOf(cleanRows), JSON.parse(cleanMeta).chainHash, '测试侧链式算法应与 lib 一致');
+// 还原干净状态（后面的用例依赖它）
+await writeFile(metaPath, cleanMeta, 'utf8');
+assert.equal(
+	(await byName.process_status.execute({}, journalExec)).packages.find((p) => p.id === 'FEAT-101').journal.integrity.state,
+	'verified',
+);
+
+// ---- ① 本轮门禁证据：Gate 摘要里必须能看出「跑没跑、退出码多少」 ---------------
+
+const s101 = await byName.gate_summary.execute({ id: 'FEAT-101' }, journalExec);
+assert.match(s101.skeleton, /🔒 本轮门禁证据/);
+assert.match(s101.skeleton, /npm test｜exit 0 ✓/, '门禁证据要带命令与真实退出码');
+
+// 有 journal 但没有任何门禁执行记录 ⇒ 明说未记录（没记录 ≠ 已覆盖）
+await byName.process_journal.execute({ id: 'FEAT-102', actor: 'orchestrator', step: 'dispatch', note: '本轮没跑门禁' }, journalExec);
+const s102 = await byName.gate_summary.execute({ id: 'FEAT-102' }, journalExec);
+assert.match(s102.skeleton, /未记录：.*找不到任何门禁执行记录/);
+
+// AI 托管的批准必须留痕：状态里不得看起来像人签
+await byName.process_journal.execute(
+	{ id: 'FEAT-101', actor: 'subagent:uat-agent', action: 'approve', gate: 'gate2', via: 'ai-hosted' },
+	journalExec,
+);
+const aiText = byName.process_status.output.render({}, await byName.process_status.execute({}, journalExec))[0].text;
+assert.match(aiText, /gate2:approved🤖AI托管/, 'AI 托管的批准必须显式标记，不得伪装成人签');
+assert.match((await byName.gate_summary.execute({ id: 'FEAT-101' }, journalExec)).skeleton, /AI 托管.*不是人签/);
 
 // ---- 角色技能 provider（安装即得基础 subagent）------------------------
 
@@ -407,6 +536,35 @@ try {
 	await rm(join(packageRoot, 'scaffold', '.hidden-noise'), { force: true });
 	await rm(noiseTarget, { recursive: true, force: true });
 }
+
+// ---- 发布回归可见性：评审三件套「跑没跑」不得靠猜 --------------------
+// 三个评审角色只在发布回归跑（触发权在人手上）⇒ 有包 done 时必须如实报
+// 「reports/release/** 有没有报告」；否则「未跑」会被读成「已覆盖」。
+
+const relRoot = await mkdtemp(join(tmpdir(), 'process-kit-release-'));
+const relDir = join(relRoot, 'docs/process');
+for (const sub of ['input', 'prd', 'bugs', 'reports/release']) await mkdir(join(relDir, sub), { recursive: true });
+await writeFile(
+	join(relDir, 'prd', 'FEAT-301.md'),
+	`---\nid: FEAT-301\nstatus: done\ngate1: approved\ngate2: approved\ngate4: approved\nprdVersion: 1\n---\n\n# PRD\n`,
+	'utf8',
+);
+const relExec = { ...exec, agent: { session: { header: { cwd: relRoot } } } };
+
+const noReport = await byName.process_status.execute({}, relExec);
+assert.equal(noReport.releasePending, true);
+assert.deepEqual(noReport.releaseReports, [], '无报告时必须报空，不得省略这一项');
+const renderedNoReport = byName.process_status.output.render({}, noReport)[0].text;
+assert.match(renderedNoReport, /尚未执行/, '无发布回归报告时必须点名评审三件套未执行');
+
+// 反向对照：放一份发布回归报告 ⇒ 同一判据必须翻面
+await writeFile(join(relDir, 'reports/release/2026-10-15.md'), '# 发布回归\n', 'utf8');
+const withReport = await byName.process_status.execute({}, relExec);
+assert.deepEqual(withReport.releaseReports, ['2026-10-15.md']);
+const renderedWithReport = byName.process_status.output.render({}, withReport)[0].text;
+assert.match(renderedWithReport, /已有 1 份发布回归报告/);
+assert.doesNotMatch(renderedWithReport, /尚未执行/, '有报告时不得再报「尚未执行」');
+await rm(relRoot, { recursive: true, force: true });
 
 // ---- 清理 ------------------------------------------------------------
 

@@ -36,14 +36,16 @@
 
 | 脚本 | 作用 |
 |---|---|
-| `journal-append.mjs` | 安全追加 journal（锁 + 指纹校验 + 原子替换） |
+| `journal-append.mjs` | 安全追加 journal（锁 + 指纹校验 + 原子替换 + **链式指纹 `chainHash`**：能发现任意一行被改 / 删行 / 换行，不只是末行） |
 | `check-artifact-paths.mjs` | 校验产物是否落在 §3 允许的路径内 |
-| `check-rules.mjs` | 校验流程规则（Gate、状态位、属主表） |
+| `check-rules.mjs` | 校验流程规则（Gate、状态位、属主表、台账 ↔ 测试互引）；含**越界事后判定**（角色边界，fail-open） |
 | `check-ui-geometry.mjs` | 校验 UI 原型的**客观可判**部分：几何溯源 / 溢出 / 重叠 / 过挤 / 居中 / 边距 / 网格 / 文字对比度 / 深验证 / 项目令牌一致性 |
 | `sync-prd-version.mjs` | 同步 PRD 版本号 |
 | `project-config.mjs` | 上面几个脚本共用的 PROJECT.md 解析件 |
 
-> **脚本是项目自带副本，不随插件升级自动更新。** 插件修了门禁逻辑之后，需要把这些脚本与 `docs/process/tools/README.md` 重新同步过去。
+> **脚本是项目自带副本，不随插件升级自动更新。** 插件修了门禁逻辑之后，要跑一次 `process_init(upgrade: true)` 把这些脚本与 `docs/process/tools/README.md` 同步过去。
+>
+> **升级到带链式指纹的版本时**：旧副本写出的 `.meta.json` 没有 `chainHash`，读取侧会如实报「⚠ 旧格式：只验了行数与末行」——**不会误报篡改**，跑一次 `process_init(upgrade: true)` 之后新写入的记录即带链式指纹。
 
 ## 上下文是怎么进入会话的
 

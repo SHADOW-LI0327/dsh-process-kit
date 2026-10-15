@@ -10,15 +10,26 @@
  *   ⑨ 每条 TC 必须显式声明可识别的 automation 类型
  *   ⑩ 台账头注释自述的计数必须与实际一致
  *   ⑪ 非自动化类型（cdp/manual 等）应声明 carrier 承载脚本且文件存在
+ *   ⑫ 越界事后判定：改动集里某文件的归属角色 ≠ 该包 journal 末条环节，且无 approve 覆盖
  *
  * 用法：
  *   node scripts/process/check-rules.mjs
+ *   node scripts/process/check-rules.mjs --id FEAT-001   # 指定需求包（⑫ 判越界用；不给则从改动集推断）
  *
  * 退出码：
  *   0 = 无 ❌（⚠ 不计入）；1 = 存在 ❌，或配置缺失（PROJECT.md 不存在）
  *
+ * ⚠️ 「脚本没法干活」与「干了活但这一条没判据」是两回事，退出码上必须分开：
+ *   - **脚本级前置条件**（找不到仓库根 / 无 docs/process/ / 无 PROJECT.md）⇒ **exit 1**，
+ *     此时 ①~⑫ 全部未判定。给 0 就是把空转报成绿（CI 会把「没查」当成「合格」）。
+ *   - **⑫ 判据级 fail-open**（下列情况只让 ⑫ 跳过：⚠ 明说 + 不计 ❌，①~⑪ 照跑）：
+ *     §3 属主表解析不到有效条目（未配置 / 全是 `<...>` 占位符）· git 不可用或取不到改动集 ·
+ *     定不了唯一的需求包 ID · journal 缺失 / 没有环节 / 环节名认不出 · 属主表里找不到该文件的类别。
+ *     来由：⑫ 是**判定不是拦截**，判不了时若判红，就是拿「没查」冒充「有问题」——
+ *     假红会把人指去改一个根本没问题的地方（比不判更糟）。
+ *
  * 配置依赖（docs/process/PROJECT.md）：
- *   - 必需：文件存在（缺失即报错退出 1）。
+ *   - 必需：文件存在（缺失即报错退出 1 —— 脚本级前置条件，见上）。
  *   - 可选：「## 4. 项目配置」小节，支持表格 `| 配置项 | 值 |` 或 `- 配置项：值`：
  *       测试扫描目录：`test`（默认 test）
  *       测试文件后缀：`.test.ts`、`.test.mjs`、`.test.js`
@@ -33,13 +44,48 @@
  *
  * 占位符纪律：§4 里含 `<` / `>` 的取值一律视为**未配置**，回落内置默认值 ——
  * 模板没被替换时，示例值绝不能变成真配置（那会把默认白名单/词表悄悄改窄）。
+ *
+ * ⑫ 越界事后判定（为什么需要它）：
+ *   角色边界是**提示词层面**的（角色管效率，交付质量由人在 Gate 上裁定），于是「越界改了不该改的
+ *   文件」在机器侧**一点痕迹都没有**，只有人碰巧翻 diff 才发现。⑫ 把**机械可判**的那部分
+ *   暴露出来，供人在 Gate 摘要的 ❓ 栏里裁定：
+ *     · 改动集（`git diff --name-only` + `git diff --name-only --cached`，`-z` 分隔）里某文件的
+ *       归属角色（据 PROJECT.md §3 产物属主表解析）与该包 journal 的末条环节不一致；
+ *     · 且 journal 里没有任何一条 `approve` 点名覆盖它（覆盖口径：`files` 精确 / 目录 / `*` 通配）。
+ *   ⑫a 是最优先、最确定的一条：**dev 环节的改动集里出现测试文件**（测试归 test 环节）——
+ *   「运动员不吹裁判的哨」在文件层面唯一能机械判定的形态。
+ *   **它是判定不是拦截**：只让越界可见，绝不阻断（人裁定后照旧放行）。
+ *   判不了就跳过（⚠ + 说明），绝不判红 —— 见上面那条 fail-open 约定。
+ *   **判定边界（只判流程目录之外）**：`docs/process/**` 整棵树**豁免**（PRD 状态位 / 设计稿 /
+ *   规则表 / 契约 / 总纲 / 调度手册 / PROJECT.md / journal 及其旁挂件 / tools / prototypes …），
+ *   只判 `docs/process/` 之外的交付物：源码、`<test-dir>/**`（⑫a 的主力）、`<e2e-dir>/**`、
+ *   `reports/**`、`scripts/**`（**含** `scripts/process/**`：它在流程目录之外，按本判据的边界照判；
+ *   若 §3 把它归 orchestrator，dev 环节动它会被判红 —— 那正是"谁在 dev 环节换了裁判的哨子"）。
+ *   为什么整棵树都豁免（"恒红"推理）：§3 示例把 `docs/process/prd/**` 归 pm，而流程要求主控
+ *   每次 Gate 后先改 `prd/<ID>.md` 的 frontmatter 状态位 ⇒ dev 环节的改动集几乎必然带着它，
+ *   属主 pm ≠ 环节 dev 又无 approve 点名 ⇒ **每包每次必红**。恒红项会被人练成习惯性忽略，
+ *   ⑫a 也跟着失效（违反总纲 §5 第 4 条「恒红的门禁项必须修掉或显式豁免」）⇒ 显式豁免。
+ *   ⚠️ **代价（明说）**：流程目录**内部**的越界（如 dev 直接改 PRD / 改规则表）⑫ **不判**，
+ *   那靠 Gate 上人看 diff。⑫ 不假装自己管得住那一层。
  */
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, join, relative, resolve, sep } from "node:path";
-import { configValue, escapeRe, parseList, readSection } from "./project-config.mjs";
+import {
+  configValue,
+  escapeRe,
+  globToRegExp,
+  isNumberedSection,
+  isPlaceholder,
+  parseList,
+  parseTable,
+  pathsInCell,
+  readSection,
+} from "./project-config.mjs";
 
 const PROJECT_REL = "docs/process/PROJECT.md";
+// 流程目录（与 findRepoRoot 向上找的 `docs/process` 同一个硬口径）：⑫ 的豁免边界。
+const PROCESS_DIR_REL = "docs/process";
 
 const errors = [];
 const oks = [];
@@ -60,10 +106,33 @@ function findRepoRoot(start) {
   }
 }
 
+/**
+ * 脚本级前置条件不满足 ⇒ **直接失败退出 1**（配置缺失，不放行、不假装查过）。
+ * 与 ⑫ 的**判据级** fail-open（判不了就 ⚠ 跳过）刻意分开：脚本整个没法干活时给 0，
+ * 就是把空转报成绿。
+ */
 function fail(msg) {
   process.stderr.write(`[check-rules] 失败：${msg}\n`);
   process.exit(1);
 }
+
+// ── 参数 ──
+function parseArgs(argv) {
+  const out = {};
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i];
+    if (!a.startsWith("--")) continue;
+    const key = a.slice(2);
+    const next = argv[i + 1];
+    if (next === undefined || next.startsWith("--")) out[key] = true;
+    else {
+      out[key] = next;
+      i += 1;
+    }
+  }
+  return out;
+}
+const args = parseArgs(process.argv.slice(2));
 
 const DEFAULTS = {
   scanDirs: ["test"],
@@ -106,6 +175,14 @@ if (!root) {
   fail(
     `从 ${process.cwd()} 向上找不到仓库根（既无 docs/process/ 也无 .git）。\n` +
       `  请在仓库内运行，或先创建 docs/process/ 目录。`,
+  );
+}
+// 脚本级前置条件：没有流程配置就一条判据都判不了 ⇒ 直接失败（不假装查过）。
+if (!existsSync(join(root, "docs", "process"))) {
+  fail(
+    `目标仓库没有 docs/process/（流程未初始化）：${root}\n` +
+      `  请先 process_init 落地流程骨架；缺失即无法判定，故直接拒绝。\n` +
+      `  退出码：1（配置缺失）`,
   );
 }
 const projectFile = join(root, PROJECT_REL);
@@ -513,6 +590,326 @@ for (const yf of yamlFiles) {
     if (parts.length > 0) ok(`⑩ ${id} 台账头注释自述计数与实际一致（${parts.join(" / ")}）`);
   } else {
     for (const [name, d, a] of bad) err(`⑩ ${id} 台账头注释自述「${name} ${d} 条」≠ 实际 ${a} 条`);
+  }
+}
+
+// ── ⑫ 越界事后判定（role boundary post-hoc check）的公共件 ──
+
+/**
+ * 角色 / 环节名归一：§3 属主表写 `dev`，journal 里却可能写 `subagent:dev-agent` 或 `role-dev`
+ * —— 不归一会把同一个人算成两个角色，⑫ 见谁咬谁（假红）。
+ */
+function roleKey(s) {
+  return String(s ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/^subagent:/, "")
+    .replace(/^role-/, "")
+    .replace(/-agent$/, "")
+    .replace(/[（(].*$/, "")
+    .trim();
+}
+
+/** 角色别名：技能名 `product-manager` 与 §3 里的 `pm` 是同一个人。 */
+const ROLE_ALIAS = { "product-manager": "pm" };
+
+/** 环节与归属角色是否算同一个：`review` 环节兼容 code-review / logic-review / security-review。 */
+function sameRole(a, b) {
+  const x = ROLE_ALIAS[a] ?? a;
+  const y = ROLE_ALIAS[b] ?? b;
+  if (!x || !y) return false;
+  if (x === y) return true;
+  if (x === "review") return y.endsWith("-review");
+  if (y === "review") return x.endsWith("-review");
+  return false;
+}
+
+/** 角色单元格 → 角色名列表（支持 `a · b`、反引号逐个列出）。 */
+function roleTokens(cell) {
+  const ticked = [...String(cell).matchAll(/`([^`]+)`/g)].map((m) => m[1]);
+  const raw = ticked.length > 0 ? ticked : String(cell).split(/[\s、,，;；·|]+/);
+  return [...new Set(raw.map(roleKey).filter(Boolean))];
+}
+
+/**
+ * §3 产物属主表 → [{ roles, globs }]。
+ * 占位符行 / 条目一律丢弃（含 `<` `>` = 模板没被替换 ⇒ **未配置**，绝不能变成生效规则）。
+ */
+function loadOwnerRows(text) {
+  const sec = readSection(
+    text,
+    (level, title) => level === 2 && (isNumberedSection(3, title) || title.includes("产物属主")),
+  );
+  if (!sec) return [];
+  const rows = parseTable(sec.body);
+  const header = rows.find((r) => r.some((c) => c.includes("可写路径")));
+  if (!header) return [];
+  const col = header.findIndex((c) => c.includes("可写路径"));
+  const out = [];
+  for (const row of rows) {
+    if (row === header || row.length <= col) continue;
+    const globs = pathsInCell(row[col] ?? "").filter((p) => !isPlaceholder(p));
+    if (globs.length === 0) continue;
+    const roles = roleTokens(row[0] ?? "");
+    if (roles.length === 0) continue;
+    out.push({ roles, globs });
+  }
+  return out;
+}
+
+/** ⑫ 的改动集：工作区未提交改动 + 已暂存改动；git 不可用 / 非仓库返回 null（调用方跳过）。 */
+function gitChangedPaths() {
+  const out = new Set();
+  for (const argv of [
+    ["diff", "--name-only", "-z"],
+    ["diff", "--name-only", "--cached", "-z"],
+  ]) {
+    let text;
+    try {
+      text = execFileSync("git", argv, {
+        cwd: root,
+        encoding: "utf8",
+        maxBuffer: 64 * 1024 * 1024,
+      });
+    } catch {
+      return null;
+    }
+    // **必须用 `-z`**：git 默认 core.quotePath=true 会把非 ASCII 路径按八进制转义加引号输出，
+    // 那串文本匹配不上任何属主通配 ⇒ 中文路径会被当成「无归属」或干脆漏判。
+    // `-z` 同时解决了含空格 / 换行的路径被拆成多条。
+    for (const p of text.split("\0")) if (p !== "") out.add(p);
+  }
+  // ⚠️ 已知边界：**未跟踪又未暂存**的新文件不在这两条命令的输出里（`git diff` 只管已跟踪文件）。
+  // 这不是遗漏：那一批由落点门禁 check-artifact-paths 负责；⑫ 只管「相对 HEAD 的改动」。
+  return [...out];
+}
+
+/** 该包的 journal（逐行 JSON.parse）；文件不存在返回 null。坏行不参与判定。 */
+function readJournalLines(id) {
+  const file = join(root, cfg.prdDir, `${id}.journal.jsonl`);
+  if (!existsSync(file)) return null;
+  const entries = [];
+  for (const line of readFileSync(file, "utf8").split("\n")) {
+    const t = line.trim();
+    if (t === "") continue;
+    try {
+      entries.push(JSON.parse(t));
+    } catch {
+      /* journal-append 有锁与指纹兜底；这里坏行只是不参与判定 */
+    }
+  }
+  return entries;
+}
+
+/** journal 的「当前环节」：末条带 step 的记录；全都没有 step 时回落末条 actor；都没有 ⇒ null。 */
+function lastStep(entries) {
+  for (let i = entries.length - 1; i >= 0; i -= 1) {
+    const s = typeof entries[i]?.step === "string" ? entries[i].step.trim() : "";
+    if (s !== "") return { label: s, key: roleKey(s) };
+  }
+  for (let i = entries.length - 1; i >= 0; i -= 1) {
+    const a = typeof entries[i]?.actor === "string" ? entries[i].actor.trim() : "";
+    if (a !== "") return { label: `${a}（无 step，按 actor 判）`, key: roleKey(a) };
+  }
+  return null;
+}
+
+/**
+ * journal 里是否有 approve 点名覆盖该文件。
+ * 口径（只取机械可判的那部分）：`action: approve`，且 `files` 里有条目精确 / 目录前缀 / `*` 通配命中。
+ * · **不看 actor**：谁批的（人 / 主控）由人在 Gate 上读 journal 裁定，机器只答「有没有被点名认领」。
+ * · **没有 files 的 approve 不算覆盖** —— 它没点名任何东西，覆盖范围无从判定（宁可不判）。
+ */
+function approveCovers(entries, file) {
+  return entries.some((e) => {
+    if (String(e?.action ?? "").trim().toLowerCase() !== "approve") return false;
+    const files = Array.isArray(e?.files) ? e.files : typeof e?.files === "string" ? [e.files] : [];
+    return files.some((f) => globToRegExp(String(f)).test(file));
+  });
+}
+
+/**
+ * ⑫ 的豁免判据：是不是**流程目录**（`docs/process/**`）下的改动。
+ *
+ * 【为什么整棵树都豁免（这是"恒红"推理，不是宽容）】
+ *   ① 模板 `scaffold/PROJECT.md` §3 属主表把 `docs/process/prd/**` 归 **pm**；
+ *   ② 流程本身要求主控**每次 Gate 与人签后先改 frontmatter 状态位**（`gate2: approved` /
+ *      `status: implementing` …），改的就是 `docs/process/prd/<ID>.md`；
+ *   ③ 于是 dev 环节的改动集里几乎必然带着 `docs/process/prd/<ID>.md`：属主 pm ≠ 环节 dev，
+ *      且主控**不会**给自己的状态位更新记一条 approve 去点名它 ⇒ 判红；
+ *   ④ 那不是"偶尔噪音"而是**每包每次必红**。恒红的门禁项会被人练成习惯性忽略，
+ *      ⑫a（dev 动测试）这条真正有价值的判据会跟着一起被忽略 —— 违反总纲 §5 第 4 条
+ *      「恒红的门禁项必须修掉或显式豁免」。故**显式豁免**流程目录整棵树。
+ *
+ * 口径：`docs/process/**` 一律豁免（PRD 状态位 / 设计稿 / 规则表 / 契约 / 总纲 / 调度手册 /
+ * PROJECT.md / journal 及其旁挂件 / tools / prototypes …）—— 流程目录是**流程自己的载体**，
+ * 不是交付物；谁在何时动它属于流程运转，不属于角色越界。原 journal 专项豁免被这一条吸收
+ * （8j 保留作回归：它现在是本豁免的真子集）。
+ *
+ * ⚠️ **本判据的边界与代价（明说，不含糊）**：流程目录**内部**的越界（例如 dev 直接改 PRD、
+ * 改规则表冒充别人）⑫ **不判** —— 那靠 Gate 上人看 diff。⑫ 只判流程目录**之外**的交付物。
+ *
+ * 实现注意：改动集来自 git（仓库根相对、`/` 分隔），但别被 `../` 或大小写绕过 ——
+ * 绝对路径 / 含 `..` 上跳一律**不豁免**（认不出来就不判，交给人看）；大小写按不敏感比
+ * （macOS/Windows 的 FS 大小写不敏感，真实目录可能写成 `Docs/Process/`；而"小写后落在
+ * `docs/process/` 下"的路径本来就在流程树里，放宽这一层放不走流程目录之外的交付物）。
+ */
+function isProcessBookkeeping(relPath) {
+  const p = String(relPath).replace(/\\/g, "/").replace(/^\.\//, "");
+  if (p === "" || p.startsWith("/") || /(^|\/)\.\.(\/|$)/.test(p)) return false;
+  return p.toLowerCase().startsWith(`${PROCESS_DIR_REL}/`);
+}
+
+/**
+ * 定需求包 ID：`--id` / `--pkg` 显式指定优先；否则从改动集推断（journal / 台账 / PRD 文件名，
+ * 以及改动过的测试文件头 `@prd`）。定不了**唯一**包 ⇒ 返回 error，调用方跳过 —— 不猜、不乱判。
+ */
+function candidatePackageIds(changed) {
+  const explicit = [args.id, args.pkg].find((v) => typeof v === "string" && v !== "");
+  if (explicit) return { id: explicit };
+  const found = new Set();
+  const prdRe = new RegExp(`^${escapeRe(cfg.prdDir)}/([^/]+?)(?:\\.journal\\.jsonl.*|\\.md)$`);
+  const rulesRe = new RegExp(`^${escapeRe(cfg.rulesDir)}/([^/]+?)\\.ya?ml$`);
+  for (const f of changed) {
+    for (const re of [prdRe, rulesRe]) {
+      const m = f.match(re);
+      // `_TEMPLATE.md` / `_DESIGN_TEMPLATE.md` 这类骨架文件不是需求包（scaffold 的命名约定）
+      if (m && !m[1].startsWith("_")) found.add(m[1].replace(/-(?:design|ui-spec)$/, ""));
+    }
+    // 测试文件头的 @prd：随批新增的用例是「改了测试」的主战场，文件名常常看不出包
+    const abs = join(root, f);
+    if (cfg.testSuffixes.some((s) => f.endsWith(s)) && existsSync(abs) && statSync(abs).isFile()) {
+      const m = readFileSync(abs, "utf8").match(/@prd\s+([\w-]+)/);
+      if (m) found.add(m[1]);
+    }
+  }
+  const list = [...found].filter(Boolean).sort();
+  if (list.length === 1) return { id: list[0] };
+  if (list.length === 0) {
+    return {
+      error:
+        "未指定需求包 ID（--id <ID>），且从改动集里推断不出包 —— 没有包就没有 journal，" +
+        "无法判定「当前环节」",
+    };
+  }
+  return { error: `改动集涉及多个需求包（${list.join(" / ")}），请用 --id <ID> 指定要判哪一个` };
+}
+
+// ── ⑫ 越界事后判定（role boundary post-hoc check）──
+//
+// 【为什么需要它】角色边界是**提示词层面**的（角色管效率，交付质量由人在 Gate 上裁定），
+// 于是「越界改了不该改的文件」在机器侧**一点痕迹都没有** —— 只有人碰巧翻 diff 才发现。
+// 本判据把**机械可判**的那部分暴露出来，供人在 Gate 摘要的 ❓ 栏里裁定：
+//   · 改动集里某文件的归属角色（据 §3 产物属主表解析）与该包 journal 的末条环节不一致；
+//   · 且 journal 里没有任何一条 `approve` 点名覆盖它。
+// ⑫a 是最优先、最确定的一条：**dev 环节的改动集里出现测试文件**（测试归 test 环节）——
+// 「运动员不吹裁判的哨」在文件层面唯一能机械判定的形态。
+//
+// 【这是判定不是拦截】它只让越界**可见**，绝不阻断：人裁定后照旧放行。
+//
+// 【fail-open（判据级）】判不了就跳过（⚠ + 说明），绝不判红：取不到改动集 / §3 未配置 /
+// 定不了唯一包 ID / journal 缺失或没有 step / 属主表里找不到该文件的类别。理由：假红会把人指去
+// 改一个根本没问题的地方，比不判更糟；「无法判定」与「查到越界」必须是两件事。
+// ⚠️ 这只是**判据级**的跳过：脚本级前置条件（无 docs/process / 无 PROJECT.md）仍旧 exit 1。
+//
+// 【豁免：判定边界 = 只判流程目录之外】`docs/process/**` 整棵树不参与判定（既不算越界，也不算
+// 「无法判定」）—— 它是**流程自己的载体**，不是交付物。原 journal 专项豁免被这一条吸收
+// （8j 保留作回归）。为什么整棵树（"恒红"推理）：§3 示例把 `docs/process/prd/**` 归 pm，
+// 流程又要求主控每次 Gate 后先改 `prd/<ID>.md` 的 frontmatter 状态位 ⇒ dev 环节的改动集几乎
+// 必然带着它，属主 pm ≠ 环节 dev 且无 approve 点名 ⇒ 每包每次必红；恒红项会被练成习惯性忽略，
+// ⑫a 跟着失效（违反总纲 §5 第 4 条）。详见 isProcessBookkeeping 的注释。
+// ⚠️ 代价（明说）：流程目录**内部**的越界（dev 直接改 PRD / 改规则表）⑫ **不判**，靠 Gate 上人看 diff。
+// 照判的是流程目录之外的一切：源码、`<test-dir>/**`（⑫a 主力）、`<e2e-dir>/**`、`reports/**`、
+// `scripts/**`（**含** `scripts/process/**`，它在流程目录之外）。
+// 注意：豁免是「这一条不判」，不是「整轮没跑」—— 改动集只含流程簿记文件时，⑫ 也不得打「跳过」。
+{
+  const changed = gitChangedPaths();
+  const ownerRows = loadOwnerRows(projectText);
+  if (changed === null) {
+    warn("⑫ 跳过：取不到 git 改动集（非 git 仓库，或 git 命令不可用）—— 无法判定越界");
+  } else if (changed.length === 0) {
+    warn("⑫ 跳过：改动集为空（工作区与暂存区都无改动）—— 没有可判的越界（这不等于「查过了」）");
+  } else if (ownerRows.length === 0) {
+    warn(
+      `⑫ 跳过：PROJECT.md §3 解析不到**有效**归属条目（未配置 / 全是 \`<...>\` 占位符 / ` +
+        `表头缺「可写路径」列）—— 无法判定 ${changed.length} 个改动文件归谁`,
+    );
+  } else {
+    const picked = candidatePackageIds(changed);
+    const journal = picked.error ? null : readJournalLines(picked.id);
+    const step = journal === null ? null : lastStep(journal);
+    if (picked.error) {
+      warn(`⑫ 跳过：${picked.error}`);
+    } else if (journal === null) {
+      warn(
+        `⑫ 跳过：找不到 ${cfg.prdDir}/${picked.id}.journal.jsonl —— 没有 journal 就没有「当前环节」可对`,
+      );
+    } else if (step === null) {
+      warn(
+        `⑫ 跳过：${cfg.prdDir}/${picked.id}.journal.jsonl 里没有任何带 step / actor 的记录 —— 判不了当前环节`,
+      );
+    } else if (step.key === "") {
+      // 环节名归一后为空（如 step 写成「（人）」这类纯标注）⇒ 拿空串去比会"见谁咬谁"，
+      // 全是假红。判不了就不判。
+      warn(`⑫ 跳过：journal 末条环节「${step.label}」归一后为空 —— 认不出是哪个角色/环节`);
+    } else {
+      const violations = [];
+      const noOwner = [];
+      let consistent = 0;
+      let covered = 0;
+      let exempt = 0;
+      for (const f of changed) {
+        // 流程目录（`docs/process/**`）整棵树先豁免掉 —— 它是流程自己的载体，不是交付物
+        // （"恒红"推理见 isProcessBookkeeping 的注释）。既不算越界、也不算「无法判定」；
+        // 这是「这一条不判」，不是「整轮没跑」—— 其余判据照判。
+        if (isProcessBookkeeping(f)) {
+          exempt += 1;
+          continue;
+        }
+        const hits = ownerRows.filter((r) => r.globs.some((g) => globToRegExp(g).test(f)));
+        // 属主表里找不到类别 ⇒ 不判（不猜）：它可能只是没登记进 §3，不等于越界。
+        if (hits.length === 0) {
+          noOwner.push(f);
+          continue;
+        }
+        const roles = [...new Set(hits.flatMap((r) => r.roles))];
+        if (roles.some((r) => sameRole(step.key, r))) {
+          consistent += 1;
+          continue;
+        }
+        if (approveCovers(journal, f)) {
+          covered += 1;
+          continue;
+        }
+        violations.push({ path: f, roles });
+      }
+      for (const f of noOwner) {
+        warn(`⑫ 无法判定 ${f} 的归属（§3 属主表里没有匹配的类别）—— 按 fail-open 不判`);
+      }
+      for (const v of violations) {
+        const isTest =
+          cfg.testSuffixes.some((s) => v.path.endsWith(s)) ||
+          cfg.scanDirs.some((d) => v.path.startsWith(`${d.replace(/\/+$/, "")}/`)) ||
+          v.roles.some((r) => r === "test" || r.startsWith("test-"));
+        if (isTest && sameRole(step.key, "dev")) {
+          err(
+            `⑫a ${v.path} 是测试文件（§3 归属 ${v.roles.join(" / ")}），但 ${picked.id} 的 journal ` +
+              `末条环节是「${step.label}」且无 approve 覆盖 —— dev 环节不得改测试` +
+              `（裁定后请在 journal 里 approve 并点名该文件）`,
+          );
+        } else {
+          err(
+            `⑫ ${v.path} 归属 ${v.roles.join(" / ")}，与 ${picked.id} 的 journal 末条环节「${step.label}」` +
+              `不一致，且无 approve 覆盖 —— 越界或环节记录缺失，请在 Gate 的 ❓ 栏裁定`,
+          );
+        }
+      }
+      ok(
+        `⑫ 越界事后判定（包 ${picked.id} / 环节 ${step.label}）：改动 ${changed.length} 个 · ` +
+          `流程簿记豁免 ${exempt} · 归属一致 ${consistent} · approve 覆盖 ${covered} · ` +
+          `越界 ${violations.length} · 无法判定 ${noOwner.length}`,
+      );
+    }
   }
 }
 

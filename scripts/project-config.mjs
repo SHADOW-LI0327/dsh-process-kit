@@ -3,6 +3,9 @@
  *
  * 供 check-artifact-paths / check-rules / check-uat-readiness / sync-prd-version 共用，
  * 让四者对「占位符」「代码块」「表格」的口径完全一致 —— 分成四份就一定会有一份漏改。
+ * §3「可写路径」列的解析（pathsInCell）与通配编译（globToRegExp）也在这里：前者把单元格切成
+ * 路径表、后者把通配编译成正则。落点放行与越界归属必须共用同一份实现 ——
+ * 分开写就会出现「同一个文件在两道门禁里有两个归属」。
  *
  * 两条硬口径（纵深防御，不靠模板自觉）：
  *   ① 含 `<` 或 `>` 的值一律视为**未配置**（回落默认值 / 走缺配置分支）——
@@ -123,4 +126,50 @@ export function parseTable(body) {
     rows.push(cells);
   }
   return rows;
+}
+
+/**
+ * 从一个单元格里抽出路径候选：优先反引号，其次按分隔符切分；占位符不返回。
+ * 供 §3 属主表的「可写路径」列共用（check-artifact-paths 用它算「能否写入」，
+ * check-rules 用它算「归谁」）—— 两处口径必须一致，否则同一个文件在两道门禁里会有两个归属。
+ */
+export function pathsInCell(cell) {
+  const out = [];
+  for (const m of cell.matchAll(/`([^`]+)`/g)) out.push(m[1].trim());
+  if (out.length === 0) {
+    for (const part of cell.split(/[、,，;；\s<>br]+/)) {
+      const v = part.replace(/[（(].*?[)）]/g, "").trim();
+      if (v) out.push(v);
+    }
+  }
+  return out.filter((v) => v && !["—", "-", "/", "无", "N/A"].includes(v));
+}
+
+/**
+ * 把路径通配（支持 `**`）编译为正则：`**` 跨目录、`*` 不跨。
+ * 与 pathsInCell 同属一回：一处解析路径、一处解析通配，分家就会出现「放行口径 ≠ 归属口径」。
+ */
+export function globToRegExp(glob) {
+  let g = glob.trim().replace(/^\.\//, "").replace(/^\/+/, "");
+  if (g.endsWith("/")) g += "**";
+  const hasWildcard = /[*?]/.test(g);
+  let re = "";
+  for (let i = 0; i < g.length; i += 1) {
+    const c = g[i];
+    if (c === "*") {
+      if (g[i + 1] === "*") {
+        i += 1;
+        if (g[i + 1] === "/") i += 1;
+        re += ".*"; // `**` 跨目录，可匹配空
+      } else {
+        re += "[^/]*";
+      }
+    } else if (c === "?") {
+      re += "[^/]";
+    } else {
+      re += c.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+    }
+  }
+  // 无通配的字面量同时视为目录前缀：`reports` 放行 `reports/子路径`
+  return new RegExp(hasWildcard ? `^${re}$` : `^${re}(?:/.*)?$`);
 }

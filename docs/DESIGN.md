@@ -21,15 +21,27 @@ dsh-process-kit/
 
 - 目标仓库的 `docs/process/**` 文件是**唯一真源**，插件不另存状态；
 - 插件只做「读 + 渲染 + 安全追加 journal + 只增不改地初始化」，**不代写流程产物**；
-- 不 import 任何 `@deepseek-ai/*` 运行时包，不引入插件 `Config`（profile 支持 `link:` 安装，被链接包自身的依赖不会被安装）。
+- 不 import 任何 `@deepseek-ai/*` 运行时包，不引入插件 `Config`（profile 支持 `link:` 安装，被链接包自身的依赖不会被安装）；
+- **角色边界不做代码强制**。8 个角色是提示词层面的 persona，**交付质量由 Gate 的人裁承担**，角色分工承担的是**效率**（各写各的、不互相返工）。不要为了「更硬」去加宿主中间件、权限矩阵或改 preset —— 理由见下节。
 
-## 三处必须同步
+## 为什么角色边界不做代码强制
+
+生态里已有插件用宿主中间件 / 权限矩阵强制角色写权（`dsh-crew` 的 `pm-write-guard`、`dsh-swarm` 的 `permissions.ts`、`dsh-expert-team` 的 `tools/post-execute` 拦截）。我们是**刻意不做**，三条理由：
+
+1. **角色没有运行时身份**。角色是 rank 600 广播的**技能**，宿主不知道「这个 subagent 是 dev-agent」。要强制就得先有身份传递 —— 要么改 agent preset（`dsh-crew` 就必须切 Crew preset 才能用），要么改派单方式走插件工具。两者都会毁掉「装上就有角色、任意工作区可用、与仓库是否初始化无关」这条核心承诺（与下面「按目录门禁」是同一类错误）。
+2. **仲裁者在人**。dev 动了测试，正确处置是让人在 Gate2 **知道并裁定**，不是让宿主拒绝这次写入。实时拦截会把「可裁定」变成「死锁」—— hotfix 确实要动测试、spike 确实要 PM 写代码，而 Gate 摘要的 ❓ 栏本来就是承载这类裁定的。
+3. **正面战场打不赢**。比实时强制，对手有中间件、权限矩阵和 preset 机制，我们没有也不该有。我们的位置在「阶段推进权由人签 + 状态入仓 + 防篡改 journal」。
+
+**如果要补，补的是「事后判定」而不是「实时拦截」**：把机械可判的越界（如 dev 环节的 diff 触及测试文件）交给已有门禁脚本 `scripts/process/check-rules.mjs` 在 Gate 时判、`exit 1` 并把该条塞进 Gate 摘要 ❓ 栏；**默认 fail-open**，未初始化 `docs/process`、快速路径、未配 §3 一律跳过；越界允许「人 approve 留痕」而不是禁止。**已实施（0.5.0）**：`check-rules.mjs` 判据 ⑫（含子条 ⑫a）就按这条路做 —— 判据级 fail-open、越界可经 journal 的 `approve` 留痕放行、脚本级前置条件仍如实退出 1。**判定边界硬性限定在 `docs/process/` 之外**：流程目录整棵树豁免，否则「主控每次 Gate 后改状态位」会把 ⑫ 变成恒红项（总纲 §5 第 4 条禁止恒红）。
+
+## 四处必须同步
 
 改动时如果只改一处，流程会自相矛盾：
 
 1. **状态机**：`lib/index.js` 的 `nextAction` 是通用版 `scaffold/orchestrator.md` 里状态→动作表的代码形态，改一处必须改另一处。
-2. **journal 语义**：`lib/index.js` 的 `journalAppend` 与 `scripts/journal-append.mjs` 必须保持锁、指纹、备份、自校验语义一致。
+2. **journal 语义**：`lib/index.js` 的 `journalAppend` / `journalChain` / `journalIntegrity` 与 `scripts/journal-append.mjs` 必须保持锁、指纹、备份、自校验语义一致；**链式指纹的式子必须逐字相同**（`chain_n = hash16(chain_{n-1} + line_n)`，`chain_0 = ""`）。两边算法一旦分叉，读取侧会把正常 journal 判成「篡改」，或反过来把篡改判成正常。`test/host.test.mjs` 里有一条「测试侧链式算法应与 lib 一致」的断言专门守这条。另加一份**故意独立**的实现：`docs/ACCEPTANCE.md` 里给「不装插件的人」复算用的那段核验脚本 —— 核验者不该被迫信任被核验方的代码，代价就是**它是同一个式子的第三份拷贝**，改公式时必须一并改（漏改的后果很刺眼：正常 journal 被判「篡改嫌疑」）。
 3. **角色与总纲**：`skills/**` 里引用的章节号必须真实存在于 `scaffold/README.md`。
+4. **journal 字段语义**：`lib/index.js` 的 `process_journal` 参数、总纲 §7 的字段清单、以及 `gate_summary` / `process_status` 的取值口径是**同一套契约**（`action:"run"` 必带 `command` + `exitCode`；`action:"approve"` 带 `gate` + `via`）。加字段或改语义时三处一起改，否则会出现「记了但没人读」或「读了但没人记」——后者更危险：摘要显示「未记录」，而人以为早就跑过。
 
 ## 技能广播机制
 
