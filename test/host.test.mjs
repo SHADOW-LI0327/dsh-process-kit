@@ -43,6 +43,17 @@ await writeFile(
 	`---\nid: raw-1\n---\n随便什么原料\n`,
 	'utf8',
 );
+// 未建包的调研件：幽灵行应提示「先汇合」；已建包（FEAT-301）的研究件则不得重复刷幽灵行
+await writeFile(
+	join(dir, 'input', 'FEAT-401-research-brief.md'),
+	`---\nid: FEAT-401\nkind: research-brief\nauthor: orchestrator\n---\n\n# 未建包的调研任务书\n`,
+	'utf8',
+);
+await writeFile(
+	join(dir, 'input', 'FEAT-401-prior-art.md'),
+	`---\nid: FEAT-401\nkind: prior-art\nauthor: pm\n---\n\n# 未建包的产品调研\n`,
+	'utf8',
+);
 await writeFile(
 	join(dir, 'input', '_CHECK_TEMPLATE.md'),
 	`---\nid: <ID>\nkind: requirement-check\n---\n模板必须被跳过\n`,
@@ -82,10 +93,37 @@ await writeFile(
 	`---\nid: FEAT-301\nkind: design\nprd: docs/process/prd/FEAT-301.md\nstatus: confirmed\ngate1: pending\ngate2: pending\ngate4: pending\n---\n\n# 设计与说明（从件）\n`,
 	'utf8',
 );
+// 借鉴调研 + 架构设计与取舍：都必须以产物路径出现在状态快照里（Gate0/Gate1 要看得见）
+await writeFile(
+	join(dir, 'input', 'FEAT-301-research-brief.md'),
+	`---\nid: FEAT-301\nkind: research-brief\nauthor: orchestrator\n---\n\n# 调研任务书\n`,
+	'utf8',
+);
+await writeFile(
+	join(dir, 'input', 'FEAT-301-prior-art.md'),
+	`---\nid: FEAT-301\nkind: prior-art\nauthor: pm\n---\n\n# 产品借鉴调研\n`,
+	'utf8',
+);
+await writeFile(
+	join(dir, 'input', 'FEAT-301-tech-scan.md'),
+	`---\nid: FEAT-301\nkind: tech-scan\nauthor: architect\n---\n\n# 技术约束扫描\n`,
+	'utf8',
+);
+await writeFile(
+	join(dir, 'prd', 'FEAT-301-arch.md'),
+	`---\nid: FEAT-301\nkind: arch\nprd: docs/process/prd/FEAT-301.md\nstatus: draft\nprdVersion: 3\n---\n\n# 架构设计与取舍\n`,
+	'utf8',
+);
 // 主件缺失：只有从件可用 ⇒ 退回从件**并如实告警**（不静默顶替）
 await writeFile(
 	join(dir, 'prd', 'FEAT-302-ui-spec.md'),
 	`---\nid: FEAT-302\nkind: ui-spec\nstatus: draft\ngate1: pending\ngate2: pending\ngate4: pending\n---\n\n# UI 规格（无主件）\n`,
+	'utf8',
+);
+// arch 件不是状态载体：无主件时不得单独成包（否则会造出「等 Gate1」的幽灵包）
+await writeFile(
+	join(dir, 'prd', 'FEAT-303-arch.md'),
+	`---\nid: FEAT-303\nkind: arch\nstatus: draft\n---\n\n# 架构设计与取舍（无主件）\n`,
 	'utf8',
 );
 
@@ -93,6 +131,12 @@ await writeFile(
 await writeFile(
 	join(dir, 'input', 'FEAT-201-需求核对件.md'),
 	`---\nid: FEAT-201\nkind: requirement-check\nstatus: confirmed\ngate0: approved\nflow: fast\n---\n\n# 快速路径\n`,
+	'utf8',
+);
+// 冲突夹具：fast 路径不做调研 ⇒ 存在调研件必须告警（不静默当没发生）
+await writeFile(
+	join(dir, 'input', 'FEAT-201-prior-art.md'),
+	`---\nid: FEAT-201\nkind: prior-art\nauthor: pm\n---\n\n# 不该出现的调研件\n`,
 	'utf8',
 );
 
@@ -182,11 +226,20 @@ assert.equal(pkg301.gates.gate2, 'approved', 'design 件的 gate2=pending 不得
 assert.equal(pkg301.gates.gate4, 'approved');
 assert.equal(pkg301.prdVersion, '3');
 assert.match(pkg301.prd.file, /FEAT-301\.md$/, '应读主件 prd/FEAT-301.md');
+assert.match(pkg301.artifacts.researchBrief, /FEAT-301-research-brief\.md$/, '调研任务书应出现在产物清单');
+assert.match(pkg301.artifacts.priorArt, /FEAT-301-prior-art\.md$/, 'pm 借鉴调研应出现在产物清单');
+assert.match(pkg301.artifacts.techScan, /FEAT-301-tech-scan\.md$/, 'architect 技术扫描应出现在产物清单');
+assert.match(pkg301.artifacts.arch, /FEAT-301-arch\.md$/, '架构设计与取舍应出现在产物清单');
 
 // 主件缺失时才退回从件，且必须告警（不静默）
 const pkg302 = snapshot.packages.find((p) => p.id === 'FEAT-302');
 assert.match(pkg302.prd.file, /FEAT-302-ui-spec\.md$/);
 assert.ok(snapshot.warnings.some((w) => w.includes('FEAT-302') && w.includes('找不到主件')), '主件缺失必须告警');
+assert.equal(snapshot.packages.find((p) => p.id === 'FEAT-303'), undefined, 'arch 件不得单独成包');
+assert.ok(
+	snapshot.warnings.some((w) => w.includes('FEAT-303') && w.includes('架构设计与取舍')),
+	'孤立的 arch 件必须告警，不得静默消失',
+);
 
 const pkg102 = snapshot.packages.find((p) => p.id === 'FEAT-102');
 assert.equal(pkg102.next.gate, 'Gate1');
@@ -196,6 +249,10 @@ assert.ok(snapshot.warnings.some((w) => w.includes('FEAT-102') && w.includes('fr
 const intake = snapshot.packages.find((p) => p.status === 'intake');
 assert.ok(intake, 'input 原料行');
 assert.equal(intake.next.gate, 'Gate0');
+assert.equal(intake.next.short, '继续/汇合调研', '存在未建包研究件时必须提示先汇合，而不是直接起草核对件');
+assert.match(intake.next.action, /汇合/, '研究件存在时必须提示汇合');
+assert.ok(intake.rawInputs.some((f) => f.includes('FEAT-401')), '未建包的研究件应出现在幽灵行');
+assert.ok(!intake.rawInputs.some((f) => f.includes('FEAT-301')), '已建包的研究件不得重复刷幽灵行');
 
 // 快速路径：无 PRD、gate0 已签 ⇒ 不得建议「调 pm 停等 Gate1」
 const fast = snapshot.packages.find((p) => p.id === 'FEAT-201');
@@ -203,12 +260,18 @@ assert.equal(fast.flow, 'fast');
 assert.equal(fast.next.gate, null, '快速路径不得有 Gate1/Gate2 停点');
 assert.equal(fast.next.short, '快速路径：直派 dev');
 assert.match(fast.next.action, /退回全流程/, '必须写明越级退回条件');
+assert.match(fast.next.action, /不做调研/, '快速路径必须写明不做调研');
+assert.ok(
+	snapshot.warnings.some((w) => w.includes('FEAT-201') && w.includes('借鉴调研')),
+	'fast 路径出现调研件必须告警（fast 不做调研）',
+);
 
 // 对照组：全流程核对件仍应走 pm 出 PRD，不被快速路径分支误伤
 const full = snapshot.packages.find((p) => p.id === 'FEAT-202');
 assert.equal(full.flow, 'full');
 assert.equal(full.next.gate, 'Gate1', '全流程核对件必须停等 Gate1');
 assert.equal(full.next.short, '调 pm');
+assert.match(full.next.action, /architect/, 'Gate1 前必须提示有架构影响时派 architect');
 
 // uiDesign 默认 not-needed：不得凭空建议派 ui-designer
 assert.equal(full.uiDesign, 'not-needed', '未声明 uiDesign 应默认 not-needed');
@@ -447,7 +510,7 @@ const provider = registered.providers[0];
 // 默认**无条件**广播：与本工作区是否已有 docs/process 无关。
 // （按目录门禁会产生「清空目录 → 角色消失 → 初始化也回不来」的缓存陷阱，实测确认。）
 const notARepo = await mkdtemp(join(tmpdir(), 'process-kit-norepo-'));
-assert.equal((await provider.list({ cwd: notARepo })).length, 8, '默认应在任何工作区广播 8 个角色');
+assert.equal((await provider.list({ cwd: notARepo })).length, 9, '默认应在任何工作区广播 9 个角色');
 
 // 需要安静时用环境变量关掉
 process.env.PROCESS_KIT_SKILLS = 'off';
@@ -457,11 +520,11 @@ try {
 	delete process.env.PROCESS_KIT_SKILLS;
 }
 
-// cwd 是流程仓 ⇒ 同样广播 8 个打包角色
+// cwd 是流程仓 ⇒ 同样广播 9 个打包角色
 const candidates = await provider.list({ cwd: root });
 assert.deepEqual(
 	candidates.map((c) => c.name).sort(),
-	['code-review-agent', 'dev-agent', 'logic-review-agent', 'product-manager', 'security-review-agent', 'test-agent', 'uat-agent', 'ui-designer'],
+	['architect', 'code-review-agent', 'dev-agent', 'logic-review-agent', 'product-manager', 'security-review-agent', 'test-agent', 'uat-agent', 'ui-designer'],
 );
 for (const candidate of candidates) {
 	assert.equal(candidate.rank, 600, '打包技能必须是 bundled 档（低于项目 .dsh/skills）');

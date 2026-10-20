@@ -29,7 +29,7 @@
 
 > ⚠ **`gate*: approved` 不等于「人签过」**。它只说明状态位写成了 approved，**批准来源在 journal 里**。要区分人签与 AI 代签（验收装置），必须读契约 2 的 `via`。
 
-> **同一个 ID 可能有多个文件**：主件 `prd/<ID>.md`，以及从件 `<ID>-design.md` / `<ID>-ui-spec.md` / 清单件等 —— **从件的 frontmatter 也带 `id`**。**契约：状态位一律以 `prd/<ID>.md` 为准**，从件不参与取值；只有主件缺失时才退回从件，且 `process_status` 会告警「找不到主件」。
+> **同一个 ID 可能有多个文件**：主件 `prd/<ID>.md`，以及从件 `<ID>-design.md` / `<ID>-ui-spec.md` / **`<ID>-arch.md`** / 清单件等 —— **从件的 frontmatter 也带 `id`**。**契约：状态位一律以 `prd/<ID>.md` 为准**，从件不参与取值；只有主件缺失时才退回从件，且 `process_status` 会告警「找不到主件」。**`<ID>-arch.md` 例外：它不是状态载体**，只作为主件包的 `artifacts.arch` 出现；没有同 ID 主件时**不单独成包**，只告警「找不到主件」。**`-arch` 后缀保留给架构设计与取舍**：需求包 ID 不要以 `-arch` 结尾（否则主件会被当成从件，`check-rules` 的包 ID 归一也会把它并到上一级）。
 >
 > 机器消费方请按同一规则取主件，**不要按目录序取第一个**：`readdir` 的返回顺序未定义，而 `<ID>-` 在字典序上排在 `<ID>.` 之前 —— 取错就会把 `status=done` / `gate2=approved` 的包读成从件的 `confirmed` / `pending`。
 
@@ -42,7 +42,7 @@
 | `at` | ✅ | ISO8601 **机器时间**（工具自动填，不是模型自述时间） |
 | `actor` | ✅ | 谁做的，如 `orchestrator` / `subagent:test-agent` |
 | `id` | ✅ | 包 ID |
-| `step` | | 环节：`pm` / `test` / `dev` / `uat` / `review` / `archives` … |
+| `step` | | 环节：`pm` / `architect` / `test` / `dev` / `uat` / `review` / `archives` … |
 | `action` | | `write` / `run` / `approve` / … |
 | `phase` | | 阶段（用于复算阶段耗时 / 返工次数） |
 | `files` | | 涉及文件数组 |

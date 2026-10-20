@@ -774,7 +774,7 @@ function candidatePackageIds(changed) {
     for (const re of [prdRe, rulesRe]) {
       const m = f.match(re);
       // `_TEMPLATE.md` / `_DESIGN_TEMPLATE.md` 这类骨架文件不是需求包（scaffold 的命名约定）
-      if (m && !m[1].startsWith("_")) found.add(m[1].replace(/-(?:design|ui-spec)$/, ""));
+      if (m && !m[1].startsWith("_")) found.add(m[1].replace(/-(?:design|arch|ui-spec)$/, ""));
     }
     // 测试文件头的 @prd：随批新增的用例是「改了测试」的主战场，文件名常常看不出包
     const abs = join(root, f);

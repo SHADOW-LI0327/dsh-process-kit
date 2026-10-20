@@ -783,13 +783,13 @@ const stubEnv = (f) => ({
 // ── 6s. 每个角色技能都必须出现在常驻指针 AGENTS 模板的清单里 ─────────────────
 //
 // 「加了一个角色，但忘了把它写进派单说明」是个很容易犯、又很难发现的错：
-// 插件管理器里能看到 8 个角色，主控却永远想不到派第 8 个。这条把它钉住。
+// 插件管理器里能看到 9 个角色，主控却永远想不到派第 9 个。这条把它钉住。
 
 {
 	const skills = (await readdir(join(PKG, 'skills'), { withFileTypes: true }))
 		.filter((d) => d.isDirectory())
 		.map((d) => d.name);
-	assert.ok(skills.length >= 8, `应至少有 8 个角色技能，实际 ${skills.length}`);
+	assert.ok(skills.length >= 9, `应至少有 9 个角色技能，实际 ${skills.length}`);
 	const pointer = await readFile(join(PKG, 'lib/index.js'), 'utf8');
 	// ⚠️ **必须锚定「角色清单那一行」**，不能拿整份文件 `includes()`：
 	// 角色名在 lib/index.js 里还出现在别处（如 nextAction 的 gate0 文案），
@@ -1303,7 +1303,7 @@ const DEV_WRITE = {
 
 {
 	// 8l. **不会恒红**（这条才是本轮改边界的理由）：dev 环节的改动集里带上流程目录下的普通产物
-	//     —— PRD（主控改状态位）、设计稿、规则表 —— 必须 **status 0、无 ❌ ⑫、且不显示「⑫ 跳过」**。
+	//     —— PRD（主控改状态位）、设计稿、架构件、规则表 —— 必须 **status 0、无 ❌ ⑫、且不显示「⑫ 跳过」**。
 	//     若哪天又按属主表去判流程目录，这条会立刻红：⑫ 会退回"每包每次必红"，人也就不再看了。
 	const root = await makeBoundaryFixture({
 		journal: [DEV_WRITE],
@@ -1312,6 +1312,7 @@ const DEV_WRITE = {
 			// 主控在 Gate 后改的就是这个 frontmatter 状态位（属主 pm）—— 恒红推理的源头
 			{ path: 'docs/process/prd/FEAT-01.md', content: '---\nid: FEAT-01\nstatus: draft\nprdVersion: 1\n---\n' },
 			{ path: 'docs/process/prd/FEAT-01-design.md', content: '# 设计与说明\n' },
+			{ path: 'docs/process/prd/FEAT-01-arch.md', content: '---\nid: FEAT-01\nkind: arch\nprdVersion: 1\n---\n# 架构设计与取舍\n' },
 			// prdVersion 与 PRD 保持一致：本轮只验 ⑫ 的边界，别让 ⑥ 先红了
 			{ path: 'docs/process/rules/FEAT-01.yaml', content: 'prdVersion: 1\ncases: []\n' },
 		],
@@ -1320,7 +1321,7 @@ const DEV_WRITE = {
 	assert.equal(status, 0, `流程目录下的产物不得判红（否则 ⑫ 恒红）\n${out}`);
 	assert.doesNotMatch(out, /❌ ⑫/, `流程目录整棵树都在判定边界之外\n${out}`);
 	assert.doesNotMatch(out, /⑫ 跳过/, `这是"这一条不判"，不是整轮跳过\n${out}`);
-	console.log('✓ 8l ⑫ 边界：流程目录下的普通产物（PRD/设计稿/规则表）⇒ 不红、不跳过（不会恒红）');
+	console.log('✓ 8l ⑫ 边界：流程目录下的普通产物（PRD/设计稿/架构件/规则表）⇒ 不红、不跳过（不会恒红）');
 }
 
 // ── 9a. 落点门禁：`git add` / 入库之后不得「空放行」（实测：69/69 → 0/0，两次都绿）─────
@@ -1425,7 +1426,24 @@ const DEV_WRITE = {
 	const ok = runGate(root, 'sync-prd-version.mjs', ['FEAT-09', '--check']);
 	assert.equal(ok.status, 0, `字段齐备且一致时必须绿\n${ok.out}`);
 	assert.match(ok.out, /文件级头已全部一致/);
-	console.log('✓ 9b sync-prd-version：缺 prdVersion 字段行判不一致，缺文件仍跳过');
+
+	// 架构设计与取舍同理：存在但缺字段 ⇒ 判红；补上一致 ⇒ 绿
+	await writeFile(
+		join(root, 'docs/process/prd/FEAT-09-arch.md'),
+		'---\nid: FEAT-09\nkind: arch\n---\n\n# 架构设计与取舍\n',
+		'utf8',
+	);
+	const archMissing = runGate(root, 'sync-prd-version.mjs', ['FEAT-09', '--check']);
+	assert.equal(archMissing.status, 1, `arch 件缺 prdVersion 字段行必须判红\n${archMissing.out}`);
+	assert.match(archMissing.out, /架构设计与取舍/);
+	await writeFile(
+		join(root, 'docs/process/prd/FEAT-09-arch.md'),
+		'---\nid: FEAT-09\nkind: arch\nprdVersion: 3\n---\n\n# 架构设计与取舍\n',
+		'utf8',
+	);
+	const archOk = runGate(root, 'sync-prd-version.mjs', ['FEAT-09', '--check']);
+	assert.equal(archOk.status, 0, `arch 件字段齐备且一致时必须绿\n${archOk.out}`);
+	console.log('✓ 9b sync-prd-version：缺 prdVersion 字段行判不一致，缺文件仍跳过（含 arch 件）');
 }
 
 await Promise.all(temps.map((d) => rm(d, { recursive: true, force: true })));

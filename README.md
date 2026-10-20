@@ -10,7 +10,7 @@
 
 为 [DSH](https://github.com/deepseek-ai/deepseek-harness) 增加一套文件驱动的工程化开发流程。需求包的状态、门禁签署、流程与 bug 记录都写在目标仓库的 `docs/process/**` 里；插件只做读取、渲染、安全追加和脚手架落地，不另外保存状态。
 
-同时内置 8 个角色 subagent，彼此有硬边界：写实现的不写测试，写测试的不做验收。
+同时内置 9 个角色 subagent，彼此有硬边界：写实现的不写测试，写测试的不做验收；产品与架构的借鉴调研在 Gate0 前**按需**并行，候选只进核对件、不直接进 AC。
 
 ## 和同类插件的差别
 
@@ -30,6 +30,7 @@
 - **文件状态机**：进度存在 `docs/process/**` 的 frontmatter 中。每轮唤醒调用 `process_status` 即可恢复上下文，不依赖聊天记录。
 - **Gate 门禁**：只在 Gate0/1/2/4 (需求核对，设计，开发，验收环节) 停下进行确认，每次输出两段式摘要（✅ 已完成 / ❓ 待裁定）。
 - **角色分离**：角色技能随插件注册，项目内 `.dsh/skills/**` 的同名技能可覆盖。
+- **需求借鉴调研（按需）**：用户说不清目的时，Gate0 前并行派 `product-manager` + `architect` 查 GitHub / 公开文档，把隐性需求 / 技术约束变成核对件的候选 `Q`；**并行必须汇合**，候选不直接进 AC，fast 路径不做，**不默认对所有 full 包做**。
 - **零依赖**：不导入插件外库，无构建步骤。
 - **只增不改**：`process_init` 默认只创建、不覆盖；已有仓库用 `process_init(upgrade: true)` 升级 —— 框架自有文件覆盖前先备份，`PROJECT.md` 与令牌类项目可定制文件永不覆盖、只报告差异。
 
@@ -37,7 +38,7 @@
 
 | 方式 | target | 说明 |
 | --- | --- | --- |
-| npm（推荐） | `dsh-process-kit` | 从官方 npm 仓库安装，升级只需改版本号（**本版本 `0.5.0`**） |
+| npm（推荐） | `dsh-process-kit` | 从官方 npm 仓库安装，升级只需改版本号（**npm 上最新 `0.5.0`；本工作区 `0.6.0` 未提交 / 未发布**） |
 | GitHub | `github:SHADOW-LI0327/dsh-process-kit` | 免 npm；锁版本用 `#<tag>` 或 `#<commit>` |
 | 本地目录 | 绝对路径，如 `/Users/<you>/dsh-plugins/dsh-process-kit` | 需要改插件源码时用，先 clone 到本地 |
 
@@ -106,13 +107,14 @@ process_init({ upgrade: true })                 // 再落地
 
 角色由插件自带技能提供，安装即注册，无需配置。技能在所有工作区可用，与仓库是否已初始化流程无关；项目内 `.dsh/skills/**` 的同名技能优先级更高。设置环境变量 `PROCESS_KIT_SKILLS=off` 可关闭。
 
-### 角色清单（8 个）
+### 角色清单（9 个）
 
-`0.1.0` 起可用 7 个，`0.2.0` 补上 `ui-designer`，`0.3.0` 给 `ui-designer` 固定工具优先级（PhotoCraft CLI > Adobe Photoshop > 其它）并把几何门禁的空转判据补硬；`0.4.0` 移除流程看板（改为纯服务端 bundle）、流程骨架按「单 session 单包」精简并把 Gate 送审件换成实物、给 `process_init` 加上 `upgrade` 升级路径；`0.5.0` 给三个评审角色写明触发条件（技能描述随之更新）、修正快速路径与 Gate0 的口径矛盾、补上 [docs/ADOPTION.md](https://github.com/SHADOW-LI0327/dsh-process-kit/blob/main/docs/ADOPTION.md)（角色仍是这 8 个）：
+`0.1.0` 起可用 7 个，`0.2.0` 补上 `ui-designer`，`0.3.0` 给 `ui-designer` 固定工具优先级（PhotoCraft CLI > Adobe Photoshop > 其它）并把几何门禁的空转判据补硬；`0.4.0` 移除流程看板（改为纯服务端 bundle）、流程骨架按「单 session 单包」精简并把 Gate 送审件换成实物、给 `process_init` 加上 `upgrade` 升级路径；`0.5.0` 给三个评审角色写明触发条件（技能描述随之更新）、修正快速路径与 Gate0 的口径矛盾、补上 [docs/ADOPTION.md](https://github.com/SHADOW-LI0327/dsh-process-kit/blob/main/docs/ADOPTION.md)；`0.6.0` 新增 `architect`（第 9 个）：
 
 | 角色 | 职责 | 自 |
 | --- | --- | --- |
-| `product-manager` | PRD、接口契约、《设计与说明》；UAT 后做验收完备性审核 | `0.1.0` |
+| `product-manager` | PRD、接口契约、《设计与说明》；UAT 后做验收完备性审核；Gate0 前可做需求借鉴调研（`input/<ID>-prior-art.md`） | `0.1.0` |
+| `architect` | Gate0 前与 pm 并行做**技术借鉴与约束扫描**（`input/<ID>-tech-scan.md`，只出约束 / 代价 / 许可证）；Gate0 后按需出**架构设计与取舍**（`prd/<ID>-arch.md`） | `0.6.0` |
 | `test-agent` | 按 PRD 出验收测试（红），并独立复跑 verify（裁判运动员分离） | `0.1.0` |
 | `dev-agent` | 按 PRD + 契约把测试实现到绿，只改源码、禁改测试 | `0.1.0` |
 | `uat-agent` | 真机黑盒验收：只判「用起来对不对得上预期」 | `0.1.0` |
@@ -120,6 +122,8 @@ process_init({ upgrade: true })                 // 再落地
 | `security-review-agent` | 源码 diff 的鉴权 / 越权 / 注入 / 密钥 / 敏感数据评审 | `0.1.0` |
 | `logic-review-agent` | 规则表与源码的对抗式逻辑评审：规则→分支映射、未覆盖分支、具体反例 | `0.1.0` |
 | `ui-designer` | 把《设计与说明》里触及 UI 的条目翻译成**可验收的 UI 规格**（组件判定 `reuse`/`change`/`new` + 交互状态矩阵 + 用户可见文案定稿），并产出**原型位图**与几何。是否派单由人在 Gate0 用需求核对件的 `uiDesign: required / not-needed` 显式决定，纯后端包流程不变；产物随 Gate1 一并送审，不新增停点 | `0.2.0` |
+
+> **发布状态**：`architect` 是 `0.6.0` 新增；npm 上的 `0.5.0` 仍是 8 个角色。本工作区 `0.6.0` **未提交 / 未发布**，要现在用就从 GitHub `main` 安装或等发布。
 
 **`ui-designer` 的边界**（四条，都是实测出来的）：
 
@@ -130,11 +134,11 @@ process_init({ upgrade: true })                 // 再落地
 
 ### 三个评审角色什么时候会跑到
 
-8 个角色**不是平权的**，分两档：
+9 个角色**不是平权的**，分两档：
 
 | 档 | 角色 | 什么时候被派 |
 | --- | --- | --- |
-| **单包流程**（每个包都走） | `product-manager` · `ui-designer`（`uiDesign: required` 时）· `test-agent` · `dev-agent` · `uat-agent` | 包从 Gate0 走到 Gate4 的过程中按状态机派 |
+| **单包流程**（按需） | `product-manager` · `architect`（借鉴调研 / 有架构影响时）· `ui-designer`（`uiDesign: required` 时）· `test-agent` · `dev-agent` · `uat-agent` | 包从 Gate0 走到 Gate4 的过程中按状态机派 |
 | **发布回归**（默认不在单包出现） | `code-review-agent` · `security-review-agent` · `logic-review-agent` | **只在「发布前整体回归」被派**，而该环节由人显式发起 |
 
 也就是说：**没发起过发布回归，就等于这三个角色一次都没跑过。** 实测四个自用仓库的 **3 份**可读 journal（另有 1 份只剩 `.bak`，见 [ADOPTION](./docs/ADOPTION.md) §6）+ 实例端到端那一次的 **2 份**，全文扫描：这三个角色**零命中、零份报告** —— 不是它们没用，是**触发权在人手上**，而发布回归一直没被发起过。
@@ -142,6 +146,8 @@ process_init({ upgrade: true })                 // 再落地
 两个例外会让它们提前上场：① 人在任一 Gate 上点名；② 包触及 RBAC / 金额·分摊 / schema / 新增对外接口，主控会在 Gate 摘要里给出「是否提前跑评审」这一条。
 
 `process_status` 在仓库里有包 `done` 时会**如实报** `docs/process/reports/release/**` 有没有报告 —— **没有就是没跑**，不得当已覆盖。
+
+> `architect` 是 `0.6.0` 新增的第 9 个角色：上面的历史 journal 统计里没有它的命中记录，**不要用旧数据判断它没被用过**。它的触发点是「Gate0 前按需调研 / 有架构影响」，不在发布回归三件套之列。
 
 ## 配置
 

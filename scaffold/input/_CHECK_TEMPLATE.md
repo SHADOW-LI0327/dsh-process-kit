@@ -11,7 +11,7 @@ kind: requirement-check
 title: <一句话标题>
 status: pending # pending / confirmed
 gate0: pending # pending / approved / rejected —— 人签后置 approved，才允许出 PRD
-flow: full # full（全流程）/ fast（快速路径）—— fast 时不建 PRD、不产生 Gate1/Gate2，直派 dev + 存量回归
+flow: full # full（全流程）/ fast（快速路径）—— fast 时不建 PRD、不产生 Gate1/Gate2、不做借鉴调研，直派 dev + 存量回归
 uiDesign: not-needed # required / not-needed —— required 才派 ui-designer 出原型图与 UI 规格（prototypes/<ID>/ + prd/<ID>-ui-spec.md），随 Gate1 一并审
 author: <作者角色，通常为 orchestrator>
 createdAt: <YYYY-MM-DD>
@@ -21,6 +21,7 @@ createdAt: <YYYY-MM-DD>
 
 > 本件是**人给的原料 → PRD** 之间的闸门。它**不是** PRD。
 > **禁止主控替人拍业务参数**（阈值 / 金额 / 时限 / 范围取舍）—— 一律进 §4 待确认项，主控只给**标注过的建议**。
+> **fast 路径不做借鉴调研**：它不建 PRD、不过 Gate1，承载不了「候选 → 裁定」这条链；表达模糊就不要选 fast。
 
 ## 当前状态一览
 
@@ -96,11 +97,26 @@ createdAt: <YYYY-MM-DD>
 
 <主控对需求的理解（含边界、与相邻需求的区别、本期不做什么）。>
 
+### 4.1 外部借鉴与候选需求（可选）
+
+> 仅在 Gate0 前做过借鉴调研时填写；**fast 路径不填**。
+> **没做调研的也要写一行「未做 + 理由」**（表达已可断言 / 人明确不用 / 工具不可用），不得静默留空。
+> 调研文件：`input/<ID>-research-brief.md`（主控）/ `input/<ID>-prior-art.md`（pm）/ `input/<ID>-tech-scan.md`（architect）。
+> **候选不是裁定**：`C-NN` / `K-NN` 只有折成 §5 的 `Q` 或 §6 的 `N` 才生效，**不得直接进 AC**。
+> 没汇合、缺一份研究件、或 `C-NN` 没被 architect 逐条标注 ⇒ 本件不得进 Gate0。
+
+| 候选 | 人话 | 来源（C/K） | 对应目标 | 建议处置（Q / 不做） | 不采纳理由 |
+| --- | --- | --- | --- | --- | --- |
+| `C-01` | <用户会怎么说> | `C-01`（pm） | <目标> | 进 `Q-3` | — |
+| `K-01` | <技术约束反推的需求问题> | `K-01`（architect） | <目标> | 进 `Q-4` | — |
+
+**调研计数**：候选 <n> / 采纳为 Q <m> / 不采纳 <k>；未核 <x>。
+
 ## 5. 待确认事项（★ 主控只给建议，人裁定）
 
 > 每项写：问题 / 影响面 / 主控建议（≥ 2 个选项） / 来源。
-> **收敛要求**：`Q` 总数必须**递减或持平**；人已裁定的条目**不得**再以 Q 形式出现。
-> 来源标注为「新裁定引发 / 新端引入」等；主控建议必须标明是**建议、非结论**。
+> **收敛要求**：`Q` 总数必须**递减或持平**（**Gate0 首轮因借鉴调研新增的 `Q` 不计入递减约束**；人裁定后必须收敛）；人已裁定的条目**不得**再以 Q 形式出现。
+> 来源标注为「新裁定引发 / 新端引入 / `C-NN` / `K-NN`」等；来自调研的 `Q` 必须能在 §4.1 找到对应候选；主控建议必须标明是**建议、非结论**。
 
 | # | 问题 | 影响面 | 主控建议 | 来源 | 状态 |
 | --- | --- | --- | --- | --- | --- |

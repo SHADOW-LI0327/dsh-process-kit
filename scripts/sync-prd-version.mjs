@@ -2,12 +2,13 @@
 /**
  * 一键同步 `prdVersion`（零依赖，直接 `node` 运行）。
  *
- * 用途：把"当前生效版本"的四个声明位改成同一个值。手工同步必然漏（真实教训：改了 PRD 却漏了
+ * 用途：把"当前生效版本"的五个声明位改成同一个值。手工同步必然漏（真实教训：改了 PRD 却漏了
  *       rules 与测试头，台账门禁随后报不一致）。改动范围**严格限定声明位**，绝不碰历史叙述。
  *
  * 声明位：
  *   - `docs/process/prd/<ID>.md`          —— 仅 frontmatter 的 `prdVersion:` 字段行
  *   - `docs/process/prd/<ID>-design.md`   —— 同上（与 PRD 同源，常被漏改）
+ *   - `docs/process/prd/<ID>-arch.md`     —— 同上（架构设计与取舍，有则同步）
  *   - `docs/process/rules/<ID>.yaml`      —— 仅 YAML 的 `prdVersion:` 字段行
  *   - `<需求包测试目录>/<ID>/*.<测试后缀>` —— 仅 `@prdVersion` 后的数字
  *
@@ -152,6 +153,8 @@ function main() {
   const rulesPath = join(root, rulesRel);
   const designRel = join(cfg.prdDir, `${id}-design.md`);
   const designPath = join(root, designRel);
+  const archRel = join(cfg.prdDir, `${id}-arch.md`);
+  const archPath = join(root, archRel);
   const testDir = join(root, cfg.packageDir, id);
 
   const prd = readIfExists(prdPath);
@@ -201,7 +204,21 @@ function main() {
     }
   }
 
-  // 4) 测试文件里的 @prdVersion
+  // 4) 架构设计与取舍（有则同步；与 PRD 同源，缺字段同样判不一致）
+  let archAfter = null;
+  const arch = readIfExists(archPath);
+  if (arch !== null) {
+    const before = matchFieldVersion(arch);
+    if (before === null) {
+      console.warn(`  ✗ ${archRel} 里没有 prdVersion 字段行 —— 判**不一致**（不判跳过），文末汇总`);
+      missingField.push({ label: "架构设计与取舍", path: archPath });
+    } else if (before !== want) {
+      archAfter = replaceFieldVersion(arch, want);
+      sites.push({ path: archPath, label: "架构设计与取舍", before });
+    }
+  }
+
+  // 5) 测试文件里的 @prdVersion
   const testFiles = existsSync(testDir)
     ? readdirSync(testDir)
         .filter((f) => cfg.testSuffixes.some((s) => f.endsWith(s)))
@@ -282,6 +299,7 @@ function main() {
   if (prdAfter !== prd) writeFileSync(prdPath, prdAfter);
   if (rulesAfter !== null) writeFileSync(rulesPath, rulesAfter);
   if (designAfter !== null) writeFileSync(designPath, designAfter);
+  if (archAfter !== null) writeFileSync(archPath, archAfter);
   for (const [p, text] of testAfter) writeFileSync(p, text);
 
   console.log(`\n${missingField.length > 0 ? "⚠" : "✓"} 已同步 ${sites.length} 处声明位。`);

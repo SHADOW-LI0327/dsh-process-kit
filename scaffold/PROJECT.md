@@ -45,6 +45,8 @@ processVersion: 2
 > **命令槽与真命令必须同时改**：只改文档不改命令等于没改（真正执行的是命令）。
 >
 > **命令不会自己去留痕**：每条门禁跑完，由主控补一条 `action:"run"` 记录（命令原样 + 真实退出码）—— 否则 Gate 摘要只显示「未记录」，人没法判断这次到底跑没跑。
+>
+> **分层验证不新增固定槽位**：L1 = dev 用测试器自带过滤（不落槽）；L2 = 上表「快速验证」按包范围执行；L3 = 同一测试命令的全量写法 / 发布级组合（项目在「说明」里写明）。**不要为分层增删本表的四行**；范围写法由项目约定（如 `--scope package` / 目录过滤）。
 
 ---
 
@@ -67,13 +69,16 @@ processVersion: 2
 | 角色 | 可写路径 | 禁止 |
 | --- | --- | --- |
 | `<role-orchestrator>`（主控） | `docs/process/README.md` · `docs/process/orchestrator.md` · `docs/process/PROJECT.md` · `docs/process/input/**` · `docs/process/ui/**`（框架落地的 UI 默认层：tokens / recipe） · `docs/process/tools/README.md`（登记区） · `docs/process/prd/*.journal.jsonl*` · `scripts/process/**`（框架自带门禁 / journal / 初始化脚本，常驻） · `reports/orchestrator/**` | 写实现 / 写测试 / 替人做 Gate 决策 |
-| `<role-pm>` | `docs/process/prd/**` · `docs/process/contracts/**` · `docs/process/uat/<ID>-checklist.md` · `reports/pm-review/**` | 读业务实现 / 测试 / e2e / 日志；写实现 |
+| `<role-pm>` | `docs/process/prd/**` · `docs/process/contracts/**` · `docs/process/input/<ID>-prior-art.md` · `docs/process/uat/<ID>-checklist.md` · `reports/pm-review/**` | 读业务实现 / 测试 / e2e / 日志；写实现 |
+| `<role-architect>` | `docs/process/input/<ID>-tech-scan.md` · `docs/process/prd/<ID>-arch.md` · `reports/architect/**` | 读业务逻辑实现；写 PRD / 契约 / AC / 测试 / 源码；复制外部代码或引入依赖 |
 | `<role-ui-designer>` | `docs/process/prd/<ID>-ui-spec.md` · `docs/process/prototypes/<ID>/**` | 改实现源码；读后端实现 / 前端组件内部实现 / 测试 / e2e / 日志；写其它角色产物 |
 | `<role-test>` | `<test-dir>/packages/<ID>/**` · `<test-dir>/fixtures/<ID>-*` · `docs/process/rules/**` · `reports/test/**` · `docs/process/tools/<ID>/**` | 改 `src`；读业务实现细节（签名 / schema 除外） |
 | `<role-dev>` | `<app-a>/src/**` · `<app-b>/src/**` · `<app-c>/src/**` · `scripts/<ID>-<用途>.{ts,sql}`（仅生产迁移 / 运维脚本，且须先登记） | 改 `test/` · 改 `e2e/` |
 | `<role-uat>` | `docs/process/uat/**` · `reports/uat/**`（含 `evidence/`） · `<e2e-dir>/**` | 读任何代码 / 测试 / 日志；判功能对错以外的事 |
 | `<role-logic-review>` · `<role-code-review>` · `<role-security-review>` | `reports/<角色>/**` | 改 `src`；贴大段代码 |
 ```
+
+> **`input/**` 不是主控独占**：核对件与 `research-brief` 归主控，`prior-art` 归 pm，`tech-scan` 归 architect；三者各写各的文件，**并行不等于共写**。**`prd/**` 里的 `<ID>-arch.md` 归 architect**，其余 PRD / 契约 / 设计与说明归 pm；主控只落状态位。落点门禁按属主**并集**放行，纪律上仍**单人属主**。
 
 > **状态位例外（必须写进 §3）**：`prd/<ID>.md` 的 frontmatter 里 `status` / `gate0` / `gate1` / `gate2` / `gate4` 由**主控**在各 Gate 落定 —— 总纲要求「Gate 通过后落状态位」，**只把 `prd/**` 判给 pm 会让这条规则无法同时满足**（实例验收里就出现了一轮：状态位由主控写入，而属主表没判给主控），而且判据 ⑫（越界事后判定）会把主控落状态位**误判成越界**。其余内容（PRD 正文 / 契约 / checklist）仍属 `<role-pm>`。写法二选一：主控行补 `docs/process/prd/<ID>.md`（并写明「仅状态位」），或在此处明确例外条款。
 
@@ -146,6 +151,8 @@ processVersion: 2
 
 > **`--pkg <ID>` 无默认值、必填**（命令行传入）；其余参数均可省略，缺省即回落到本表或脚本内置默认值。
 > `--progress` 额外打印 UAT 逐项完成度（清单 `### U-<NN>` 项 ↔ 证据 `U-NN-` 前缀文件）。
+>
+> **环境生命周期归主控**：启动服务 / 装依赖 / 迁移种子 / 基线快照 / 健康检查由主控托管并登记；dev 只负责因本次改动而变的环境（schema 同步 / 新依赖 / 迁移脚本）。派单前未就绪 ⇒ 不派 dev。
 
 ---
 
