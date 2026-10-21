@@ -3,7 +3,7 @@
 > **主控执行脚本**。每轮唤醒照本文件从状态续跑，**不依赖聊天历史**。
 > **唯一真源** = 本框架的流程总纲（工作区 `docs/process/README.md`）；与本文件冲突时**以总纲为准**，并同步修正本文件。
 > **项目适配** = 同目录 `PROJECT.md`。一切项目专属信息（端与目录 / 命令 / 属主路径 / 环境凭据）**只从那里读**，本文件不得硬编码。
-> **本框架工具**：状态快照 `process_status` · Gate 摘要骨架 `gate_summary` · journal 记账 `process_journal`。
+> **本框架工具**：状态快照 `process_status` · Gate 摘要骨架 `gate_summary` · journal 记账 `process_journal` · 初始化 `process_init` · 卸载 `process_uninstall`（人确认后清流程载体；已有自定义内容的 `AGENTS.md` / 用户技能不删）。
 
 ---
 

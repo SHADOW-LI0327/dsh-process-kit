@@ -101,7 +101,7 @@ chainHash  = fold(lines, (chain, line) => hash16(chain + line), 初始值 "")
 | `check-uat-readiness.mjs` | UAT 前置：环境 + 账号 + 目标端点就绪 |
 | `check-ui-geometry.mjs` | UI 客观几何（溢出 / 重叠 / 过挤 / 居中 / 边距 / 对比度）；**文字层为 0 时只报 ⚠，不打绿** |
 | `journal-append.mjs` | 安全追加（锁 + 指纹 + 原子替换 + 自校验），写 meta |
-| `sync-prd-version.mjs` | 同步 `prdVersion` 的四个声明位；`--check` 下**产物存在却缺该字段行 ⇒ 判不一致、退出 1**（只有整个文件不存在才跳过，fail-open） |
+| `sync-prd-version.mjs` | 同步 `prdVersion` 的五个声明位；`--check` 下**产物存在却缺该字段行 ⇒ 判不一致、退出 1**（只有整个文件不存在才跳过，fail-open） |
 
 **fail-open 是刻意的**：未初始化 `docs/process`、快速路径、项目未配属主表时一律跳过并 `exit 0`，不误伤未接入流程的仓库。
 
@@ -117,14 +117,41 @@ chainHash  = fold(lines, (chain, line) => hash16(chain + line), 初始值 "")
 >
 > **受检 0 个时只报 `⚠ 空转`、绝不打绿**：一条都没判过就不算判过（「无法校验不是绿」）。三种模式都**只判新增**（`--diff-filter=A`），改 `README.md` / `package.json` 这类非产物文件不在本门禁职责内。已入库产物的越界复查也可以按 `git ls-files` 全集做独立审计（实例验收的报告里就有这样一个 `audit-ownership.mjs`，且做过反向对照 —— 造一个越界文件必须判红）。
 
-## 契约 5：插件工具的结构化返回（agent 侧）
+## 契约 5：卸载清单（`docs/process/.process-kit.json`）
 
-`process_status` / `gate_summary` / `process_journal` / `process_init` 的返回值是**结构化对象**（`render` 只负责显示）。其中可依赖的字段：
+`process_init` 在流程目录里写一份**卸载清单**，只用于回答「哪些东西是 init 落的、后来有没有被改过」。它不是流程状态载体，不参与状态机；没有它时 `process_uninstall` 走保守降级。
+
+```json
+{
+  "schema": 1,
+  "package": "dsh-process-kit",
+  "version": "0.7.0",
+  "installedAt": "<ISO8601>",
+  "updatedAt": "<ISO8601>",
+  "processDir": "docs/process",
+  "scriptsDir": "scripts/process",
+  "agents": { "path": "AGENTS.md", "created": true, "sha256": "<64 hex>" },
+  "skills": { "dir": ".dsh/skills", "createdFiles": { "product-manager/SKILL.md": "<64 hex>" } }
+}
+```
+
+- `agents` / `skills` 可为 `null`：没碰过对应落点。
+- `agents.created: false`：`AGENTS.md` 本来就有，init 没改它；卸载默认保留。唯一例外：它与插件模板逐字一致（忽略卸载提示段）⇒ 没有用户内容，可安全清理。
+- `skills.createdFiles` 只列**init 真正创建**的文件；值 = 创建时 sha256。用户已有 / init 跳过的文件不列。
+- `scriptsDir` 可由 `process_init({ scriptsDir })` 自定义；卸载按它删。它必须是专用子目录：`process_init` 拒绝 `docs/process` 或其父目录，以及 `scripts` / `docs` / `src` 等顶层宽目录，避免卸载整目录删时带走项目文件。
+- **`AGENTS.md` / `.dsh/skills` 是唯一需要文件级归属判断的落点**：有清单时只删「created=true 且哈希一致」的文件，或与插件模板逐字一致（无用户内容）的 `AGENTS.md`；改过的默认保留，`force` 才删。`docs/process/**` / `scripts/process/**` 是目录级流程载体，确认后整目录删。
+- 旧仓库没有本清单：卸载只按目录 + 「AGENTS.md 是否与插件模板逐字一致（忽略卸载提示段，含上一版）」判断；技能副本只删与包内 `SKILL.md` 逐字一致的，其余保留并报告。
+
+## 契约 6：插件工具的结构化返回（agent 侧）
+
+`process_status` / `gate_summary` / `process_journal` / `process_init` / `process_uninstall` 的返回值是**结构化对象**（`render` 只负责显示）。其中可依赖的字段：
 
 - `process_status` → `{ found, root, processDir, generatedAt, packages[], openBugCount, orphanBugs[], warnings[], releasePending, releaseReports[] }`；每个包含 `id` / `status` / `gates` / **`gateHost`**（`human` / `ai-hosted` / `unrecorded`）/ `prdVersion` / `artifacts` / `openBugs` / `next`，以及 `journal: { lines, lastAt, lastActor, lastStep, integrity, runs[], approvals[] }`。
 - `journal.integrity` → `{ state: 'verified' | 'legacy' | 'tampered' | 'unverified', reason?, lines? }`。
 - `journal.runs[]` → `{ at, gate, actor, step, command, exitCode, artifact }`（契约 2 的 `action:"run"`）。
 - `journal.approvals[]` → `{ at, gate, actor, via }`（契约 2 的 `action:"approve"`）。
+- `process_init` → 除 `created` / `skipped` / `updated` / `manual` / `upgrade` / `dryRun` 外，新增 `manifest`（固定 `docs/process/.process-kit.json`）与 `manifestChanged`。
+- `process_uninstall` → `{ dryRun, manifest, removed[], preserved[], backupDir, report }`；`removed` 是目录级 / 文件级已删清单，`backupDir` 为 `null` 表示未备份。
 
 ---
 

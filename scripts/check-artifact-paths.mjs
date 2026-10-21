@@ -77,8 +77,13 @@ function fail(msg) {
  * 临时件：由工具产生、核对完即删，**不是产物**，不参与落点判定。
  * 目前只有 `process_init(upgrade: true)` 的旧版备份 `<文件>.bak-<时间戳>` ——
  * 它和被覆盖的文件同目录，不认识它就会把升级本身判成越界（自伤）。
+ *
+ * 框架元数据：`docs/process/.process-kit.json` 是卸载清单，不是角色产物；
+ * 不显式跳过的话，`process_init` 一落地就会被自己的门禁判越界。
  */
 const TRANSIENT_RE = /\.bak-\d{8,}$/;
+/** 框架卸载清单：是插件的元数据，不是过程产物；旧版门禁会把它判越界，所以显式跳过。 */
+const FRAMEWORK_META_RE = /^docs\/process\/\.process-kit\.json$/;
 
 /**
  * 跑一条 git 列举命令并切成路径数组。
@@ -278,7 +283,8 @@ function main() {
   const mode = resolveMode();
   const candidates = MODES[mode.name].list(root, mode.rev);
   const transient = candidates.filter((p) => TRANSIENT_RE.test(p));
-  const files = candidates.filter((p) => !TRANSIENT_RE.test(p));
+  const frameworkMeta = candidates.filter((p) => FRAMEWORK_META_RE.test(p));
+  const files = candidates.filter((p) => !TRANSIENT_RE.test(p) && !FRAMEWORK_META_RE.test(p));
 
   /** 命中任一可写路径或登记项即放行；否则给出正确去处提示。 */
   const violations = [];
@@ -309,6 +315,9 @@ function main() {
     process.stdout.write(
       `  ⚠ 已排除临时件 ${transient.length} 个（\`*.bak-*\` 升级备份，不判落点）：核对无误后请删除\n`,
     );
+  }
+  if (frameworkMeta.length > 0) {
+    process.stdout.write(`  · 已跳过框架元数据 ${frameworkMeta.length} 个（\`docs/process/.process-kit.json\`，不判落点）\n`);
   }
   if (registry.ignored > 0) {
     process.stdout.write(

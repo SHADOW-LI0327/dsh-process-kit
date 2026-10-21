@@ -157,7 +157,7 @@ console.log(`✓ 链式指纹一致（${lines.length} 行）`);
 
 跑之前必须知道，否则会白折腾：
 
-1. **工作区根 = 会话 cwd。** 插件的四个工具用**调用方 agent 会话的 cwd** 解析 `docs/process/**` 的位置（`rootOf()`）。因此「在别的新项目里跑」需要**那个会话的 cwd 就是新项目**——在本仓库的会话里驱动另一个目录是做不到的。
+1. **工作区根 = 会话 cwd。** 插件的五个工具用**调用方 agent 会话的 cwd** 解析 `docs/process/**` 的位置（`rootOf()`）。因此「在别的新项目里跑」需要**那个会话的 cwd 就是新项目**——在本仓库的会话里驱动另一个目录是做不到的。
    - `PROCESS_KIT_ROOT` 这个环境变量能改根，但它读的是 **DSH 进程级** env，只能在启动 `dsh web` 时给，**且目前是未文档化的**（只存在于 `lib/index.js`）。
 2. **文件沙箱。** 本会话只允许写工作区内（`/Users/admin/workspace/dsh-plugins/dsh-process-kit`）与平台临时区（`/tmp` 可写、git 可用）；`/Users/admin/workspace/` 下的**同级目录被拒**（实测 `Operation not permitted`），且沙箱放宽是**逐命令一次性**的——不可能用它支撑一整条全流程的构建。
 

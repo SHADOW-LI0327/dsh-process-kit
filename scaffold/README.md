@@ -39,6 +39,7 @@
 - **需求专属**（工作区内产生 → 包收口即清理，**先经人提交**（默认归档 = git）→ **不留在工作区**）：`input/**`（含 Gate0 前的 `research-brief` / `prior-art` / `tech-scan`）、`prd/<ID>.md`、`prd/<ID>-design.md`、`prd/<ID>-arch.md`、`prd/<ID>-ui-spec.md`、`contracts/<ID>.md`、`rules/<ID>.yaml`、`bugs/<ID>*.md`、`uat/<ID>-checklist.md`、`prd/*.journal.jsonl` 与其旁挂指纹 `prd/*.journal.jsonl.meta.json`、**原型图目录** `prototypes/<ID>/**`（原型图 + 分层源 + `geometry.json` + `intent.json`，见 §5 UI 几何门禁）、**需求专属测试**（含设备脚本与夹具种子）。具体清单见 `PROJECT.md` §1。
 - **过程产物**：`reports/**`（uat / pm / dev / test / review / architect / gaps / 证据 / dev-patches）。
 - **恢复方式与常驻例外**：**默认归档 = git 提交**（提交过即可回溯）；只有「要整体清空且尚未提交」时才打归档包到 `reports/_archives/`，**不留存 ≠ 丢弃**；流程骨架自带的**示范台账与其配对测试**是唯一保留的台账对（用于证明门禁本身可用，见 §6.7）。
+- **整体卸载**：不打算继续使用本流程时，由人确认后调用 `process_uninstall`（先 `{ dryRun: true }` 预览，再 `{ confirm: true, dryRun: false }`）；它清 `docs/process/**` 与 `scripts/process/**`，已有 `AGENTS.md` / 用户技能 / 产品代码不删。**先清仓库，再卸插件**；详见插件 README「卸载」。
 
 **清理原则**：结论进保留文档，过程产物即弃。**复盘的产出 = 流程规范的修改，不是复盘文档**：
 

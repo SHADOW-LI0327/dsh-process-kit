@@ -587,6 +587,39 @@ async function makeGeoFixture(mutate = () => {}) {
 	console.log('✓ 6m-bis 升级备份排除、其它 .bak 照判越界');
 }
 
+// ── 6m-ter. 卸载清单是框架元数据，不得被落点门禁判越界 ─────────────────────
+//
+// 旧版门禁只认「过程产物」：`process_init` 新写的 `.process-kit.json` 不在
+// PROJECT.md §3 的普通路径里 ⇒ 初始化完第一次跑门禁就红。清单是框架自己的
+// 文件，不是角色产物，必须显式跳过；同时不能把任意点文件都放过。
+
+{
+	const root = await tempRepo();
+	await mkdir(join(root, 'docs/process'), { recursive: true });
+	const project = (await readFile(join(PKG, 'scaffold/PROJECT.md'), 'utf8')).replace(
+		placeholderRow,
+		'| orchestrator | `docs/process/PROJECT.md` · `docs/process/README.md` · `scripts/process/**` | `<禁止>` |',
+	);
+	await writeFile(join(root, 'docs/process/PROJECT.md'), project, 'utf8');
+	await writeFile(join(root, 'docs/process/README.md'), '# 流程\n', 'utf8');
+	await writeFile(join(root, 'docs/process/.process-kit.json'), '{}\n', 'utf8');
+	await mkdir(join(root, 'scripts/process'), { recursive: true });
+	await cp(join(PKG, 'scripts/check-artifact-paths.mjs'), join(root, 'scripts/process/check-artifact-paths.mjs'));
+	await cp(join(PKG, 'scripts/project-config.mjs'), join(root, 'scripts/process/project-config.mjs'));
+	execFileSync('git', ['init', '-q', '.'], { cwd: root });
+
+	const meta = runGate(root, 'check-artifact-paths.mjs');
+	assert.equal(meta.status, 0, `卸载清单应被跳过\n${meta.out}`);
+	assert.match(meta.out, /已跳过框架元数据 1 个/, `应报告跳过清单\n${meta.out}`);
+
+	// 反向对照：换个点文件仍要判越界（不能把「点文件」整体放过）
+	await rm(join(root, 'docs/process/.process-kit.json'));
+	await writeFile(join(root, 'docs/process/.other.json'), '{}\n', 'utf8');
+	const control = runGate(root, 'check-artifact-paths.mjs');
+	assert.equal(control.status, 1, `其它未授权点文件仍应判越界\n${control.out}`);
+	console.log('✓ 6m-ter 卸载清单跳过、其它点文件照判越界');
+}
+
 // ── 6n. §4 的 UI 配置键必须真的被读到（非默认值才算数） ──────────────────────
 //
 // 缺陷原貌：`readSection(text, isNumberedSection.bind(null, 4))` —— readSection 按

@@ -53,7 +53,7 @@ AGENTS.md 那条老路（harness 读工作区指令文件）和插件不是替�
 
 | 层 | 载体 | 作用域 | 内容 |
 |---|---|---|---|
-| 框架级常驻 | 插件注册的 systemPrompt 段 | 该 profile 下**所有**工作区与 subagent | 6 行硬提醒：先调 `process_status`、Gate 必须人签、两段式、journal 纪律、角色由插件技能提供、真源指向 |
+| 框架级常驻 | 插件注册的 systemPrompt 段 | 该 profile 下**所有**工作区与 subagent | 7 行硬提醒：先调 `process_status`、Gate 必须人签、两段式、journal 纪律、角色由插件技能提供、真源指向；首行同时提示 `process_uninstall` 的卸载路径 |
 | 项目级常驻 | 仓库里的 `AGENTS.md` | 该仓库 | 指针：本项目流程真源在 `docs/process/README.md`、适配在 `PROJECT.md`；**不复述细则** |
 | 按需注入 | 角色技能 / `docs/process/README.md` / `PROJECT.md` | 派单时或读到才进上下文 | 角色职责、状态机、Gate 格式、属主表 |
 

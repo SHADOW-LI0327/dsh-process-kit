@@ -17,6 +17,8 @@
 
 **角色**：由 `dsh-process-kit` 插件自带同名技能提供——`product-manager` · `architect` · `ui-designer` · `test-agent` · `dev-agent` · `uat-agent` · `code-review-agent` · `security-review-agent` · `logic-review-agent`。派单时让 subagent 读对应技能，不要在本文件里复述角色职责。
 
+**不想继续用流程**：由人确认后调用 `process_uninstall`（先 `{ dryRun: true }` 预览，再 `{ confirm: true, dryRun: false }`）；它清 `docs/process` 与 `scripts/process`，不删已有自定义内容的 `AGENTS.md` / 用户技能 / 产品代码。详见插件 README「卸载」。
+
 ---
 
 ## 项目概览

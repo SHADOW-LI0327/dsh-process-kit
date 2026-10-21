@@ -185,7 +185,7 @@ const ctx = {
 };
 apply(ctx);
 
-assert.deepEqual(registered.tools.map((t) => t.name).sort(), ['gate_summary', 'process_init', 'process_journal', 'process_status']);
+assert.deepEqual(registered.tools.map((t) => t.name).sort(), ['gate_summary', 'process_init', 'process_journal', 'process_status', 'process_uninstall']);
 assert.equal(registered.sections.length, 1);
 assert.equal(registered.sections[0].name, 'process-kit-wake');
 assert.equal(registered.providers.length, 1);
@@ -552,6 +552,16 @@ assert.ok(dry.created.includes('docs/process/input/_CHECK_TEMPLATE.md'), 'dry-ru
 assert.ok(dry.created.includes('AGENTS.md'), 'dry-run 应报告项目级常驻指针');
 assert.equal(await exists(join(target, 'docs/process/README.md')), false, 'dry-run 不得写盘');
 assert.equal(await exists(join(target, 'AGENTS.md')), false, 'dry-run 不得写 AGENTS.md');
+await assert.rejects(
+	() => byName.process_init.execute({ scriptsDir: 'docs', dryRun: true }, initExec),
+	/不能是 docs\/process 或其父目录/,
+	'scriptsDir 不能指向 docs 这种宽目录（否则卸载可能误删别的文档）',
+);
+await assert.rejects(
+	() => byName.process_init.execute({ scriptsDir: 'scripts', dryRun: true }, initExec),
+	/顶层宽目录/,
+	'scriptsDir 不能指向 scripts 根（否则卸载会整目录删掉项目脚本）',
+);
 
 // 真跑：骨架 + 脚本落地
 const real = await byName.process_init.execute({}, initExec);
@@ -560,6 +570,15 @@ assert.ok(real.created.includes('scripts/process/journal-append.mjs'));
 assert.ok(real.created.includes(`docs/process/PROJECT.md`));
 const scaffoldReadme = await readFile(join(target, 'docs/process/README.md'), 'utf8');
 assert.ok(scaffoldReadme.length > 500, '总纲应有实体内容');
+
+// 卸载清单：必须证明「哪些是 init 落的」，否则卸载只能靠猜
+const initManifest = JSON.parse(await readFile(join(target, 'docs/process/.process-kit.json'), 'utf8'));
+assert.equal(initManifest.schema, 1);
+assert.equal(initManifest.processDir, 'docs/process');
+assert.equal(initManifest.scriptsDir, 'scripts/process');
+assert.equal(initManifest.agents.created, true, 'AGENTS.md 是 init 创建时应记录');
+assert.equal(initManifest.agents.sha256.length, 64, '应记录创建时哈希，供「是否被改过」判断');
+assert.equal(typeof initManifest.version, 'string');
 
 // 幂等且不覆盖：改过的文件再跑一次必须原样保留
 await writeFile(join(target, 'docs/process/README.md'), '# 我改过的\n', 'utf8');
@@ -682,6 +701,125 @@ const renderedWithReport = byName.process_status.output.render({}, withReport)[0
 assert.match(renderedWithReport, /已有 1 份发布回归报告/);
 assert.doesNotMatch(renderedWithReport, /尚未执行/, '有报告时不得再报「尚未执行」');
 await rm(relRoot, { recursive: true, force: true });
+
+// ---- process_uninstall：确认后才清，且只清插件落的 --------------------
+
+const unRoot = await mkdtemp(join(tmpdir(), 'process-kit-uninstall-'));
+const unExec = { ...exec, agent: { session: { header: { cwd: unRoot } } } };
+const unPackage = { name: 'fixture', scripts: { 'process:journal': 'node scripts/process/journal-append.mjs', keep: 'echo hi' } };
+await writeFile(join(unRoot, 'package.json'), `${JSON.stringify(unPackage, null, 2)}\n`, 'utf8');
+await byName.process_init.execute({ skills: true }, unExec);
+
+const unManifest = JSON.parse(await readFile(join(unRoot, 'docs/process/.process-kit.json'), 'utf8'));
+assert.ok(unManifest.skills.createdFiles['product-manager/SKILL.md'], 'skills=true 时必须记录实际创建的角色技能文件');
+assert.match(unManifest.skills.createdFiles['product-manager/SKILL.md'], /^[a-f0-9]{64}$/);
+
+const unDry = await byName.process_uninstall.execute({}, unExec);
+assert.equal(unDry.dryRun, true, '默认必须 dry-run');
+assert.match(unDry.report, /未删除/);
+assert.match(unDry.report, /docs\/process\/\*\*/);
+assert.equal(await exists(join(unRoot, 'docs/process/README.md')), true, 'dry-run 不得删除');
+
+await assert.rejects(() => byName.process_uninstall.execute({ dryRun: false }, unExec), /未确认/);
+assert.equal(await exists(join(unRoot, 'docs/process/README.md')), true, '未确认不得删除');
+
+const unDone = await byName.process_uninstall.execute({ confirm: true, dryRun: false }, unExec);
+assert.equal(await exists(join(unRoot, 'docs/process')), false, '确认后应删除流程目录');
+assert.equal(await exists(join(unRoot, 'scripts/process')), false, '确认后应删除脚本目录');
+assert.equal(await exists(join(unRoot, 'AGENTS.md')), false, 'init 创建且未修改的 AGENTS.md 应删除');
+assert.equal(await exists(join(unRoot, '.dsh')), false, '只装有流程技能时 .dsh 也应清空');
+assert.equal(await exists(join(unRoot, 'docs')), false, '空的 docs 父目录也应清掉');
+assert.equal(await exists(join(unRoot, 'scripts')), false, '空的 scripts 父目录也应清掉');
+assert.ok(unDone.removed.includes('docs/process/**'));
+assert.ok(unDone.removed.includes('scripts/process/**'));
+assert.ok(unDone.removed.includes('AGENTS.md'));
+assert.ok(unDone.backupDir && (await exists(join(unDone.backupDir, 'docs/process/README.md'))), '默认应备份到临时目录');
+assert.match(unDone.report, /process:journal/, '应报告 package.json 里仍指向已删脚本的命令');
+assert.equal(await readFile(join(unRoot, 'package.json'), 'utf8'), `${JSON.stringify(unPackage, null, 2)}\n`, '不得改 package.json');
+await rm(unDone.backupDir, { recursive: true, force: true });
+await rm(unRoot, { recursive: true, force: true });
+
+// 已存在的 AGENTS.md 不是 init 创建：确认卸载也不得删
+const unKeepRoot = await mkdtemp(join(tmpdir(), 'process-kit-uninstall-keep-'));
+await writeFile(join(unKeepRoot, 'AGENTS.md'), '# 我自己的项目指针\n', 'utf8');
+const unKeepExec = { ...exec, agent: { session: { header: { cwd: unKeepRoot } } } };
+await byName.process_init.execute({}, unKeepExec);
+const unKeep = await byName.process_uninstall.execute({ confirm: true, dryRun: false, backup: false }, unKeepExec);
+assert.equal(await readFile(join(unKeepRoot, 'AGENTS.md'), 'utf8'), '# 我自己的项目指针\n', '用户已有 AGENTS.md 绝不能被删');
+assert.match(unKeep.report, /不是 process_init 创建/);
+await rm(unKeepRoot, { recursive: true, force: true });
+
+// init 创建但被改过的 AGENTS.md：默认保留，force 才删
+const unModRoot = await mkdtemp(join(tmpdir(), 'process-kit-uninstall-mod-'));
+const unModExec = { ...exec, agent: { session: { header: { cwd: unModRoot } } } };
+await byName.process_init.execute({}, unModExec);
+await writeFile(join(unModRoot, 'AGENTS.md'), `${await readFile(join(unModRoot, 'AGENTS.md'), 'utf8')}\n<!-- 我加的 -->\n`, 'utf8');
+const unMod = await byName.process_uninstall.execute({ confirm: true, dryRun: false, backup: false }, unModExec);
+assert.equal(await exists(join(unModRoot, 'AGENTS.md')), true, '被改过的 AGENTS.md 默认应保留');
+assert.match(unMod.report, /已修改/);
+await rm(unModRoot, { recursive: true, force: true });
+
+// 人确认「连改过的生成文件一起删」时，force 才生效
+const unForceRoot = await mkdtemp(join(tmpdir(), 'process-kit-uninstall-force-'));
+const unForceExec = { ...exec, agent: { session: { header: { cwd: unForceRoot } } } };
+await byName.process_init.execute({}, unForceExec);
+await writeFile(join(unForceRoot, 'AGENTS.md'), '我改过的指针\n', 'utf8');
+const unForce = await byName.process_uninstall.execute({ confirm: true, dryRun: false, backup: false, force: true }, unForceExec);
+assert.equal(await exists(join(unForceRoot, 'AGENTS.md')), false, 'force 应删除 init 创建但被改过的 AGENTS.md');
+assert.ok(unForce.removed.includes('AGENTS.md'));
+await rm(unForceRoot, { recursive: true, force: true });
+
+// 旧安装（没有清单）：目录照删，无法证明归属的 AGENTS.md 保留
+const unLegacyRoot = await mkdtemp(join(tmpdir(), 'process-kit-uninstall-legacy-'));
+await mkdir(join(unLegacyRoot, 'docs/process'), { recursive: true });
+await writeFile(join(unLegacyRoot, 'docs/process/README.md'), '# 旧流程\n', 'utf8');
+await mkdir(join(unLegacyRoot, 'scripts/process'), { recursive: true });
+await writeFile(join(unLegacyRoot, 'scripts/process/old.mjs'), '// old\n', 'utf8');
+await writeFile(join(unLegacyRoot, 'AGENTS.md'), '# 旧指针\n', 'utf8');
+const unLegacyExec = { ...exec, agent: { session: { header: { cwd: unLegacyRoot } } } };
+const unLegacy = await byName.process_uninstall.execute({ confirm: true, dryRun: false, backup: false }, unLegacyExec);
+assert.equal(await exists(join(unLegacyRoot, 'docs/process')), false);
+assert.equal(await exists(join(unLegacyRoot, 'scripts/process')), false);
+assert.equal(await exists(join(unLegacyRoot, 'AGENTS.md')), true, '无清单时不得删用户 AGENTS.md');
+assert.match(unLegacy.report, /旧安装/);
+await rm(unLegacyRoot, { recursive: true, force: true });
+
+// 旧安装但 AGENTS.md 就是「未改过的模板」（含上一版没有卸载提示段的模板）：可安全认领
+const unLegacyTplRoot = await mkdtemp(join(tmpdir(), 'process-kit-uninstall-legacy-tpl-'));
+await mkdir(join(unLegacyTplRoot, 'docs/process'), { recursive: true });
+await writeFile(join(unLegacyTplRoot, 'docs/process/README.md'), '# 旧流程\n', 'utf8');
+const oldTemplate = (await readFile(join(packageRoot, 'AGENTS.template.md'), 'utf8')).replace(/\n\*\*不想继续用流程\*\*[^\n]*\n/g, '\n');
+await writeFile(join(unLegacyTplRoot, 'AGENTS.md'), oldTemplate, 'utf8');
+const unLegacyTplExec = { ...exec, agent: { session: { header: { cwd: unLegacyTplRoot } } } };
+await byName.process_uninstall.execute({ confirm: true, dryRun: false, backup: false }, unLegacyTplExec);
+assert.equal(await exists(join(unLegacyTplRoot, 'docs/process')), false);
+assert.equal(await exists(join(unLegacyTplRoot, 'AGENTS.md')), false, '逐字模板（含上一版）应可安全删除');
+await rm(unLegacyTplRoot, { recursive: true, force: true });
+
+// 用户已有的同名技能：init 会跳过，卸载也不得删
+const unSkillRoot = await mkdtemp(join(tmpdir(), 'process-kit-uninstall-skill-'));
+await mkdir(join(unSkillRoot, '.dsh/skills/product-manager'), { recursive: true });
+await writeFile(join(unSkillRoot, '.dsh/skills/product-manager/SKILL.md'), '# 我定制的 pm\n', 'utf8');
+const unSkillExec = { ...exec, agent: { session: { header: { cwd: unSkillRoot } } } };
+await byName.process_init.execute({ skills: true }, unSkillExec);
+const unSkill = await byName.process_uninstall.execute({ confirm: true, dryRun: false, backup: false }, unSkillExec);
+assert.equal(await readFile(join(unSkillRoot, '.dsh/skills/product-manager/SKILL.md'), 'utf8'), '# 我定制的 pm\n', '用户已有技能绝不能被删');
+assert.ok(!unSkill.removed.includes('.dsh/skills/product-manager/SKILL.md'));
+await rm(unSkillRoot, { recursive: true, force: true });
+
+// 旧安装没有技能清单：与包内版本逐字一致的副本可安全清掉
+const unSkillLegacyRoot = await mkdtemp(join(tmpdir(), 'process-kit-uninstall-skill-legacy-'));
+await mkdir(join(unSkillLegacyRoot, '.dsh/skills/product-manager'), { recursive: true });
+await writeFile(
+	join(unSkillLegacyRoot, '.dsh/skills/product-manager/SKILL.md'),
+	await readFile(join(packageRoot, 'skills/product-manager/SKILL.md')),
+	'utf8',
+);
+const unSkillLegacyExec = { ...exec, agent: { session: { header: { cwd: unSkillLegacyRoot } } } };
+const unSkillLegacy = await byName.process_uninstall.execute({ confirm: true, dryRun: false, backup: false }, unSkillLegacyExec);
+assert.equal(await exists(join(unSkillLegacyRoot, '.dsh')), false, '逐字一致的旧技能副本应被清掉');
+assert.ok(unSkillLegacy.removed.includes('.dsh/skills/product-manager/SKILL.md'));
+await rm(unSkillLegacyRoot, { recursive: true, force: true });
 
 // ---- 清理 ------------------------------------------------------------
 

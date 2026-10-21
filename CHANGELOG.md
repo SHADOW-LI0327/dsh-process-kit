@@ -2,9 +2,24 @@
 
 本插件自身的变更日志。按 GitHub 风格简要记录功能与行为变更，只记变更本身、不记开发过程。
 
+## 0.7.0
+
+> 0.7.0 版本号已落盘，已提交；npm 发布由人手动完成。
+
+### Added
+
+- **可卸载路径 `process_uninstall`**：确认后清理插件落进仓库的流程内容 —— `docs/process/**` 与 `scripts/process/**`（或 init 自定义的 `scriptsDir`）；默认 `dryRun`，必须人明确 `confirm: true` + `dryRun: false` 才删；默认先备份到系统临时目录，备份失败不删。`AGENTS.md` / `.dsh/skills/**` 只删 init 创建且哈希未变、或与插件模板逐字一致（无用户内容）的文件；用户已有自定义内容默认不删，改过的生成文件也默认保留，`force: true` 才删。不改产品源码 / 测试 / git 历史 / `package.json`。
+- **卸载清单 `docs/process/.process-kit.json`**：`process_init` 记录真正创建的 `AGENTS.md` / 技能副本、创建时哈希、`scriptsDir` 与版本；没有清单的旧安装走保守降级（目录照删、`AGENTS.md` 只认逐字模板、技能副本只删与包内版本逐字一致的，改过的保留并报告）。
+- **卸载文档**：README 新增「卸载」一节与工具表；`docs/DESIGN.md` 补可卸载性设计；`docs/CONTRACT.md` 新增契约 5（清单 schema）并把工具返回契约顺延为 6；`AGENTS.template.md` / 流程总纲加入卸载指引。
+
+### Changed
+
+- **`process_init` 增加 `manifest` / `manifestChanged` 返回字段**：写清单属于元数据更新，不改变「只创建不覆盖」语义；dry-run 只报告不写盘。
+- **流程工具从 4 个变 5 个**：新增 `process_uninstall`；`docs/ACCEPTANCE.md` 的工具计数同步。
+
 ## 0.6.0
 
-> 版本号已落盘到 `package.json`，**未提交、未发布**；npm 上最新仍是 `0.5.0`。
+> 0.6.0 已提交并推送；npm 发布由人手动完成。
 
 ### Added
 
