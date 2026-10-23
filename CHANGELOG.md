@@ -4,17 +4,23 @@
 
 ## 0.8.0
 
-### Changed
-
-- **`ui-designer` 改为 HTML 原型主件，彻底去掉 PNG / PSD**：交付为 `prototypes/<ID>/index.html` + `styles.css` + `handoff.md` + `prd/<ID>-ui-spec.md`；HTML 可直接打开、可直接对照 DOM/CSS，dev 不再靠设计稿猜色值和间距。PNG/PSD/截图不再作为本角色产物；PhotoCraft / Photoshop 也不再是 UI 设计的交付工具。
-- **新增 UI 还原核对环节**：dev 实现完成且 L2 包验证通过后、UAT 之前，由 ui-designer 打开实现页与 HTML 原型并排对照，逐条 `UI-NN` 记录 `match / deviation / not-covered`，写 `reports/ui-review/<ID>.md`；`fail` / `conditional` 打回 dev，`pass` 后才进 UAT。它只判「实现是否偏离设计」，不代替 UAT。
-- **新增 `check-ui-prototype.mjs` 门禁**：检查 `index.html`、doctype/viewport、每个 `UI-NN` 的 `data-ui`、`handoff.md` 覆盖、外部网络、本地链接；PNG-only / UI-NN 漏标 / 绝对与协议相对外链均判红。只判交接完整性，不判审美。
-- **流程文档同步**：Gate1 要求打开 `prototypes/<ID>/index.html`；`PROJECT.md` §5 的 UI 原型目录改为 `index.html` + `styles.css` + `handoff.md`；旧 `check-ui-geometry` 脚本与位图几何测试一并删除，不再保留兼容路径。
-- **`dev-agent` 技能补 UI 交接纪律**：按 `handoff.md` 落地，UI 偏离逐条登记，L2 后等 ui-designer 核对，不以测试绿代替 UI 一致。
-
 ### Added
 
-- `check-ui-prototype.mjs` 与回归用例：完整交付放行；PNG-only / UI-NN 漏标 / 外部 CDN / 协议相对外链判红。
+- **HTML 原型成为 UI 设计的交付主件**：`ui-designer` 不再产出 PNG / PSD / 截图，改为交 `prototypes/<ID>/index.html` + `styles.css` + `handoff.md`，并配 `prd/<ID>-ui-spec.md` 的视觉数值。这样 dev 打开就能看到真实 DOM / CSS / 状态，不必对着设计稿猜色值、间距和文案；原型的 `data-ui="UI-NN"` 与交接表把「规格 → 实现」逐条连起来，少一层转述就少一层走样。
+- **新增 UI 还原核对环节**：dev 实现完成、L2 包验证通过后，**UAT 之前**由 `ui-designer` 打开实现页与 HTML 原型并排对照，逐条 `UI-NN` 记录 `match / deviation / not-covered`，写 `reports/ui-review/<ID>.md`。`fail` / `conditional` 打回 dev 修，`pass` 后才进 UAT。这个环节只判「实现是否偏离已审过的设计」，不判业务对错，也不代替 UAT 的功能验收；放在 UAT 之前，是为了不让 UAT 替开发抓颜色、间距和状态。
+- **新增 `check-ui-prototype.mjs` 门禁**：检查 `index.html`、doctype / viewport、每个 `UI-NN` 的 `data-ui`、`handoff.md` 覆盖、外部网络、本地链接；只交 PNG/PSD、漏标 UI-NN、绝对或协议相对外链均判红。它挡的是「拿图冒充交付 / 交接漏项」，不判审美、不判像素。
+- **UI 规格模板与交接表升级**：§八 改为 HTML 原型入口、状态切换、视觉数值、`handoff.md` 结构和 UI 还原核对说明；`handoff.md` 逐条给 `UI-NN → 选择器 → 组件判定 → 状态 → 令牌 → 文案 → 测试钩子`，并区分 dev「必须保留 / 可自由替换」。
+
+### Changed
+
+- **Gate1 / Gate4 的实物口径同步**：Gate1 先打开 `prototypes/<ID>/index.html`（可切状态），不再看位图；有 UI 的包 Gate4 还要求 UI 还原核对 `pass`。`process_status` 在 `implementing` 阶段提示「test 复跑 + UI 核对」，`status=uat` 但缺 `reports/ui-review/<ID>.md` 会告警。
+- **`dev-agent` 补 UI 交接纪律**：有 `uiDesign: required` 时按 HTML 原型和 `handoff.md` 落地，原型里的 mock 数据 / 演示脚本不得直接搬进生产；UI 偏离必须逐条登记，L2 后等 `ui-designer` 核对，不能拿「测试绿」代替「UI 一致」。
+- **`test-agent` / `uat-agent` 的边界写清**：test 在 L2 绿后不得直接置 `status=uat`，有 UI 的包先等 UI 还原核对；UAT 是最后一道功能验收，不重做像素 / 样式核对。
+- **已初始化仓库升级提醒**：`process_init({ upgrade: true })` 会把新的 `check-ui-prototype.mjs` 同步到 `scripts/process/`；`PROJECT.md` 是项目可定制文件，不会被覆盖，需要手动把「UI 原型目录 = `index.html` + `styles.css` + `handoff.md`」和 UI 属主的 `reports/ui-review/**` 并进去。旧仓库里如果还留着位图几何配置，可以一并删掉。
+
+### Removed
+
+- **删除整条 PNG / PSD / 位图几何链路**：移除 `scripts/check-ui-geometry.mjs`、`test/fixtures/fake-photocraft.mjs` 及位图几何测试，清理 `PROJECT.md` 里的几何阈值配置和 `ui/recipe.md` / `ui/tokens.md` 中的几何门禁说明。**破坏性变更**：新流程不再接受「只交 PNG/PSD」的 UI 设计；已有旧稿请自行归档，不要再作为 dev 交接源。
 
 ## 0.7.0
 
