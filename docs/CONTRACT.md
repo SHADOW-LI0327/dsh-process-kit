@@ -99,7 +99,7 @@ chainHash  = fold(lines, (chain, line) => hash16(chain + line), 初始值 "")
 | `check-artifact-paths.mjs` | 产物落点：**新增**文件是否落在合法根。**三种模式**：默认判未跟踪（`git add` 之后就看不见了）· `--staged` 判暂存区新增 · `--committed[=<rev>]` 判某次已入库提交新增；**只判新增**（改 `README.md` 这类正常操作不判）。见下方 ⚠ |
 | `check-rules.mjs` | 台账 ↔ 测试 ↔ PRD 三层证据链自洽、import 白名单、`prdVersion` 一致；**越界事后判定**（角色边界，fail-open） |
 | `check-uat-readiness.mjs` | UAT 前置：环境 + 账号 + 目标端点就绪 |
-| `check-ui-geometry.mjs` | UI 客观几何（溢出 / 重叠 / 过挤 / 居中 / 边距 / 对比度）；**文字层为 0 时只报 ⚠，不打绿** |
+| `check-ui-prototype.mjs` | HTML 原型交付：`index.html` / `data-ui` 覆盖 / `handoff.md` / 外链 / 本地链接；**只判交接完整性，不判审美** |
 | `journal-append.mjs` | 安全追加（锁 + 指纹 + 原子替换 + 自校验），写 meta |
 | `sync-prd-version.mjs` | 同步 `prdVersion` 的五个声明位；`--check` 下**产物存在却缺该字段行 ⇒ 判不一致、退出 1**（只有整个文件不存在才跳过，fail-open） |
 
@@ -146,7 +146,7 @@ chainHash  = fold(lines, (chain, line) => hash16(chain + line), 初始值 "")
 
 `process_status` / `gate_summary` / `process_journal` / `process_init` / `process_uninstall` 的返回值是**结构化对象**（`render` 只负责显示）。其中可依赖的字段：
 
-- `process_status` → `{ found, root, processDir, generatedAt, packages[], openBugCount, orphanBugs[], warnings[], releasePending, releaseReports[] }`；每个包含 `id` / `status` / `gates` / **`gateHost`**（`human` / `ai-hosted` / `unrecorded`）/ `prdVersion` / `artifacts` / `openBugs` / `next`，以及 `journal: { lines, lastAt, lastActor, lastStep, integrity, runs[], approvals[] }`。
+- `process_status` → `{ found, root, processDir, generatedAt, packages[], openBugCount, orphanBugs[], warnings[], releasePending, releaseReports[] }`；每个包含 `id` / `status` / `gates` / **`gateHost`**（`human` / `ai-hosted` / `unrecorded`）/ `prdVersion` / `artifacts`（含 `uiSpec` / `prototype` / `uiReview` 等）/ `openBugs` / `next`，以及 `journal: { lines, lastAt, lastActor, lastStep, integrity, runs[], approvals[] }`。
 - `journal.integrity` → `{ state: 'verified' | 'legacy' | 'tampered' | 'unverified', reason?, lines? }`。
 - `journal.runs[]` → `{ at, gate, actor, step, command, exitCode, artifact }`（契约 2 的 `action:"run"`）。
 - `journal.approvals[]` → `{ at, gate, actor, via }`（契约 2 的 `action:"approve"`）。

@@ -2,6 +2,20 @@
 
 本插件自身的变更日志。按 GitHub 风格简要记录功能与行为变更，只记变更本身、不记开发过程。
 
+## 0.8.0
+
+### Changed
+
+- **`ui-designer` 改为 HTML 原型主件，彻底去掉 PNG / PSD**：交付为 `prototypes/<ID>/index.html` + `styles.css` + `handoff.md` + `prd/<ID>-ui-spec.md`；HTML 可直接打开、可直接对照 DOM/CSS，dev 不再靠设计稿猜色值和间距。PNG/PSD/截图不再作为本角色产物；PhotoCraft / Photoshop 也不再是 UI 设计的交付工具。
+- **新增 UI 还原核对环节**：dev 实现完成且 L2 包验证通过后、UAT 之前，由 ui-designer 打开实现页与 HTML 原型并排对照，逐条 `UI-NN` 记录 `match / deviation / not-covered`，写 `reports/ui-review/<ID>.md`；`fail` / `conditional` 打回 dev，`pass` 后才进 UAT。它只判「实现是否偏离设计」，不代替 UAT。
+- **新增 `check-ui-prototype.mjs` 门禁**：检查 `index.html`、doctype/viewport、每个 `UI-NN` 的 `data-ui`、`handoff.md` 覆盖、外部网络、本地链接；PNG-only / UI-NN 漏标 / 绝对与协议相对外链均判红。只判交接完整性，不判审美。
+- **流程文档同步**：Gate1 要求打开 `prototypes/<ID>/index.html`；`PROJECT.md` §5 的 UI 原型目录改为 `index.html` + `styles.css` + `handoff.md`；旧 `check-ui-geometry` 脚本与位图几何测试一并删除，不再保留兼容路径。
+- **`dev-agent` 技能补 UI 交接纪律**：按 `handoff.md` 落地，UI 偏离逐条登记，L2 后等 ui-designer 核对，不以测试绿代替 UI 一致。
+
+### Added
+
+- `check-ui-prototype.mjs` 与回归用例：完整交付放行；PNG-only / UI-NN 漏标 / 外部 CDN / 协议相对外链判红。
+
 ## 0.7.0
 
 > 0.7.0 已发布到 npm。

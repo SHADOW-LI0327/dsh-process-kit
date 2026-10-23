@@ -38,6 +38,7 @@ description: "测试 / 验证角色 subagent。双职责：为 PRD 生成验收�
 dev 声明完成后，由你**独立复跑**验证（dev 的自测不算数）：
 
 - **L2 包验证（默认）**：静态段 + 本包 P0 + **影响集** + 常驻 smoke（启动 / 鉴权 / 金额等高危面）。静态段命令见 `PROJECT.md` §2；**P0 标记在用例头注释、不在用例名**，不要用测试名 pattern 过滤。判据 = **本次验证无红**；退出码照实报，禁用排除 / 白名单等手段变绿。
+- **有 UI 的包别直接进 UAT**：`uiDesign: required` 时，L2 绿后先让 **ui-designer** 做 `reports/ui-review/<ID>.md` 的 UI 还原核对；`pass` 后才置 `status=uat`，`fail` / `conditional` 回 dev。测试绿 ≠ UI 一致。
 - **影响集**：优先用测试器自带能力（`vitest related` / `jest --findRelatedTests` / `pytest-testmon` 等）；没有就按台账 `@case` / `@prd` + 项目约定的目录或模块映射生成。影响集覆盖不了本次改动（共享核心 / 鉴权 / 金额 / schema / 对外接口）⇒ **升级为 L3**，不要硬用定向。
 - **L3 全量**：发布回归按总纲 §3.4；高风险包或影响集不足时在包内升级。L3 之后代码再变 ⇒ 重跑 L3。
 - **报告首行写层级**：`L2 / L3 + 范围（包 N + 影响 M + smoke K）+ 全量是否跑`；**L2 不得写成「全绿」或「全部通过」**，Gate 摘要同步这一行。

@@ -154,6 +154,30 @@ await writeFile(
 	'utf8',
 );
 
+// UI 还原核对：dev 已实现、L2 待跑时，下一步必须提示 ui-designer，而不是直接进 UAT
+await writeFile(
+	join(dir, 'input', 'FEAT-205-需求核对件.md'),
+	`---\nid: FEAT-205\nkind: requirement-check\nstatus: confirmed\ngate0: approved\nflow: full\nuiDesign: required\n---\n\n# 要 UI 设计\n`,
+	'utf8',
+);
+await writeFile(
+	join(dir, 'prd', 'FEAT-205.md'),
+	`---\nid: FEAT-205\nstatus: implementing\ngate1: approved\ngate2: approved\ngate4: pending\nprdVersion: 1\n---\n\n# PRD\n`,
+	'utf8',
+);
+
+// 已进入 UAT 但缺 UI 还原核对报告 ⇒ 必须告警（有 UI 的包不能跳过这一步）
+await writeFile(
+	join(dir, 'input', 'FEAT-206-需求核对件.md'),
+	`---\nid: FEAT-206\nkind: requirement-check\nstatus: confirmed\ngate0: approved\nflow: full\nuiDesign: required\n---\n\n# 要 UI 设计\n`,
+	'utf8',
+);
+await writeFile(
+	join(dir, 'prd', 'FEAT-206.md'),
+	`---\nid: FEAT-206\nstatus: uat\ngate1: approved\ngate2: approved\ngate4: pending\nprdVersion: 1\n---\n\n# PRD\n`,
+	'utf8',
+);
+
 // 冲突夹具：快速路径不建 PRD、不过 Gate1，承载不了 UI 规格 ⇒ 必须出状态位冲突警告
 await writeFile(
 	join(dir, 'input', 'FEAT-204-需求核对件.md'),
@@ -209,7 +233,7 @@ assert.match(renderedNotFound, /未找到流程目录/);
 
 const snapshot = await byName.process_status.execute({}, { ...exec, agent: { session: { header: { cwd: root } } } });
 assert.equal(snapshot.found, true);
-assert.equal(snapshot.packages.length, 9);
+assert.equal(snapshot.packages.length, 11);
 
 const pkg101 = snapshot.packages.find((p) => p.id === 'FEAT-101');
 assert.equal(pkg101.status, 'red');
@@ -284,6 +308,17 @@ assert.equal(uiPkg.next.gate, 'Gate1');
 assert.equal(uiPkg.next.short, '调 pm');
 assert.match(uiPkg.next.action, /ui-designer/, 'uiDesign: required 必须派 ui-designer');
 assert.match(uiPkg.next.action, /ui-spec\.md/, '必须写明 UI 规格落点');
+assert.match(uiPkg.next.action, /index\.html/, '必须写明 HTML 原型入口');
+
+// uiDesign required + implementing ⇒ 下一步是 UI 还原核对，不是直接 uat
+const uiReviewPkg = snapshot.packages.find((p) => p.id === 'FEAT-205');
+assert.equal(uiReviewPkg.next.short, 'test 复跑 + UI 核对');
+assert.match(uiReviewPkg.next.action, /ui-review/, '必须有 UI 还原核对步骤');
+assert.match(uiReviewPkg.next.action, /status → uat/, '核对通过后才进 UAT');
+assert.ok(
+	snapshot.warnings.some((w) => w.includes('FEAT-206') && w.includes('reports/ui-review/FEAT-206.md')),
+	'有 UI 的包进 UAT 前缺 UI 还原核对报告必须告警',
+);
 
 // 冲突：快速路径 + 要 UI 规格 ⇒ 报状态位冲突，不替人修
 const uiConflict = snapshot.packages.find((p) => p.id === 'FEAT-204');

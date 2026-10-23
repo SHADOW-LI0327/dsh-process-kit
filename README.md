@@ -20,7 +20,7 @@
 | --- | --- | --- |
 | 规格驱动（spec-kit / OpenSpec / BMAD …） | 靠 LLM 自查「规格写完了没」，或明写**不做硬门禁** | 状态机 + **人签 Gate**：阶段推进权在**人手**上，且**从需求到交付的纠偏不可跳过**（实现过程本身不需要人参与） |
 | 角色编排（dsh-crew / dsh-swarm / dsh-expert-team …） | 用**代码强制**角色写权（权限矩阵 / 宿主中间件 / preset） | 角色是**提示词层面**的分工（管效率），**交付质量由 Gate 的人裁承担** —— 刻意不做实时拦截，理由见 [DESIGN](./docs/DESIGN.md) |
-| 自动质量门（review-gate / lunheng …） | 机器 verdict 直接放行或阻断 | 机器只判**客观可判**的那半（几何 / 台账 / 落点 / 证据完整性），主观的**留给人裁**；机器侧证据进 `📎` 供抽查 |
+| 自动质量门（review-gate / lunheng …） | 机器 verdict 直接放行或阻断 | 机器只判**客观可判**的那半（HTML 原型 / 台账 / 落点 / 证据完整性），主观的**留给人裁**；机器侧证据进 `📎` 供抽查 |
 
 三条不可替代的东西：**状态入仓**（`docs/process/**` 是唯一真源，[CI 不装插件也能消费](./docs/CONTRACT.md)）、**防篡改 journal**（链式指纹，读取侧重算并如实报红）、**两段式 Gate 摘要**（✅ 完成了什么 / ❓ 还需要裁定什么）。
 
@@ -69,7 +69,7 @@
 
 - `docs/process/` — `README.md`（流程总纲）、`orchestrator.md`（调度手册）、`PROJECT.md`（项目适配）、PRD 与核对件模板、`tools/README.md`
 - `docs/process/.process-kit.json` — 卸载清单：记录 init 真正创建的 `AGENTS.md` / 技能副本与哈希、`scriptsDir`、版本；供 `process_uninstall` 精确清理
-- `scripts/process/` — `journal-append.mjs`、`check-artifact-paths.mjs`、`check-rules.mjs`、`check-ui-geometry.mjs`、`sync-prd-version.mjs`
+- `scripts/process/` — `journal-append.mjs`、`check-artifact-paths.mjs`、`check-rules.mjs`、`check-ui-prototype.mjs`、`sync-prd-version.mjs`
 - `AGENTS.md` — 仅在不存在时创建；已存在则不改写，只输出待合并段落。传 `agents: false` 可跳过。
 
 ### 实例项目（独立仓库）
@@ -137,7 +137,7 @@ process_uninstall({ confirm: true, dryRun: false })  // 人明确确认后才真
 
 ### 角色清单（9 个）
 
-`0.1.0` 起可用 7 个，`0.2.0` 补上 `ui-designer`，`0.3.0` 给 `ui-designer` 固定工具优先级（PhotoCraft CLI > Adobe Photoshop > 其它）并把几何门禁的空转判据补硬；`0.4.0` 移除流程看板（改为纯服务端 bundle）、流程骨架按「单 session 单包」精简并把 Gate 送审件换成实物、给 `process_init` 加上 `upgrade` 升级路径；`0.5.0` 给三个评审角色写明触发条件（技能描述随之更新）、修正快速路径与 Gate0 的口径矛盾、补上 [docs/ADOPTION.md](https://github.com/SHADOW-LI0327/dsh-process-kit/blob/main/docs/ADOPTION.md)；`0.6.0` 新增 `architect`（第 9 个）：
+`0.1.0` 起可用 7 个，`0.2.0` 补上 `ui-designer`，`0.3.0` 给 `ui-designer` 固定工具优先级（PhotoCraft CLI > Adobe Photoshop > 其它）并把几何门禁的空转判据补硬；`0.4.0` 移除流程看板（改为纯服务端 bundle）、流程骨架按「单 session 单包」精简并把 Gate 送审件换成实物、给 `process_init` 加上 `upgrade` 升级路径；`0.5.0` 给三个评审角色写明触发条件（技能描述随之更新）、修正快速路径与 Gate0 的口径矛盾、补上 [docs/ADOPTION.md](https://github.com/SHADOW-LI0327/dsh-process-kit/blob/main/docs/ADOPTION.md)；`0.6.0` 新增 `architect`（第 9 个）；`0.7.0` 增加可卸载路径；`0.8.0` 把 `ui-designer` 改为 **HTML 原型 + UI 还原核对**（不再产出 PNG/PSD）：
 
 | 角色 | 职责 | 自 |
 | --- | --- | --- |
@@ -149,16 +149,17 @@ process_uninstall({ confirm: true, dryRun: false })  // 人明确确认后才真
 | `code-review-agent` | 源码 diff 的正确性 / 回归 / 边界 / 可维护性评审 | `0.1.0` |
 | `security-review-agent` | 源码 diff 的鉴权 / 越权 / 注入 / 密钥 / 敏感数据评审 | `0.1.0` |
 | `logic-review-agent` | 规则表与源码的对抗式逻辑评审：规则→分支映射、未覆盖分支、具体反例 | `0.1.0` |
-| `ui-designer` | 把《设计与说明》里触及 UI 的条目翻译成**可验收的 UI 规格**（组件判定 `reuse`/`change`/`new` + 交互状态矩阵 + 用户可见文案定稿），并产出**原型位图**与几何。是否派单由人在 Gate0 用需求核对件的 `uiDesign: required / not-needed` 显式决定，纯后端包流程不变；产物随 Gate1 一并送审，不新增停点 | `0.2.0` |
+| `ui-designer` | 把《设计与说明》里触及 UI 的条目翻译成**可验收的 UI 规格**（组件判定 / 状态矩阵 / 文案定稿 / 字面数值），产出**可打开的 HTML/CSS 原型 + `handoff.md` 交接表**；dev 实现后、UAT 前做 **UI 还原核对**。是否派单由人在 Gate0 用 `uiDesign: required / not-needed` 显式决定；**不产出 PNG/PSD** | `0.2.0` |
 
-> **发布状态**：`architect` 是 `0.6.0` 新增；本工作区已到 `0.7.0`（含卸载路径）。npm 上的具体版本以 registry 为准；`0.5.0` 仍是 8 个角色。
+> **发布状态**：`architect` 是 `0.6.0` 新增；本工作区已到 `0.8.0`（HTML 原型 + UI 还原核对）。npm 上的具体版本以 registry 为准。
 
-**`ui-designer` 的边界**（四条，都是实测出来的）：
+**`ui-designer` 的边界**（五条，都是实测出来的）：
 
-- **只翻译不发明**。上游没写的一律不拍板，产出「未定口径」清单交人裁。实测给一个只有原始需求、没有 PRD 的包，它交回 8 条未定口径、并明确说明"没加某状态是为了避免发明"。
-- **项目令牌优先**。`PROJECT.md` §4 配了「UI 项目令牌」就**必须照抄**项目自己的设计规范，不得自创配色/字号/间距，也不得混用通用默认。门禁 **⑩** 会抽出色板来验。
-- **审美留给 Gate**。门禁只判**客观可判**的那部分（几何 + 渲染对比度 + 令牌一致性），好不好看一律交人。
-- **工具优先级固定：PhotoCraft CLI > Adobe Photoshop > 其它**。首选 PhotoCraft 是因为「出图」与「导几何」同源于一份 `.psd`，命令可复现、`--verify` 走得通；**Photoshop 是真人设计师的交付路径**（原生 `.psd` 分层源直接可用），几何那一环自己接 —— 读不动时手工导出的证据**必须标注「未经重导验证」**，不许冒充门禁验证过。工具仍不绑定，三条不使用路径照旧合法。
+- **只翻译不发明**。上游没写的一律不拍板，产出「未定口径」清单交人裁。
+- **项目令牌优先**。`PROJECT.md` §4 配了「UI 项目令牌」就**必须照抄**项目自己的设计规范，不得自创配色/字号/间距，也不得混用通用默认。
+- **HTML 是交付主件**。`prototypes/<ID>/index.html` + `styles.css` + `handoff.md` 是 dev 的第一依据；**不产出 PNG/PSD**，只有图、没有 HTML 按未交付处理。`data-ui` 与交接表把「规格 → 实现」连起来。
+- **UI 还原核对放在 dev 后、UAT 前**。dev 实现完成且 L2 通过后，ui-designer 打开实现页与 HTML 原型并排对照，逐条 `UI-NN` 出 `reports/ui-review/<ID>.md`；`fail`/`conditional` 回 dev，`pass` 才进 UAT。它只判「实现是否偏离设计」，不代替 UAT 的功能验收。
+- **审美留给 Gate**。`check-ui-prototype` 只判交接完整性（HTML / `data-ui` / `handoff.md` / 外链 / 本地链接），好不好看仍由人裁。
 
 ### 三个评审角色什么时候会跑到
 
