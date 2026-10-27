@@ -41,21 +41,32 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import {
+  CONFIG_KEYS,
+  HEADER,
+  MARKER,
+  REGISTRY_HEADINGS,
+  SECTION,
   configValue,
   globToRegExp,
-  isNumberedSection,
   isPlaceholder,
   parseTable,
   pathsInCell,
+  readMarkedSection,
   readSection,
   scalarValue,
   stripFencedBlocks,
 } from "./project-config.mjs";
+import { makeMsg, resolveLang } from "./i18n.mjs";
 
 const PROJECT_REL = "docs/process/PROJECT.md";
 const DEFAULT_REGISTRY = "docs/process/tools/README.md";
-/** 登记区标题：载体侧说明（随载体同目录，不进 git）里的登记表。 */
-const REGISTRY_HEADING = "## 登记区";
+
+/**
+ * 取词器：`text(["中文", "English"])`。默认中文，`main()` 里按仓库语言切换
+ * （双语文档见 docs/I18N.md）。
+ */
+let msg = (zh) => zh;
+const text = (pair) => msg(pair[0], pair[1]);
 
 /** 沿目录向上找仓库根：命中 `docs/process/` 或 `.git` 即认定。 */
 function findRepoRoot(start) {
@@ -68,8 +79,8 @@ function findRepoRoot(start) {
   }
 }
 
-function fail(msg) {
-  process.stderr.write(`[check-artifact-paths] 失败：${msg}\n`);
+function fail(message) {
+  process.stderr.write(`[check-artifact-paths] ${text(["失败：", "FAILED: "])}${message}\n`);
   process.exit(1);
 }
 
@@ -99,8 +110,11 @@ function gitZ(root, sub, args, what) {
     return out.split("\0").filter((l) => l !== "");
   } catch (err) {
     fail(
-      `无法枚举${what}（${err.message}）。本脚本依赖 git，请确认仓库根存在 .git ` +
-        `或在 git 仓库内运行。`,
+      msg(
+        `无法枚举${what[0]}（${err.message}）。本脚本依赖 git，请确认仓库根存在 .git ` +
+          `或在 git 仓库内运行。`,
+        `cannot enumerate ${what[1]} (${err.message}). This gate relies on git: make sure the repo root has .git, or run inside a git repository.`,
+      ),
     );
   }
 }
@@ -108,28 +122,41 @@ function gitZ(root, sub, args, what) {
 /** 三种判定模式：默认未跟踪 / 暂存区新增 / 已入库提交新增。 */
 const MODES = {
   untracked: {
-    label: "未跟踪未忽略",
-    list: (root) => gitZ(root, "ls-files", ["--others", "--exclude-standard"], "未跟踪文件"),
-    emptyHint:
+    label: ["未跟踪未忽略", "untracked & unignored"],
+    list: (root) => gitZ(root, "ls-files", ["--others", "--exclude-standard"], ["未跟踪文件", "untracked files"]),
+    emptyHint: [
       "没有任何未跟踪文件可判（产物可能已全部入库，或已被 git add）⇒ " +
-      "判暂存区用 `--staged`，事后审计已入库的提交用 `--committed[=<rev>]`",
+        "判暂存区用 `--staged`，事后审计已入库的提交用 `--committed[=<rev>]`",
+      "no untracked files to judge (artifacts may all be committed, or already `git add`ed) ⇒ " +
+        "use `--staged` for the index, or `--committed[=<rev>]` to audit an existing commit",
+    ],
   },
   staged: {
-    label: "暂存区新增",
-    list: (root) => gitZ(root, "diff", ["--cached", "--name-only", "--diff-filter=A"], "暂存区新增文件"),
-    emptyHint: "暂存区里没有新增文件（只判新增，改已入库文件不在本门禁职责内）",
+    label: ["暂存区新增", "staged additions"],
+    list: (root) => gitZ(root, "diff", ["--cached", "--name-only", "--diff-filter=A"], ["暂存区新增文件", "staged additions"]),
+    emptyHint: [
+      "暂存区里没有新增文件（只判新增，改已入库文件不在本门禁职责内）",
+      "no staged additions (this gate only judges new files; editing tracked files is out of scope)",
+    ],
   },
   committed: {
-    label: "已入库提交新增",
+    label: ["已入库提交新增", "additions in a commit"],
     list: (root, rev) =>
-      gitZ(root, "show", ["--name-only", "--diff-filter=A", "--format=", rev], `提交 ${rev} 的新增文件`),
+      gitZ(root, "show", ["--name-only", "--diff-filter=A", "--format=", rev], [`提交 ${rev} 的新增文件`, `additions in commit ${rev}`]),
     // 合并提交 `git show` 默认不展开（列不出文件）—— 空转的原因必须写清，
     // 否则会被误读成「这个提交没有新增文件」。
     emptyHint: (root, rev) =>
       hasSecondParent(root, rev)
-        ? `该提交是**合并提交**（\`git show\` 默认不展开合并的文件列表）⇒ 要看合并带入的新增，` +
-          `请对具体分支提交单独审计（\`--committed=<rev>\`）`
-        : "该提交没有新增文件（只判新增，改已入库文件不在本门禁职责内）",
+        ? [
+            `该提交是**合并提交**（\`git show\` 默认不展开合并的文件列表）⇒ 要看合并带入的新增，` +
+              `请对具体分支提交单独审计（\`--committed=<rev>\`）`,
+            `this commit is a **merge commit** (\`git show\` does not expand merged file lists) ⇒ to see what the merge brought in, ` +
+              `audit the individual branch commits (\`--committed=<rev>\`)`,
+          ]
+        : [
+            "该提交没有新增文件（只判新增，改已入库文件不在本门禁职责内）",
+            "this commit has no added files (this gate only judges new files)",
+          ],
   },
 };
 
@@ -150,43 +177,69 @@ function resolveMode() {
   const committed = argv.find((a) => a === "--committed" || a.startsWith("--committed="));
   if (committed) {
     const rev = committed.includes("=") ? committed.slice(committed.indexOf("=") + 1) : "HEAD";
-    if (rev === "") fail("--committed= 需要一个版本号（如 --committed=HEAD~1 或 --committed=abc1234）");
+    if (rev === "") {
+      fail(
+        msg(
+          "--committed= 需要一个版本号（如 --committed=HEAD~1 或 --committed=abc1234）",
+          "--committed= needs a revision (e.g. --committed=HEAD~1 or --committed=abc1234)",
+        ),
+      );
+    }
     return { name: "committed", rev };
   }
   const unknown = argv.filter((a) => a !== "--committed");
   if (unknown.length > 0) {
-    fail(`不认识的参数：${unknown.join(" ")}。可用：--staged / --committed[=<rev>]（不带参数 = 未跟踪未忽略）`);
+    fail(
+      msg(
+        `不认识的参数：${unknown.join(" ")}。可用：--staged / --committed[=<rev>]（不带参数 = 未跟踪未忽略）`,
+        `unknown argument(s): ${unknown.join(" ")}. Supported: --staged / --committed[=<rev>] (no argument = untracked & unignored)`,
+      ),
+    );
   }
   return { name: "untracked" };
 }
 
-/** 从 PROJECT.md 解析「可写路径」列。 */
+/**
+ * 从 PROJECT.md 解析「可写路径」列。
+ *
+ * 定位顺序（双语文档 docs/I18N.md §3）：`<!-- process:owner-table -->` 标记 → §3 编号 →
+ * 「产物属主」/ `ownership` 标题；表头列同样中英都认（「可写路径」/ `Writable paths`）。
+ */
 function loadAllowGlobs(projectText) {
-  const sec = readSection(
-    projectText,
-    (level, title) =>
-      level === 2 && (isNumberedSection(3, title) || title.includes("产物属主")),
-  );
+  const sec = readMarkedSection(projectText, MARKER.ownerTable, SECTION.ownerTable);
   if (!sec) {
     fail(
-      `在 ${PROJECT_REL} 里找不到「## 3. 产物属主表」小节。\n` +
-        `  期望形如：\n` +
-        `    ## 3. 产物属主表\n` +
-        `    | 角色 | 可写路径 | 禁止 |\n` +
-        `    | ---- | -------- | ---- |\n` +
-        `    | pm   | \`docs/process/prd/**\` | \`src/**\` |\n` +
-        `  退出码：1（配置缺失，不放行任何路径）`,
+      msg(
+        `在 ${PROJECT_REL} 里找不到「## 3. 产物属主表」小节。\n` +
+          `  期望形如：\n` +
+          `    ## 3. 产物属主表\n` +
+          `    | 角色 | 可写路径 | 禁止 |\n` +
+          `    | ---- | -------- | ---- |\n` +
+          `    | pm   | \`docs/process/prd/**\` | \`src/**\` |\n` +
+          `  退出码：1（配置缺失，不放行任何路径）`,
+        `cannot find the "## 3. Artifact ownership" section in ${PROJECT_REL}.\n` +
+          `  expected shape:\n` +
+          `    ## 3. Artifact ownership\n` +
+          `    | Role | Writable paths | Forbidden |\n` +
+          `    | ---- | -------------- | --------- |\n` +
+          `    | pm   | \`docs/process/prd/**\` | \`src/**\` |\n` +
+          `  exit code: 1 (missing config ⇒ nothing is allowed)`,
+      ),
     );
   }
   const rows = parseTable(sec.body);
-  const header = rows.find((r) => r.some((c) => c.includes("可写路径")));
+  const header = rows.find((r) => r.some((c) => HEADER.writablePaths.test(c)));
   if (!header) {
     fail(
-      `「${sec.title}」表格里找不到含「可写路径」的表头列。\n` +
-        `  请把表头写成：| 角色 | 可写路径 | 禁止 |\n  退出码：1（配置缺失，不放行）`,
+      msg(
+        `「${sec.title}」表格里找不到含「可写路径」的表头列。\n` +
+          `  请把表头写成：| 角色 | 可写路径 | 禁止 |\n  退出码：1（配置缺失，不放行）`,
+        `the table under "${sec.title}" has no header column matching "writable paths".\n` +
+          `  expected header: | Role | Writable paths | Forbidden |\n  exit code: 1 (missing config ⇒ nothing is allowed)`,
+      ),
     );
   }
-  const col = header.findIndex((c) => c.includes("可写路径"));
+  const col = header.findIndex((c) => HEADER.writablePaths.test(c));
   const globs = [];
   const seen = new Set();
   const ignored = [];
@@ -205,31 +258,72 @@ function loadAllowGlobs(projectText) {
   }
   if (globs.length === 0) {
     fail(
-      `已找到「${sec.title}」表格，但「可写路径」列里没有任何**有效**条目。\n` +
-        `  PROJECT.md §3 未填：所有条目都是占位符或被解析为空，请填入真实可写路径。\n` +
-        (ignored.length > 0 ? `  （已忽略 ${ignored.length} 条占位符条目）\n` : "") +
-        `  请用反引号标注路径，多个用、分隔，例如：\n` +
-        `    | pm | \`docs/process/prd/**\`、\`docs/process/contracts/**\` | \`src/**\` |\n` +
-        `  退出码：1（配置缺失，不放行任何路径）`,
+      msg(
+        `已找到「${sec.title}」表格，但「可写路径」列里没有任何**有效**条目。\n` +
+          `  PROJECT.md §3 未填：所有条目都是占位符或被解析为空，请填入真实可写路径。\n` +
+          (ignored.length > 0 ? `  （已忽略 ${ignored.length} 条占位符条目）\n` : "") +
+          `  请用反引号标注路径，多个用、分隔，例如：\n` +
+          `    | pm | \`docs/process/prd/**\`、\`docs/process/contracts/**\` | \`src/**\` |\n` +
+          `  退出码：1（配置缺失，不放行任何路径）`,
+        `found the table under "${sec.title}", but its "writable paths" column has no **effective** entry.\n` +
+          `  PROJECT.md §3 is unconfigured: every entry is a placeholder or parses to nothing — put real writable paths in.\n` +
+          (ignored.length > 0 ? `  (ignored ${ignored.length} placeholder entries)\n` : "") +
+          `  wrap paths in backticks, separate multiple entries with commas, e.g.:\n` +
+          `    | pm | \`docs/process/prd/**\`, \`docs/process/contracts/**\` | \`src/**\` |\n` +
+          `  exit code: 1 (missing config ⇒ nothing is allowed)`,
+      ),
     );
   }
   return { globs, ignored };
 }
 
 /**
- * 登记区里以反引号登记的仓库相对路径。
+ * 定位登记区小节：`<!-- process:registry -->` 标记优先，其次 `## 登记区` / `## Registry`。
  * 只取该节正文 —— 不取全文，免得别处**顺带提到**的路径也算作登记（那会放宽门禁）。
  */
+function registryBounds(text) {
+  const lines = text.split(/\r?\n/);
+  let startLine = -1;
+  const markerAt = lines.findIndex((line) => line.includes(MARKER.registry));
+  if (markerAt >= 0) {
+    for (let i = markerAt + 1; i < lines.length; i += 1) {
+      if (/^#{1,6}\s+/.test(lines[i])) {
+        startLine = i;
+        break;
+      }
+    }
+  }
+  if (startLine === -1) {
+    for (let i = 0; i < lines.length; i += 1) {
+      const m = /^##\s+(.*)$/.exec(lines[i]);
+      if (!m) continue;
+      const title = m[1].trim().toLowerCase();
+      // 前缀匹配：存量模板的标题带后缀（`## 登记区（勿移 / 待提交）`），精确比较会漏认。
+      if (REGISTRY_HEADINGS.some((h) => title.startsWith(h.toLowerCase()))) {
+        startLine = i;
+        break;
+      }
+    }
+  }
+  if (startLine === -1) return null;
+  const level = /^#{1,6}/.exec(lines[startLine])[0].length;
+  const body = [];
+  for (let j = startLine + 1; j < lines.length; j += 1) {
+    const h = /^(#{1,6})\s+/.exec(lines[j]);
+    if (h && h[1].length <= level) break;
+    body.push(lines[j]);
+  }
+  return { title: lines[startLine].replace(/^#+\s+/, "").trim(), body: body.join("\n") };
+}
+
+/** 登记区里以反引号登记的仓库相对路径。 */
 function registeredPaths(root, registryRel) {
   const file = join(root, registryRel);
   if (!existsSync(file)) return { file, set: new Set(), ignored: 0 };
-  const text = readFileSync(file, "utf8");
-  const start = text.indexOf(REGISTRY_HEADING);
-  if (start === -1) return { file, set: new Set(), ignored: 0 };
-  const rest = text.slice(start + REGISTRY_HEADING.length);
-  const next = rest.search(/\n## /);
+  const bounds = registryBounds(readFileSync(file, "utf8"));
+  if (bounds === null) return { file, set: new Set(), ignored: 0 };
   // 代码块里的登记示例只是教学，不构成登记；含 `<`/`>` 的占位条目同样不算。
-  const section = stripFencedBlocks(rest.slice(0, next === -1 ? rest.length : next));
+  const section = stripFencedBlocks(bounds.body);
   const set = new Set();
   let ignored = 0;
   for (const m of section.matchAll(/`([^`\s]+)`/g)) {
@@ -248,32 +342,40 @@ function main() {
   const root = findRepoRoot(process.cwd());
   if (!root) {
     fail(
-      `从 ${process.cwd()} 向上找不到仓库根（既无 docs/process/ 也无 .git）。\n` +
-        `  请在仓库内运行，或先创建 docs/process/ 目录。`,
+      msg(
+        `从 ${process.cwd()} 向上找不到仓库根（既无 docs/process/ 也无 .git）。\n` +
+          `  请在仓库内运行，或先创建 docs/process/ 目录。`,
+        `cannot find the repo root above ${process.cwd()} (neither docs/process/ nor .git exists).\n` +
+          `  Run inside the repository, or create docs/process/ first.`,
+      ),
     );
   }
+  msg = makeMsg(resolveLang(root));
   const projectFile = join(root, PROJECT_REL);
   if (!existsSync(projectFile)) {
     fail(
-      `找不到流程配置 ${PROJECT_REL}（仓库根：${root}）。\n` +
-        `  落点门禁的「允许写入路径表」来自该文件 §3，缺配置即无法判定，故直接拒绝。\n` +
-        `  请先创建工作区文档 docs/process/PROJECT.md 并补齐 §3 产物属主表。\n` +
-        `  退出码：1（配置缺失，不放行任何路径）`,
+      msg(
+        `找不到流程配置 ${PROJECT_REL}（仓库根：${root}）。\n` +
+          `  落点门禁的「允许写入路径表」来自该文件 §3，缺配置即无法判定，故直接拒绝。\n` +
+          `  请先创建工作区文档 docs/process/PROJECT.md 并补齐 §3 产物属主表。\n` +
+          `  退出码：1（配置缺失，不放行任何路径）`,
+        `cannot find the process config ${PROJECT_REL} (repo root: ${root}).\n` +
+          `  This gate takes its allow-list from §3 of that file; without it nothing can be judged, so it refuses to pass.\n` +
+          `  Create docs/process/PROJECT.md and fill in the §3 artifact ownership table.\n` +
+          `  exit code: 1 (missing config ⇒ nothing is allowed)`,
+      ),
     );
   }
   const projectText = readFileSync(projectFile, "utf8");
   const allow = loadAllowGlobs(projectText);
   const allowGlobs = allow.globs.map(globToRegExp);
 
-  const sec4 = readSection(
-    projectText,
-    (level, title) => level === 2 && isNumberedSection(4, title),
-  );
+  const sec4 = readSection(projectText, SECTION.projectConfig);
   let registryRel = DEFAULT_REGISTRY;
   if (sec4) {
     const v =
-      configValue(sec4, "登记区文件") ??
-      (sec4.body.match(/登记区文件\s*[:：]\s*`?([^\s`]+)`?/) ?? [])[1] ??
+      configValue(sec4, CONFIG_KEYS.registryFile) ??
+      (sec4.body.match(/(?:登记区文件|Registry file)\s*[:：]\s*`?([^\s`]+)`?/i) ?? [])[1] ??
       null;
     registryRel = scalarValue(v) ?? DEFAULT_REGISTRY;
   }
@@ -296,55 +398,83 @@ function main() {
     }
     violations.push({
       path: f,
-      hint:
+      hint: msg(
         `未落在 PROJECT.md §3「可写路径」允许的根内，也未在登记区登记。` +
-        `请改放到已授权目录，或先在 ${registryRel} 的「${REGISTRY_HEADING}」小节以反引号登记该路径`,
+          `请改放到已授权目录，或先在 ${registryRel} 的「${text(["登记区", "Registry"])}」小节以反引号登记该路径`,
+        `outside every root allowed by PROJECT.md §3 "writable paths", and not registered either. ` +
+          `Move it into an authorized directory, or register the path (in backticks) under the "Registry" section of ${registryRel}`,
+      ),
     });
   }
 
-  const modeLabel = MODES[mode.name].label + (mode.rev !== undefined ? ` ${mode.rev}` : "");
-  process.stdout.write(`落点门禁（${modeLabel}）：受检 ${files.length} 个（放行 ${ok}）\n`);
-  process.stdout.write(`  放行来源：PROJECT.md §3 可写路径 ${allowGlobs.length} 条\n`);
-  process.stdout.write(`  放行来源：登记区 ${registry.set.size} 条（${registryRel}）\n`);
+  const modeLabel = text(MODES[mode.name].label) + (mode.rev !== undefined ? ` ${mode.rev}` : "");
+  process.stdout.write(
+    msg(`落点门禁（${modeLabel}）：受检 ${files.length} 个（放行 ${ok}）\n`, `write-target gate (${modeLabel}): ${files.length} checked (${ok} allowed)\n`),
+  );
+  process.stdout.write(
+    msg(`  放行来源：PROJECT.md §3 可写路径 ${allowGlobs.length} 条\n`, `  allow source: PROJECT.md §3 writable paths, ${allowGlobs.length} entries\n`),
+  );
+  process.stdout.write(
+    msg(`  放行来源：登记区 ${registry.set.size} 条（${registryRel}）\n`, `  allow source: registry, ${registry.set.size} entries (${registryRel})\n`),
+  );
   if (allow.ignored.length > 0) {
     process.stdout.write(
-      `  ⚠ 已忽略 §3 占位符条目 ${allow.ignored.length} 条（含 \`<...>\`，视为未配置）：若是模板没替换，请换成真实路径；若是 \`<ID>\` 这类变量写法，请改用 \`*\` 通配或走登记区逐件登记\n`,
+      msg(
+        `  ⚠ 已忽略 §3 占位符条目 ${allow.ignored.length} 条（含 \`<...>\`，视为未配置）：若是模板没替换，请换成真实路径；若是 \`<ID>\` 这类变量写法，请改用 \`*\` 通配或走登记区逐件登记\n`,
+        `  ⚠ ignored ${allow.ignored.length} placeholder entries in §3 (contain \`<...>\`, treated as unconfigured): replace them with real paths, or express variables with \`*\` wildcards / register files one by one\n`,
+      ),
     );
   }
   if (transient.length > 0) {
     process.stdout.write(
-      `  ⚠ 已排除临时件 ${transient.length} 个（\`*.bak-*\` 升级备份，不判落点）：核对无误后请删除\n`,
+      msg(
+        `  ⚠ 已排除临时件 ${transient.length} 个（\`*.bak-*\` 升级备份，不判落点）：核对无误后请删除\n`,
+        `  ⚠ excluded ${transient.length} transient file(s) (\`*.bak-*\` upgrade backups, not judged): delete them once verified\n`,
+      ),
     );
   }
   if (frameworkMeta.length > 0) {
-    process.stdout.write(`  · 已跳过框架元数据 ${frameworkMeta.length} 个（\`docs/process/.process-kit.json\`，不判落点）\n`);
+    process.stdout.write(
+      msg(
+        `  · 已跳过框架元数据 ${frameworkMeta.length} 个（\`docs/process/.process-kit.json\`，不判落点）\n`,
+        `  · skipped ${frameworkMeta.length} framework metadata file(s) (\`docs/process/.process-kit.json\`, not judged)\n`,
+      ),
+    );
   }
   if (registry.ignored > 0) {
     process.stdout.write(
-      `  ⚠ 已忽略登记区占位符条目 ${registry.ignored} 条（含 \`<...>\`，登记不生效）\n`,
+      msg(
+        `  ⚠ 已忽略登记区占位符条目 ${registry.ignored} 条（含 \`<...>\`，登记不生效）\n`,
+        `  ⚠ ignored ${registry.ignored} placeholder entries in the registry (contain \`<...>\`, registration has no effect)\n`,
+      ),
     );
   }
   if (!existsSync(registry.file)) {
-    process.stdout.write(`  ⚠ 登记区不存在（${registryRel}）⇒ 未在 §3 内的新文件一律判 ❌\n`);
+    process.stdout.write(
+      msg(
+        `  ⚠ 登记区不存在（${registryRel}）⇒ 未在 §3 内的新文件一律判 ❌\n`,
+        `  ⚠ no registry file (${registryRel}) ⇒ every new file outside §3 is judged ❌\n`,
+      ),
+    );
   }
 
   if (files.length === 0) {
-    const hint =
-      typeof MODES[mode.name].emptyHint === "function"
-        ? MODES[mode.name].emptyHint(root, mode.rev)
-        : MODES[mode.name].emptyHint;
+    const raw = MODES[mode.name].emptyHint;
+    const hint = text(typeof raw === "function" ? raw(root, mode.rev) : raw);
     // **空转不打绿**：一条都没判过，就不能输出"无越界落点"这个结论（否则是拿无色当绿色）。
     process.stdout.write(
-      `⚠ 空转：本次没有可判对象（${modeLabel}，受检 0 个）—— 这不是绿。\n` +
-        `  ${hint}\n`,
+      msg(
+        `⚠ 空转：本次没有可判对象（${modeLabel}，受检 0 个）—— 这不是绿。\n  ${hint}\n`,
+        `⚠ no-op: nothing to judge this run (${modeLabel}, 0 checked) — this is NOT a green.\n  ${hint}\n`,
+      ),
     );
     process.exit(0);
   }
   if (violations.length === 0) {
-    process.stdout.write("✓ 无越界落点\n");
+    process.stdout.write(msg("✓ 无越界落点\n", "✓ no out-of-bounds write targets\n"));
     process.exit(0);
   }
-  process.stdout.write(`❌ 越界 ${violations.length} 个：\n`);
+  process.stdout.write(msg(`❌ 越界 ${violations.length} 个：\n`, `❌ ${violations.length} out-of-bounds write target(s):\n`));
   for (const v of violations) process.stdout.write(`   ${v.path}\n      → ${v.hint}\n`);
   process.exit(1);
 }

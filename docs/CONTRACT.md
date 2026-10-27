@@ -128,6 +128,7 @@ chainHash  = fold(lines, (chain, line) => hash16(chain + line), 初始值 "")
   "version": "0.7.0",
   "installedAt": "<ISO8601>",
   "updatedAt": "<ISO8601>",
+  "lang": "zh",
   "processDir": "docs/process",
   "scriptsDir": "scripts/process",
   "agents": { "path": "AGENTS.md", "created": true, "sha256": "<64 hex>" },
@@ -135,22 +136,24 @@ chainHash  = fold(lines, (chain, line) => hash16(chain + line), 初始值 "")
 }
 ```
 
+- `lang`：仓库的流程语言（`zh` / `en`），是**语言真源**（优先级仅低于环境变量 `PROCESS_KIT_LANG`，高于 `PROJECT.md` 的 `lang`）。gate 脚本、工具报告与角色技能都按它取词；`process_init` 的 `lang: "auto"` 也先读它，缺它才按仓库文档推断。
 - `agents` / `skills` 可为 `null`：没碰过对应落点。
 - `agents.created: false`：`AGENTS.md` 本来就有，init 没改它；卸载默认保留。唯一例外：它与插件模板逐字一致（忽略卸载提示段）⇒ 没有用户内容，可安全清理。
 - `skills.createdFiles` 只列**init 真正创建**的文件；值 = 创建时 sha256。用户已有 / init 跳过的文件不列。
 - `scriptsDir` 可由 `process_init({ scriptsDir })` 自定义；卸载按它删。它必须是专用子目录：`process_init` 拒绝 `docs/process` 或其父目录，以及 `scripts` / `docs` / `src` 等顶层宽目录，避免卸载整目录删时带走项目文件。
 - **`AGENTS.md` / `.dsh/skills` 是唯一需要文件级归属判断的落点**：有清单时只删「created=true 且哈希一致」的文件，或与插件模板逐字一致（无用户内容）的 `AGENTS.md`；改过的默认保留，`force` 才删。`docs/process/**` / `scripts/process/**` 是目录级流程载体，确认后整目录删。
-- 旧仓库没有本清单：卸载只按目录 + 「AGENTS.md 是否与插件模板逐字一致（忽略卸载提示段，含上一版）」判断；技能副本只删与包内 `SKILL.md` 逐字一致的，其余保留并报告。
+- 旧仓库没有本清单：卸载只按目录 + 「AGENTS.md 是否与插件模板逐字一致（忽略卸载提示段，含上一版；中英两份模板都算）」判断；技能副本只删与包内 `SKILL.md` / `SKILL.en.md` 逐字一致的，其余保留并报告。
+- 旧仓库的清单**没有 `lang` 字段**：一律按 `zh` 处理（存量仓库零行为变化），`process_init({ upgrade: true, lang: "en" })` 会补写上并按英文覆盖框架自有文件。
 
 ## 契约 6：插件工具的结构化返回（agent 侧）
 
 `process_status` / `gate_summary` / `process_journal` / `process_init` / `process_uninstall` 的返回值是**结构化对象**（`render` 只负责显示）。其中可依赖的字段：
 
-- `process_status` → `{ found, root, processDir, generatedAt, packages[], openBugCount, orphanBugs[], warnings[], releasePending, releaseReports[] }`；每个包含 `id` / `status` / `gates` / **`gateHost`**（`human` / `ai-hosted` / `unrecorded`）/ `prdVersion` / `artifacts`（含 `uiSpec` / `prototype` / `uiReview` 等）/ `openBugs` / `next`，以及 `journal: { lines, lastAt, lastActor, lastStep, integrity, runs[], approvals[] }`。
+- `process_status` → `{ found, root, lang, processDir, generatedAt, packages[], openBugCount, orphanBugs[], warnings[], releasePending, releaseReports[] }`（`lang` 决定报告语言）；每个包含 `id` / `status` / `gates` / **`gateHost`**（`human` / `ai-hosted` / `unrecorded`）/ `prdVersion` / `artifacts`（含 `uiSpec` / `prototype` / `uiReview` 等）/ `openBugs` / `next`，以及 `journal: { lines, lastAt, lastActor, lastStep, integrity, runs[], approvals[] }`。
 - `journal.integrity` → `{ state: 'verified' | 'legacy' | 'tampered' | 'unverified', reason?, lines? }`。
 - `journal.runs[]` → `{ at, gate, actor, step, command, exitCode, artifact }`（契约 2 的 `action:"run"`）。
 - `journal.approvals[]` → `{ at, gate, actor, via }`（契约 2 的 `action:"approve"`）。
-- `process_init` → 除 `created` / `skipped` / `updated` / `manual` / `upgrade` / `dryRun` 外，新增 `manifest`（固定 `docs/process/.process-kit.json`）与 `manifestChanged`。
+- `process_init` → `{ created[], skipped[], updated[], manual[], upgrade, dryRun, lang, manifest, manifestChanged, report }`；`manifest` 固定 `docs/process/.process-kit.json`；`lang` 是**解析后的**骨架语言（`auto` 会被解析成 `zh` / `en`），与清单里的 `lang` 一致。
 - `process_uninstall` → `{ dryRun, manifest, removed[], preserved[], backupDir, report }`；`removed` 是目录级 / 文件级已删清单，`backupDir` 为 `null` 表示未备份。
 
 ---

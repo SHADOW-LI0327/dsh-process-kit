@@ -21,6 +21,26 @@
 | §6 环境与凭据 | 需要哪些环境变量与凭据 |
 | §7 通知 | **已废弃**（编号占位，写「不适用」） |
 
+## 语言（zh / en）
+
+流程本身支持中英两种语言，语言是**仓库级**设定，不是插件级：
+
+| 顺序 | 来源 | 怎么改 |
+|---|---|---|
+| 1 | 环境变量 `PROCESS_KIT_LANG` | `PROCESS_KIT_LANG=en dsh web`（进程级临时覆盖，排障用） |
+| 2 | `docs/process/.process-kit.json` 的 `lang` | `process_init({ upgrade: true, lang: "en" })` 自动写；也可手改 |
+| 3 | `docs/process/PROJECT.md` frontmatter 的 `lang` | 直接改这一行 |
+| 4 | 按 `AGENTS.md` / `README.md` 的语言推断 | 无需配置 |
+| 5 | 都没有 ⇒ `zh` | 存量仓库零变化 |
+
+`process_init` 的 `lang` 参数接受 `zh` / `en` / `auto`（默认 `auto`：清单 → 仓库文档 → `zh`）。
+
+**换语言**：`process_init({ upgrade: true, lang: "en" })`。框架自有文件（总纲 / 调度手册 / 模板 / 门禁脚本）按新语言覆盖、覆盖前备份为 `<文件>.bak-<时间戳>`；`PROJECT.md` / `ui/tokens.md` / `ui/recipe.md` 属于项目可定制文件，**不会被覆盖**，只会报告「需人工比对」并给出包内新语言版本的位置。
+
+**门禁怎么认两种写法**：模板在关键小节上方放机器标记（`<!-- process:owner-table -->` / `<!-- process:registry -->`）；标记缺失时回退中英标题别名（`## 3. 产物属主表` / `## 3. Artifact ownership`、`## 登记区` / `## Registry`）；§4 / §5 的配置键中英都认（如 `台账目录` 与 `Rules dir`）。**标记不要删**——它是唯一不随文字漂移的锚点。
+
+**维护纪律**：改任一语言都要同轮改另一种；`npm test` 里的 `test/i18n.test.mjs` 会核对两套骨架文件清单一致、英文侧零中文残留、配置键对照表三方一致，以及在英文仓库里两道门禁能跑到绿。完整契约见 [I18N.md](./I18N.md)。
+
 ## 未填 = 未配置（占位符纪律）
 
 模板里所有 `<...>` 都是**会被脚本忽略**的占位符。这是硬口径，不是建议——因为「假绿比红更危险」：
@@ -41,7 +61,8 @@
 | `check-rules.mjs` | 校验流程规则（Gate、状态位、属主表、台账 ↔ 测试互引）；含**越界事后判定**（角色边界，fail-open） |
 | `check-ui-prototype.mjs` | 校验 HTML 原型交付：`index.html` / `data-ui` 覆盖 / `handoff.md` / 外部网络 / 本地链接；**只判交接完整性，不判审美** |
 | `sync-prd-version.mjs` | 同步 PRD 版本号 |
-| `project-config.mjs` | 上面几个脚本共用的 PROJECT.md 解析件 |
+| `project-config.mjs` | 上面几个脚本共用的 PROJECT.md 解析件（含中英锚点别名表 `SECTION` / `HEADER` / `CONFIG_KEYS`） |
+| `i18n.mjs` | 语言判定（`resolveLang`）与成对取词器（`makeMsg`）；上面几个脚本共用 |
 
 > **脚本是项目自带副本，不随插件升级自动更新。** 插件修了门禁逻辑之后，要跑一次 `process_init(upgrade: true)` 把这些脚本与 `docs/process/tools/README.md` 同步过去。
 >

@@ -47,6 +47,118 @@ export function isNumberedSection(n, title) {
   return new RegExp(`^${n}([.、\\s:：]|$)`).test(title) && !new RegExp(`^${n}\\.\\d`).test(title);
 }
 
+/* ------------------------------------------------------------------ *
+ * 双语锚点（见 docs/I18N.md §3）
+ *
+ * 口径：**机器认标记，人读文字**。模板在关键小节标题上方放 HTML 注释标记，
+ * 门禁优先按标记定位；标记缺失（存量仓库 / 人手改过的文件）才回退标题别名。
+ * 任何新增锚点都必须同时给「标记 + 中文别名 + 英文别名」，只加中文等于没做完。
+ * ------------------------------------------------------------------ */
+
+/** HTML 注释标记：不得翻译、不得改写。 */
+export const MARKER = {
+  ownerTable: "<!-- process:owner-table -->",
+  registry: "<!-- process:registry -->",
+};
+
+/** 二级小节标题匹配器（标记缺失时的兜底；中英都认）。 */
+export const SECTION = {
+  /** §3 产物属主表 / Artifact ownership */
+  ownerTable: (level, title) =>
+    level === 2 && (isNumberedSection(3, title) || title.includes("产物属主") || /ownership/i.test(title)),
+  /** §4 项目配置 / Project config */
+  projectConfig: (level, title) =>
+    level === 2 && (isNumberedSection(4, title) || title.includes("项目配置") || /project\s+config/i.test(title)),
+  /** §5 UAT 前置自检 / UAT preflight */
+  uatPreflight: (level, title) =>
+    level === 2 && (isNumberedSection(5, title) || title.includes("UAT 前置") || /UAT\s+preflight/i.test(title)),
+  /** §4 规则表（check-rules 的规则台账总表约定） */
+  rulesTable: (level, title) =>
+    level === 2 && (isNumberedSection(4, title) || title.includes("规则表") || /rules?\s+table/i.test(title)),
+};
+
+/** 表头列别名：属主表的「可写路径」列。 */
+export const HEADER = {
+  writablePaths: /可写路径|writable\s*paths?/i,
+};
+
+/** 登记区标题（两种语言，大小写不敏感）。 */
+export const REGISTRY_HEADINGS = ["登记区", "registry"];
+
+/** 按标记定位小节；标记缺失时回退到标题匹配器。 */
+export function readMarkedSection(text, marker, fallbackMatch) {
+  const lines = text.split(/\r?\n/);
+  const at = typeof marker === "string" && marker !== "" ? lines.findIndex((line) => line.includes(marker)) : -1;
+  if (at >= 0) {
+    for (let i = at + 1; i < lines.length; i += 1) {
+      const m = /^(#{1,6})\s+(.*)$/.exec(lines[i]);
+      if (!m) continue;
+      const level = m[1].length;
+      const body = [];
+      for (let j = i + 1; j < lines.length; j += 1) {
+        const h = /^(#{1,6})\s+/.exec(lines[j]);
+        if (h && h[1].length <= level) break;
+        body.push(lines[j]);
+      }
+      return { title: m[2].trim(), body: body.join("\n") };
+    }
+  }
+  return readSection(text, fallbackMatch);
+}
+
+/**
+ * 配置键别名表：`CONFIG_KEYS.<用途>` ⇒ `[中文键, English key]`。
+ *
+ * 脚本一律用这里的用途名取键，**不再散落中文字面量** —— 散落就会出现
+ * 「一个脚本改了英文别名、另一个没改」的半双语状态。
+ */
+export const CONFIG_KEYS = {
+  // §4 项目配置
+  testScanDirs: ["测试扫描目录", "Test scan dirs"],
+  testSuffixes: ["测试文件后缀", "Test file suffixes"],
+  flowTestDirs: ["流程测试目录", "Flow test dirs"],
+  packageTestDirs: ["需求包测试目录", "Package test dirs"],
+  importAllowlist: ["import 白名单", "Import allowlist"],
+  automationTypes: ["自动化类型", "Automation types"],
+  caseCarrierTypes: ["@case 载体类型", "@case carrier types"],
+  junitDirs: ["junit 测试目录", "JUnit test dirs"],
+  pendingPatterns: ["待裁定字样", "Pending-decision patterns"],
+  rulesDir: ["台账目录", "Rules dir"],
+  prdDir: ["PRD 目录", "PRD dir"],
+  registryFile: ["登记区文件", "Registry file"],
+  uiProjectTokens: ["UI 项目令牌", "UI project tokens"],
+  uiPrototypesDir: ["UI 原型目录", "UI prototypes dir"],
+  // §5 UAT 前置自检
+  coreBackend: ["core 后端", "Core backend"],
+  webFrontend: ["web 前端", "Web frontend"],
+  mobile: ["移动端", "Mobile"],
+  uatAccount: ["验收账号", "UAT account"],
+  uatPassword: ["验收口令", "UAT password"],
+  targetEndpoints: ["目标端点", "Target endpoints"],
+  apiPrefix: ["端点前缀", "API prefix"],
+  loginPath: ["登录路径", "Login path"],
+  tokenField: ["令牌字段", "Token field"],
+  deviceCdp: ["真机 CDP", "Device CDP"],
+  checklistDir: ["清单目录", "Checklist dir"],
+  evidenceDir: ["证据目录", "Evidence dir"],
+};
+
+/** 取别名表里的全部写法（去重、保序）。 */
+export function keyAliases(key) {
+  if (Array.isArray(key)) return key.filter((k) => typeof k === "string" && k !== "");
+  if (typeof key === "string" && key !== "") return [key];
+  return [];
+}
+
+/** 键名归一化：去反引号/加粗、折叠空白、大小写不敏感（中英一致口径）。 */
+function normKey(value) {
+  return String(value ?? "")
+    .replace(/[*`]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
 /** 抹掉围栏代码块（含围栏行本身），返回剩余正文。 */
 export function stripFencedBlocks(body) {
   const out = [];
@@ -68,10 +180,15 @@ export function stripFencedBlocks(body) {
 
 /**
  * 从某小节取配置值：支持 `| 配置项 | 值 |` 表格行与 `- 配置项：值` 行。
+ *
+ * `key` 可以是单个键名，也可以是别名数组（如 `CONFIG_KEYS.registryFile`），
+ * 任一写法命中即取；键名比较**大小写不敏感、空白折叠**（中文键不受影响）。
  * 占位符单元格按「未配置」返回 null（调用方自然回落到内置默认值）。
  */
 export function configValue(sec, key) {
   if (!sec) return null;
+  const aliases = keyAliases(key).map(normKey);
+  if (aliases.length === 0) return null;
   for (const line of stripFencedBlocks(sec.body).split(/\r?\n/)) {
     const t = line.trim();
     if (t.startsWith("|")) {
@@ -80,13 +197,15 @@ export function configValue(sec, key) {
         .replace(/\|$/, "")
         .split("|")
         .map((c) => c.trim());
-      if (cells.length >= 2 && cells[0].replace(/[*`]/g, "") === key) {
+      if (cells.length >= 2 && aliases.includes(normKey(cells[0]))) {
         return isPlaceholder(cells[1]) ? null : cells[1];
       }
       continue;
     }
-    const m = new RegExp(`^\\s*[-*]?\\s*\\**${escapeRe(key)}\\**\\s*[:：]\\s*(.+)$`).exec(t);
-    if (m) return isPlaceholder(m[1]) ? null : m[1];
+    for (const alias of keyAliases(key)) {
+      const m = new RegExp(`^\\s*[-*]?\\s*\\**${escapeRe(alias)}\\**\\s*[:：]\\s*(.+)$`).exec(t);
+      if (m) return isPlaceholder(m[1]) ? null : m[1];
+    }
   }
   return null;
 }

@@ -6,79 +6,59 @@
 
 通过工程化提升产出质量的多角色+多Agent并行开发插件
 
+> **English**: see [README.en.md](./README.en.md). 本插件支持**中文 / 英文**两种流程语言（`process_init({ lang })`），见下节「双语支持」。
+
 ## 简介
 
 为 [DSH](https://github.com/deepseek-ai/deepseek-harness) 增加一套文件驱动的工程化开发流程。需求包的状态、门禁签署、流程与 bug 记录都写在目标仓库的 `docs/process/**` 里；插件只做读取、渲染、安全追加和脚手架落地，不另外保存状态。
 
 同时内置 9 个角色 subagent，彼此有硬边界：写实现的不写测试，写测试的不做验收；产品与架构的借鉴调研在 Gate0 前**按需**并行，候选只进核对件、不直接进 AC。
 
-## 和同类插件的差别
-
-生态里已有 20 多个近亲（4674 条精选清单里逐个粗筛过），最容易混淆的是这三类：
-
-| 你见过的做法 | 它的判据 | 我们的做法 |
-| --- | --- | --- |
-| 规格驱动（spec-kit / OpenSpec / BMAD …） | 靠 LLM 自查「规格写完了没」，或明写**不做硬门禁** | 状态机 + **人签 Gate**：阶段推进权在**人手**上，且**从需求到交付的纠偏不可跳过**（实现过程本身不需要人参与） |
-| 角色编排（dsh-crew / dsh-swarm / dsh-expert-team …） | 用**代码强制**角色写权（权限矩阵 / 宿主中间件 / preset） | 角色是**提示词层面**的分工（管效率），**交付质量由 Gate 的人裁承担** —— 刻意不做实时拦截，理由见 [DESIGN](./docs/DESIGN.md) |
-| 自动质量门（review-gate / lunheng …） | 机器 verdict 直接放行或阻断 | 机器只判**客观可判**的那半（HTML 原型 / 台账 / 落点 / 证据完整性），主观的**留给人裁**；机器侧证据进 `📎` 供抽查 |
-
-三条不可替代的东西：**状态入仓**（`docs/process/**` 是唯一真源，[CI 不装插件也能消费](./docs/CONTRACT.md)）、**防篡改 journal**（链式指纹，读取侧重算并如实报红）、**两段式 Gate 摘要**（✅ 完成了什么 / ❓ 还需要裁定什么）。
-
-
 ## 特性
 
 - **文件状态机**：进度存在 `docs/process/**` 的 frontmatter 中。每轮唤醒调用 `process_status` 即可恢复上下文，不依赖聊天记录。
 - **Gate 门禁**：只在 Gate0/1/2/4 (需求核对，设计，开发，验收环节) 停下进行确认，每次输出两段式摘要（✅ 已完成 / ❓ 待裁定）。
+- **防篡改 journal**：链式指纹（任意一行被改 / 删行 / 换行都能发现），读取侧重算并如实报红；状态位与批准来源都可事后核验。
 - **角色分离**：角色技能随插件注册，项目内 `.dsh/skills/**` 的同名技能可覆盖。
 - **需求借鉴调研（按需）**：用户说不清目的时，Gate0 前并行派 `product-manager` + `architect` 查 GitHub / 公开文档，把隐性需求 / 技术约束变成核对件的候选 `Q`；**并行必须汇合**，候选不直接进 AC，fast 路径不做，**不默认对所有 full 包做**。
 - **零依赖**：不导入插件外库，无构建步骤。
 - **只增不改**：`process_init` 默认只创建、不覆盖；已有仓库用 `process_init(upgrade: true)` 升级 —— 框架自有文件覆盖前先备份，`PROJECT.md` 与令牌类项目可定制文件永不覆盖、只报告差异。
 
+## 双语支持（中文 / English）
+
+同一套流程、两种语言。语言只影响**文字**，不影响**落点与判据**：
+
+- **选语言**：`process_init({ lang: "en" })` 落英文骨架、`zh` 落中文；`auto`（默认）依次看 `.process-kit.json` 的 `lang` → 仓库 `AGENTS.md` / `README.md` 的语言 → 回退 `zh`。环境变量 `PROCESS_KIT_LANG=zh|en` 可一次性覆盖。**换语言** = `process_init({ upgrade: true, lang: "en" })`（框架自有文件按新语言覆盖并先备份，`PROJECT.md` / 令牌类文件不覆盖、只报告差异）。
+- **门禁与工具跟着仓库走**：门禁脚本的运行期消息、`process_status` / `gate_summary` 的报告、9 个角色技能正文都按仓库语言输出/取用（英文仓库拿英文，中文仓库行为不变）。
+- **机器认标记，人读文字**：模板在关键小节上方放 HTML 注释标记（`<!-- process:owner-table -->` / `<!-- process:registry -->`），门禁优先按标记定位，缺失才回退中英标题别名；§4 / §5 的配置键**中英都认**（如 `台账目录` / `Rules dir`）；核对件中英两种文件名都认，权威判据是 frontmatter `kind: requirement-check`。
+- **完整契约**：[docs/I18N.md](./docs/I18N.md)（解析优先级、标记清单、26 个配置键对照表、维护纪律）；`test/i18n.test.mjs` 会核对两套骨架一致、零残留，并在英文仓库里跑到绿。
+
 ## 安装
 
 | 方式 | target | 说明 |
 | --- | --- | --- |
-| npm（推荐） | `dsh-process-kit` | 从官方 npm 仓库安装，升级只需改版本号（**本工作区 `0.7.0`；npm 上的具体版本以 registry 为准**） |
+| npm（推荐） | `dsh-process-kit` | 从 npm 安装，升级只需改版本号（具体版本以 registry 为准） |
 | GitHub | `github:SHADOW-LI0327/dsh-process-kit` | 免 npm；锁版本用 `#<tag>` 或 `#<commit>` |
 | 本地目录 | 绝对路径，如 `/Users/<you>/dsh-plugins/dsh-process-kit` | 需要改插件源码时用，先 clone 到本地 |
 
-安装后建议重启客户端，一般情况下无需重启
+安装即生效；若界面没刷新，再重启客户端
 
-> **装不到最新版？先看这条：不是安装故障。** pnpm（11/12）默认带 24 小时供应链保护 —— `minimumReleaseAge = 1440` 分钟：**发布不满 24 小时的版本，不会被 `^范围` / `latest` 解析选中**，于是刚发的新版看起来「装不上」，实际装到的是上一个版本。三种解法：
->
-> - **等**：满 24 小时后自然解析到新版；
-> - **钉版本**（立即生效，显式钉版本按设计绕开该策略）：装 `dsh-process-kit@0.4.0` 这样的确切版本；
-> - **加排除**：在 `pnpm-workspace.yaml` 里补
->   ```yaml
->   minimumReleaseAgeExclude:
->     - dsh-process-kit@0.4.0
->   ```
->   不建议直接写 `minimumReleaseAge: 0` —— 那等于把这道保护整体关掉。
+> **装不到最新版？不是安装故障。** pnpm 默认带 24 小时供应链保护（`minimumReleaseAge = 1440`）：发布不满 24 小时的版本不会被 `^范围` / `latest` 选中。**等 24 小时**，或**钉确切版本**（`dsh-process-kit@0.9.0`，显式钉版本按设计绕开该策略）；不建议把 `minimumReleaseAge` 置 0（等于关掉这道保护）。
 
 ## 快速开始
 
 ```text
-1. 安装插件（安装即生效，无需重启）。
-2. 告诉ai想做什么，比如想做一个网站，做一个app等等
-3. ai自动初始化当前环境(插件需要的记录) `process_init`
-4. 开始按照流程进行开发工作
-5. 第一个包建议走快速路径试水：需求核对件写 `flow: fast`，人签 Gate0 后直接派 dev + 存量回归；确认这套流程在你的项目里顺手，再上全流程
+1. 安装插件（安装即生效，一般无需重启）
+2. 直接说想做什么（"做个网站"/"做个 app"）
+3. AI 调 `process_init` 初始化当前仓库的流程
+4. 按流程推进；第一个包建议走快速路径试水：核对件写 `flow: fast`，人签 Gate0 后直派 dev + 存量回归
 ```
 
-`process_init` 生成的内容：
-
-- `docs/process/` — `README.md`（流程总纲）、`orchestrator.md`（调度手册）、`PROJECT.md`（项目适配）、PRD 与核对件模板、`tools/README.md`
-- `docs/process/.process-kit.json` — 卸载清单：记录 init 真正创建的 `AGENTS.md` / 技能副本与哈希、`scriptsDir`、版本；供 `process_uninstall` 精确清理
-- `scripts/process/` — `journal-append.mjs`、`check-artifact-paths.mjs`、`check-rules.mjs`、`check-ui-prototype.mjs`、`sync-prd-version.mjs`
-- `AGENTS.md` — 仅在不存在时创建；已存在则不改写，只输出待合并段落。传 `agents: false` 可跳过。
+`process_init` 生成：`docs/process/`（总纲、调度手册、`PROJECT.md`、模板）、`docs/process/.process-kit.json`（卸载清单：创建过什么 + 哈希，供精确清理）、`scripts/process/`（门禁与 journal 脚本）、`AGENTS.md`（仅在缺失时创建，绝不改写；`agents: false` 可跳过）。
 
 ### 实例项目（独立仓库）
 
-[dsh-process-kit-example](https://github.com/SHADOW-LI0327/dsh-process-kit-example) —— 在一个**全新空仓库**里，从一句「做一个电商 app」跑到交付的端到端实例：交付成果、流程产物与 journal 证据都留在那个仓库里，不在本仓库内。
-
-跑法与核验收的检查单见 [docs/ACCEPTANCE.md](https://github.com/SHADOW-LI0327/dsh-process-kit/blob/main/docs/ACCEPTANCE.md)（含可直接照抄的开跑步骤，以及一段**不装插件**就能复算 journal 链式指纹的核验脚本）。
-
-> 仓库已建，内容由首次端到端验收跑产出。
+[dsh-process-kit-example](https://github.com/SHADOW-LI0327/dsh-process-kit-example) —— 全新空仓库里从「做一个电商 app」跑到交付的端到端实例（成果、流程产物与 journal 证据都在那个仓库里）。开跑步骤与核验检查单见 [docs/ACCEPTANCE.md](https://github.com/SHADOW-LI0327/dsh-process-kit/blob/main/docs/ACCEPTANCE.md)（含一段**不装插件**就能复算 journal 链式指纹的脚本）。
 
 ### 升级已有仓库
 
@@ -97,11 +77,7 @@ process_init({ upgrade: true })                 // 再落地
 
 ### 卸载（不想继续用）
 
-> `process_uninstall` 与卸载清单自 **0.7.0** 起提供；npm 上是否已发布以 registry 为准，未发布则用本工作区版本。
->
-> **已初始化过的仓库先升级脚本**：`process_init({ upgrade: true })` 会把门禁脚本同步到带「清单跳过」的版本；旧版 `check-artifact-paths` 不认识 `.process-kit.json`，会把它判成越界。
-
-流程内容全部落在仓库里，不是插件私有状态，所以**可以完整清走**；但删除不可逆，默认只预览、不落盘：
+流程内容全部落在仓库里，不是插件私有状态，所以**可以完整清走**；但删除不可逆，默认只预览：
 
 ```js
 process_uninstall({ dryRun: true })                  // 默认就是 dry-run，先看会删什么
@@ -110,16 +86,13 @@ process_uninstall({ confirm: true, dryRun: false })  // 人明确确认后才真
 
 | 处理 | 内容 |
 | --- | --- |
-| **确认后删除** | `docs/process/**`（骨架、PRD / 输入 / 台账 / journal / reports / prototypes 等全部过程件）与 `scripts/process/**`（或 init 时自定义的 `scriptsDir`）；`docs/process/.process-kit.json` 卸载清单随目录一起删 |
-| **仅删除 init 创建且未被改过（或与模板逐字一致、无用户内容）的** | `AGENTS.md`、`.dsh/skills/<角色>/SKILL.md`（清单记录创建时哈希；改过的默认保留，`force: true` 才删） |
-| **永不删除** | 用户已有且含自定义内容的 `AGENTS.md` / 同名技能；产品源码与测试；git 历史；`package.json`（只会报告仍指向已删脚本的命令） |
+| **确认后删除** | `docs/process/**`（全部过程件）与 `scripts/process/**`（或 init 时自定义的 `scriptsDir`），卸载清单随目录一起删 |
+| **仅删 init 创建且未改过的** | `AGENTS.md`、`.dsh/skills/<角色>/SKILL.md`（按清单哈希判断；与模板逐字一致也算；改过的默认保留，`force: true` 才删） |
+| **永不删除** | 含自定义内容的 `AGENTS.md` / 同名技能、产品源码与测试、git 历史、`package.json`（只报告仍指向已删脚本的命令） |
 
-- **默认先备份**到系统临时目录；备份失败就**不删**。备份路径会在报告里给出，确认无误后可自行删。`backup: false` 可关闭（不建议在未提交时用）。
-- **旧安装没有卸载清单**时保守处理：流程目录 / 脚本目录照删；`AGENTS.md` 只有与插件模板逐字一致（忽略卸载提示段，含上一版）才认作 init 创建；技能副本只删与包内 `SKILL.md` 逐字一致的，版本不同 / 改过的保留并在报告里点名。
-- **`scriptsDir` 自定义必须是专用子目录**：`process_init` 会拒绝 `docs/process` 或其父目录，以及 `scripts` / `docs` / `src` 等顶层宽目录；卸载时对这类宽目录只提示、不整目录删，避免带走项目自己的文件。
-- **先卸载流程，再卸载插件**：`process_uninstall` 本身由插件提供；插件先卸掉就没人替你清仓库了。之后再用 DSH 插件管理器 / `npm uninstall` 卸插件本体。
-- **插件已经先卸掉了**（工具不可用）：手工删 `docs/process/` 与 `scripts/process/`；`AGENTS.md` 若是 init 生成且没填过项目内容可一并删；再按报告/`package.json` 清理残留命令并提交。`docs/process/.process-kit.json` 在删目录时一起没了，无法再自动判断归属，所以**能先跑工具就别手工删**。
-- 删除是**工作区改动**，不会改写 git 历史；确认后请自己提交这次删除。
+- 默认**先备份**到系统临时目录，备份失败就不删；删除是**工作区改动**，不会改写 git 历史，确认后自己提交。
+- **先卸流程、再卸插件**：`process_uninstall` 由插件提供，插件先卸掉就没人替你清仓库了。
+- 旧安装没有卸载清单时走保守清理（目录照删；`AGENTS.md` / 技能副本只删与模板逐字一致的），报告会点名保留项。老仓库先跑一次 `process_init({ upgrade: true })` 同步脚本。
 
 ## 工具
 
@@ -137,8 +110,6 @@ process_uninstall({ confirm: true, dryRun: false })  // 人明确确认后才真
 
 ### 角色清单（9 个）
 
-`0.1.0` 起可用 7 个，`0.2.0` 补上 `ui-designer`，`0.3.0` 给 `ui-designer` 固定工具优先级（PhotoCraft CLI > Adobe Photoshop > 其它）并把几何门禁的空转判据补硬；`0.4.0` 移除流程看板（改为纯服务端 bundle）、流程骨架按「单 session 单包」精简并把 Gate 送审件换成实物、给 `process_init` 加上 `upgrade` 升级路径；`0.5.0` 给三个评审角色写明触发条件（技能描述随之更新）、修正快速路径与 Gate0 的口径矛盾、补上 [docs/ADOPTION.md](https://github.com/SHADOW-LI0327/dsh-process-kit/blob/main/docs/ADOPTION.md)；`0.6.0` 新增 `architect`（第 9 个）；`0.7.0` 增加可卸载路径；`0.8.0` 把 `ui-designer` 改为 **HTML 原型 + UI 还原核对**（不再产出 PNG/PSD）：
-
 | 角色 | 职责 | 自 |
 | --- | --- | --- |
 | `product-manager` | PRD、接口契约、《设计与说明》；UAT 后做验收完备性审核；Gate0 前可做需求借鉴调研（`input/<ID>-prior-art.md`） | `0.1.0` |
@@ -151,32 +122,15 @@ process_uninstall({ confirm: true, dryRun: false })  // 人明确确认后才真
 | `logic-review-agent` | 规则表与源码的对抗式逻辑评审：规则→分支映射、未覆盖分支、具体反例 | `0.1.0` |
 | `ui-designer` | 把《设计与说明》里触及 UI 的条目翻译成**可验收的 UI 规格**（组件判定 / 状态矩阵 / 文案定稿 / 字面数值），产出**可打开的 HTML/CSS 原型 + `handoff.md` 交接表**；dev 实现后、UAT 前做 **UI 还原核对**。是否派单由人在 Gate0 用 `uiDesign: required / not-needed` 显式决定；**不产出 PNG/PSD** | `0.2.0` |
 
-> **发布状态**：`architect` 是 `0.6.0` 新增；本工作区已到 `0.8.0`（HTML 原型 + UI 还原核对）。npm 上的具体版本以 registry 为准。
+> 完整版本沿革见 [CHANGELOG](./CHANGELOG.md)；npm 上的具体版本以 registry 为准。
 
-**`ui-designer` 的边界**（五条，都是实测出来的）：
-
-- **只翻译不发明**。上游没写的一律不拍板，产出「未定口径」清单交人裁。
-- **项目令牌优先**。`PROJECT.md` §4 配了「UI 项目令牌」就**必须照抄**项目自己的设计规范，不得自创配色/字号/间距，也不得混用通用默认。
-- **HTML 是交付主件**。`prototypes/<ID>/index.html` + `styles.css` + `handoff.md` 是 dev 的第一依据；**不产出 PNG/PSD**，只有图、没有 HTML 按未交付处理。`data-ui` 与交接表把「规格 → 实现」连起来。
-- **UI 还原核对放在 dev 后、UAT 前**。dev 实现完成且 L2 通过后，ui-designer 打开实现页与 HTML 原型并排对照，逐条 `UI-NN` 出 `reports/ui-review/<ID>.md`；`fail`/`conditional` 回 dev，`pass` 才进 UAT。它只判「实现是否偏离设计」，不代替 UAT 的功能验收。
-- **审美留给 Gate**。`check-ui-prototype` 只判交接完整性（HTML / `data-ui` / `handoff.md` / 外链 / 本地链接），好不好看仍由人裁。
+**`ui-designer` 的边界**：**只翻译不发明**（上游没写的进「未定口径」清单交人裁）；**项目令牌优先**（`PROJECT.md` §4 配了项目令牌就必须照抄，不得自创配色/字号/间距）；**HTML 是交付主件**（`index.html` + `styles.css` + `handoff.md`，不产出 PNG/PSD）；**UI 还原核对在 dev 后、UAT 前**（逐条 `UI-NN` 出 `reports/ui-review/<ID>.md`，`pass` 才进 UAT）；**审美留给 Gate**（`check-ui-prototype` 只判交接完整性）。
 
 ### 三个评审角色什么时候会跑到
 
-9 个角色**不是平权的**，分两档：
-
-| 档 | 角色 | 什么时候被派 |
-| --- | --- | --- |
-| **单包流程**（按需） | `product-manager` · `architect`（借鉴调研 / 有架构影响时）· `ui-designer`（`uiDesign: required` 时）· `test-agent` · `dev-agent` · `uat-agent` | 包从 Gate0 走到 Gate4 的过程中按状态机派 |
-| **发布回归**（默认不在单包出现） | `code-review-agent` · `security-review-agent` · `logic-review-agent` | **只在「发布前整体回归」被派**，而该环节由人显式发起 |
-
-也就是说：**没发起过发布回归，就等于这三个角色一次都没跑过。** 实测四个自用仓库的 **3 份**可读 journal（另有 1 份只剩 `.bak`，见 [ADOPTION](./docs/ADOPTION.md) §6）+ 实例端到端那一次的 **2 份**，全文扫描：这三个角色**零命中、零份报告** —— 不是它们没用，是**触发权在人手上**，而发布回归一直没被发起过。
+9 个角色不是平权的：`product-manager` / `architect` / `ui-designer` / `test-agent` / `dev-agent` / `uat-agent` 在单包流程里按状态机派；`code-review-agent` / `security-review-agent` / `logic-review-agent` **只在「发布前整体回归」**被派，而该环节由人显式发起 —— **没发起过发布回归，就等于这三个角色一次都没跑过**（`process_status` 会如实报 `reports/release/**` 有没有报告，没有就是没跑）。
 
 两个例外会让它们提前上场：① 人在任一 Gate 上点名；② 包触及 RBAC / 金额·分摊 / schema / 新增对外接口，主控会在 Gate 摘要里给出「是否提前跑评审」这一条。
-
-`process_status` 在仓库里有包 `done` 时会**如实报** `docs/process/reports/release/**` 有没有报告 —— **没有就是没跑**，不得当已覆盖。
-
-> `architect` 是 `0.6.0` 新增的第 9 个角色：上面的历史 journal 统计里没有它的命中记录，**不要用旧数据判断它没被用过**。它的触发点是「Gate0 前按需调研 / 有架构影响」，不在发布回归三件套之列。
 
 ## 配置
 
@@ -190,15 +144,17 @@ process_uninstall({ confirm: true, dryRun: false })  // 人明确确认后才真
 
 ## 文档
 
+英文版：**[README.en.md](./README.en.md)** · **[docs/CONFIGURATION.en.md](./docs/CONFIGURATION.en.md)** · **[docs/CONTRACT.en.md](./docs/CONTRACT.en.md)** · **[docs/DESIGN.en.md](./docs/DESIGN.en.md)** · **[docs/ACCEPTANCE.en.md](./docs/ACCEPTANCE.en.md)** · **[docs/ECOSYSTEM.en.md](./docs/ECOSYSTEM.en.md)**（`docs/I18N.md` 本身中英混排，无需另译）。
+
 | 文档 | 内容 |
 | --- | --- |
-| [docs/CONFIGURATION.md](https://github.com/SHADOW-LI0327/dsh-process-kit/blob/main/docs/CONFIGURATION.md) | PROJECT.md 七个小节、占位符规则、门禁脚本 |
-| [docs/CONTRACT.md](https://github.com/SHADOW-LI0327/dsh-process-kit/blob/main/docs/CONTRACT.md) | 机器可消费契约：frontmatter / journal / 链式指纹算法 / 卸载清单 / 退出码，**CI 不装插件即可消费** |
-| [docs/DESIGN.md](https://github.com/SHADOW-LI0327/dsh-process-kit/blob/main/docs/DESIGN.md) | 设计红线、五处必须同步的改动、可卸载性、已知陷阱 |
-| [docs/ECOSYSTEM.md](https://github.com/SHADOW-LI0327/dsh-process-kit/blob/main/docs/ECOSYSTEM.md) | DSH 插件生态的准入门槛、上架清单与现状 |
-| [docs/ADOPTION.md](https://github.com/SHADOW-LI0327/dsh-process-kit/blob/main/docs/ADOPTION.md) | 落地实测：四个自用仓库走到哪一步、一个包的全流程时间线与 Gate 间隔耗时、真实返工、AI 托管对照（17.9h vs 2.01h）、装置缺陷与四个可数指标 |
-| [docs/ACCEPTANCE.md](https://github.com/SHADOW-LI0327/dsh-process-kit/blob/main/docs/ACCEPTANCE.md) | 插件验收：在全新项目里跑通一个电商 app 的端到端场景、AI 托管 Gate、可机器核验的检查单 |
-| [CONTRIBUTING.md](https://github.com/SHADOW-LI0327/dsh-process-kit/blob/main/CONTRIBUTING.md) | 开发环境、测试、提交与发布 |
+| [docs/I18N.md](./docs/I18N.md) | **双语契约**：语言解析优先级、机器标记、26 个配置键中英对照、维护纪律 |
+| [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) · [EN](./docs/CONFIGURATION.en.md) | PROJECT.md 七个小节、语言设定、占位符规则、门禁脚本 |
+| [docs/CONTRACT.md](./docs/CONTRACT.md) · [EN](./docs/CONTRACT.en.md) | 机器可消费契约：frontmatter / journal / 链式指纹算法 / 卸载清单 / 退出码，**CI 不装插件即可消费** |
+| [docs/DESIGN.md](./docs/DESIGN.md) · [EN](./docs/DESIGN.en.md) | 设计红线、六处必须同步的改动、可卸载性、已知陷阱 |
+| [docs/ECOSYSTEM.md](./docs/ECOSYSTEM.md) · [EN](./docs/ECOSYSTEM.en.md) | DSH 插件生态的准入门槛、上架清单与现状 |
+| [docs/ACCEPTANCE.md](./docs/ACCEPTANCE.md) · [EN](./docs/ACCEPTANCE.en.md) | 插件验收：全新项目里跑通一个电商 app 的端到端场景、AI 托管 Gate、可机器核验的检查单 |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | 开发环境、测试、双语纪律、提交与发布 |
 
 ## 开发
 
@@ -208,7 +164,7 @@ process_uninstall({ confirm: true, dryRun: false })  // 人明确确认后才真
 npm test
 ```
 
-三项冒烟测试：`test/host.test.mjs`、`test/skill-registry.test.mjs`、`test/scripts.test.mjs`。
+四项冒烟测试：`test/host.test.mjs`、`test/skill-registry.test.mjs`、`test/scripts.test.mjs`、`test/i18n.test.mjs`。
 
 ## License
 

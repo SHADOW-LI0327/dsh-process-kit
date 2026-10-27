@@ -33,6 +33,7 @@ function findRepoRoot(from: string) {
 
 ---
 
+<!-- process:registry -->
 ## 登记区（勿移 / 待提交）
 
 > **用途**：落点门禁的**唯一放行来源 = 本节**。它只判"会进下一次提交"的**未跟踪**文件。

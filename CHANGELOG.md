@@ -2,6 +2,43 @@
 
 本插件自身的变更日志。按 GitHub 风格简要记录功能与行为变更，只记变更本身、不记开发过程。
 
+## 0.9.0
+
+> 面向国外英文用户：同一套流程，中文 / 英文两种语言。
+
+### Added
+
+- **双语流程骨架**：新增 `scaffold/en/**`（与 `scaffold/**` 逐文件对应的英文版：总纲、调度手册、四份模板、`PROJECT.md`、UI 默认层、载体说明）。`process_init({ lang: "en" })` 直接落英文骨架，落到的是同一批 `docs/process/**` 路径，**产物落点与判据完全不变**。
+- **`process_init` 新增 `lang` 参数**（`zh` / `en` / `auto`，默认 `auto`）：`auto` 依次看卸载清单、仓库 `AGENTS.md` / `README.md` 语言、最后回退 `zh`，所以存量中文仓库行为零变化。语言落进 `docs/process/.process-kit.json` 的 `lang`，成为仓库级真源。
+- **换语言 = 重跑升级**：`process_init({ upgrade: true, lang: "en" })` 按新语言覆盖框架自有文件（先备份），`PROJECT.md` / 令牌类项目可定制文件不覆盖、只报告差异。
+- **9 个角色技能的英文版**（`skills/<role>/SKILL.en.md`）：技能 provider 按仓库语言选文件，`name` 保持不变，所以项目里已有同名技能覆盖关系不变；`skills=true` 落地时**只落当前语言那一份**并统一命名为 `SKILL.md`，避免用户仓库里两套并存。
+- **英文项目常驻指针**：新增 `AGENTS.template.en.md`，`process_init` 按语言选模板；已有 `AGENTS.md` 时仍只打印待并入段落，不覆盖。
+- **门禁脚本双语**：`check-artifact-paths` / `check-rules` / `check-uat-readiness` / `check-ui-prototype` / `sync-prd-version` / `journal-append` 的运行期消息按仓库语言取词；新增 `scripts/i18n.mjs`（语言解析 + 成对取词器），与插件层共用同一实现。
+- **工具与报告跟随仓库语言**：`process_status` / `gate_summary` / `process_journal` / `process_init` / `process_uninstall` 的报告按仓库语言渲染；工具描述改为中英并列（描述在插件注册时固定，无法按仓库切换）。
+- **新增 `test/i18n.test.mjs`**：钉死两套骨架文件清单一致、英文侧零中文残留、标记与 26 个配置键对照表三方一致、语言判定优先级，以及「英文仓库里两道门禁能跑到绿、越界会红、输出不夹中文」。
+
+### Changed
+
+- **门禁锚点去语言化**（这是英文仓库真正能跑起来的关键）：`PROJECT.md` §3 属主表与载体登记区改为「机器标记优先 + 中英标题别名兜底」，§3 表头 `可写路径` / `Writable paths` 都认，§4/§5 的 26 个配置键中英都认（如 `台账目录` / `Rules dir`、`验收账号` / `UAT account`）。**存量中文仓库无需改任何文件**：标记缺失时全部回退到原来的中文锚点。
+- **需求核对件的语言化命名**：中文 `<ID>-需求核对件.md`、英文 `<ID>-check.md` 都认，判据统一为 frontmatter `kind: requirement-check`（文件名只作存量兜底，且排除 `_` 开头的模板）。
+- **`check-rules` 的默认「待裁定字样」正则**补上英文写法（`pending Q-N` / `see Q-N` / `or HTTP N`），英文 PRD 冻结后同样能抓到存活占位。
+- **`process_status` 的输入原料占位包 ID**、状态标签等中文字面量改为按语言渲染。
+- **文档**：新增 [docs/I18N.md](./docs/I18N.md)（双语契约：解析优先级、标记清单、配置键对照表、维护纪律），README / CONFIGURATION 补双语说明，新增英文 README。
+- **README 精简**（227 → 172 行）：删掉「和同类插件的差别」小节（含三行对比表与「三条不可替代」总结句）、去掉版本沿革长段（指向 CHANGELOG）、压缩快速开始 / 升级 / 卸载 / 角色边界与评审角色触发说明。
+- **贡献者文档补齐英文版**：`docs/CONTRACT.en.md`、`docs/DESIGN.en.md`、`docs/ACCEPTANCE.en.md`、`docs/ECOSYSTEM.en.md`（与中文源逐节对应），至此 `README` 与 `docs/` 全部有英文版（`docs/I18N.md` 本身中英混排）。`test/i18n.test.mjs` 把这 6 对文档的小节数量一致与「除互指行外零中文」一并钉住；CI 的 `npm pack` 必需文件清单加入这几份英文文档。
+- **删除 `docs/ADOPTION.md`（试点与推广的落地实测）**：按「文档只留要用的」删掉这份 0.x 期的试点调研记录；README 文档表与英文版相应移除该行，用户侧入口由 README / CONFIGURATION / I18N 承担。历史 CHANGELOG 条目保持原样（不追改已发布版本的记录）。
+- **README 增加英文文档入口**：顶部指向 `README.en.md`，文档区新增 `docs/I18N.md`、`docs/CONFIGURATION.en.md` 与 `README.en.md` 链接（其余文档标注「目前为中文」）。`README.en.md` 同步做同样的精简与链接调整。
+
+### Fixed
+
+- **`check-rules` 的通过明细不再只存在于计数里**：以前只打印 `N ✓ / M ❌` 与 ⚠ / ❌ 行，`ok()` 的 33 条判据说明被算完就丢，导致「哪条判据过了、看到了什么」既不可抽查也无法与 journal 记录对账。现在按「错误 → 警告 → 通过明细」输出，绿也要能逐条复查（与「空转不打绿」同一条纪律）。新增回归用例。
+- **缺 `automation` 时不再渲染空括号**：台账条目没声明 `automation` 时，①/⑪ 的文案会变成「① TC-x → （非自动化类型…）」「⑪ TC-x（）未声明 carrier」。现在显式写「未声明 automation」并按有无 automation 取两种措辞，中英同步。新增回归用例。
+
+### 已知边界
+
+- 英文覆盖的是**流程与门禁**（骨架、技能、脚本消息、工具报告、AGENTS 模板）；插件自身的**贡献者文档**（`docs/DESIGN.md`、`docs/CONTRACT.md`、`docs/ECOSYSTEM.md`、`docs/ACCEPTANCE.md`）仍为中文，`README.en.md` 覆盖用户侧入口。
+- 工具描述只能是中英并列（DSH 的工具描述在注册时固定），不支持按仓库切换。
+
 ## 0.8.0
 
 ### Added

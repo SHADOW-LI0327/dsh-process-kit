@@ -40,7 +40,21 @@ jobs:
           npm pack --dry-run --json > pack.json
           node -e '
             const files = JSON.parse(require("fs").readFileSync("pack.json", "utf8"))[0].files.map((f) => f.path);
-            const required = ["lib/index.js", "cordis.patch.yml", "AGENTS.template.md"];
+            const required = [
+              "lib/index.js",
+              "cordis.patch.yml",
+              "AGENTS.template.md",
+              "AGENTS.template.en.md",
+              "scaffold/en/README.md",
+              "skills/product-manager/SKILL.en.md",
+              "scripts/i18n.mjs",
+              "docs/I18N.md",
+              "docs/CONFIGURATION.en.md",
+              "docs/CONTRACT.en.md",
+              "docs/DESIGN.en.md",
+              "docs/ACCEPTANCE.en.md",
+              "docs/ECOSYSTEM.en.md",
+            ];
             const forbidden = files.filter((p) => p.startsWith("test/") || p.startsWith(".github/"));
             const missing = required.filter((p) => !files.includes(p));
             if (missing.length) throw new Error(`npm 包里缺必需文件: ${missing.join(", ")}`);

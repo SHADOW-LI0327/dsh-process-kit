@@ -1,6 +1,7 @@
 ---
 project: <项目名>
 processVersion: 2
+lang: zh # zh / en —— 流程语言：门禁脚本、工具输出、角色技能都按它选语言；换语言改成 en 并同步把本文件译成英文
 ---
 
 # 项目适配（PROJECT）
@@ -50,6 +51,7 @@ processVersion: 2
 
 ---
 
+<!-- process:owner-table -->
 ## 3. 产物属主表
 
 > 每角色**唯一合法写入根**；越界即停，不得自行发明路径。

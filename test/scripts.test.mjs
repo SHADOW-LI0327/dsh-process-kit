@@ -457,6 +457,7 @@ async function makeRulesFixture() {
 	await mkdir(join(root, 'scripts/process'), { recursive: true });
 	await cp(join(PKG, 'scripts/check-artifact-paths.mjs'), join(root, 'scripts/process/check-artifact-paths.mjs'));
 	await cp(join(PKG, 'scripts/project-config.mjs'), join(root, 'scripts/process/project-config.mjs'));
+	await cp(join(PKG, 'scripts/i18n.mjs'), join(root, 'scripts/process/i18n.mjs'));
 	execFileSync('git', ['init', '-q', '.'], { cwd: root });
 
 	const meta = runGate(root, 'check-artifact-paths.mjs');
@@ -920,6 +921,37 @@ const DEV_WRITE = {
 	const archOk = runGate(root, 'sync-prd-version.mjs', ['FEAT-09', '--check']);
 	assert.equal(archOk.status, 0, `arch 件字段齐备且一致时必须绿\n${archOk.out}`);
 	console.log('✓ 9b sync-prd-version：缺 prdVersion 字段行判不一致，缺文件仍跳过（含 arch 件）');
+}
+
+// ── 10. 通过明细必须可见；缺 automation 时不得渲染空括号 ──────────────────
+//
+// 缺陷原貌：脚本把 ok() 只当计数器，`N ✓` 之外一条明细都不打 ⇒ 「哪条判据过了、看到了什么」
+// 既不可抽查也无法与 journal 记录对账（与「空转不打绿」同一条纪律）。另：台账缺
+// `automation` 时，①/⑪ 的文案会渲染成「① TC-x → （非自动化类型…）」这种空括号。
+
+{
+	const root = await makeTemplateRepo();
+	const projectPath = join(root, projectRel);
+	const md = (await readFile(projectPath, 'utf8')).replace(
+		placeholderRow,
+		'| orchestrator | `docs/process/**` | `<禁止>` |',
+	);
+	assert.notEqual(md, await readFile(projectPath, 'utf8'), '未替换 §3 占位行');
+	await writeFile(projectPath, md, 'utf8');
+	await mkdir(join(root, 'docs/process/rules'), { recursive: true });
+	// 一条台账：**缺 automation、缺 carrier** —— 正好走 ①/⑪ 的空括号分支
+	await writeFile(
+		join(root, 'docs/process/rules/FEAT-77.yaml'),
+		'# 合计 1 条\n\n- id: TC-FEAT-77-1\n  ac: AC-1\n  case: 未声明自动化类型\n',
+		'utf8',
+	);
+
+	const { out } = runGate(root, 'check-rules.mjs');
+	assert.match(out, /通过明细/, `必须打印通过明细，不能只报计数\n${out}`);
+	assert.match(out, /✓ ④ import 白名单扫描/, `通过明细应带判据号与观察值\n${out}`);
+	assert.doesNotMatch(out, /（）|\(\s*\)/, `缺 automation 时不得渲染空括号\n${out}`);
+	assert.match(out, /① TC-FEAT-77-1 → 未声明 automation/, `① 应显式说出「未声明 automation」\n${out}`);
+	console.log('✓ 10 通过明细可见；缺 automation 时 ①/⑪ 不渲染空括号');
 }
 
 await Promise.all(temps.map((d) => rm(d, { recursive: true, force: true })));

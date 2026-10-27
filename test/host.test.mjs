@@ -605,6 +605,7 @@ assert.ok(real.created.includes('scripts/process/journal-append.mjs'));
 assert.ok(real.created.includes(`docs/process/PROJECT.md`));
 const scaffoldReadme = await readFile(join(target, 'docs/process/README.md'), 'utf8');
 assert.ok(scaffoldReadme.length > 500, '总纲应有实体内容');
+assert.equal(await exists(join(target, 'docs/process/en')), false, '中文骨架初始化不得复制 scaffold/en 镜像进用户仓库');
 
 // 卸载清单：必须证明「哪些是 init 落的」，否则卸载只能靠猜
 const initManifest = JSON.parse(await readFile(join(target, 'docs/process/.process-kit.json'), 'utf8'));
@@ -855,6 +856,113 @@ const unSkillLegacy = await byName.process_uninstall.execute({ confirm: true, dr
 assert.equal(await exists(join(unSkillLegacyRoot, '.dsh')), false, '逐字一致的旧技能副本应被清掉');
 assert.ok(unSkillLegacy.removed.includes('.dsh/skills/product-manager/SKILL.md'));
 await rm(unSkillLegacyRoot, { recursive: true, force: true });
+
+// ---- 双语（lang：zh / en / auto）-------------------------------------
+//
+// 语言是仓库级设定：清单 lang → PROJECT.md lang → 文档推断 → zh。
+// 这里钉死「英文仓库拿到英文骨架与英文报告」以及「切语言只覆盖框架自有文件」。
+
+const CJK = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/g;
+
+{
+	// auto：仓库里有英文 README ⇒ 推断 en
+	const enRoot = await mkdtemp(join(tmpdir(), 'process-kit-en-'));
+	await writeFile(join(enRoot, 'README.md'), '# Demo\n\nAn English project.\n', 'utf8');
+	const enExec = { ...exec, agent: { session: { header: { cwd: enRoot } } } };
+
+	const enDry = await byName.process_init.execute({ dryRun: true }, enExec);
+	assert.equal(enDry.lang, 'en', 'auto 应按仓库 README 推断出 en');
+
+	const enReal = await byName.process_init.execute({}, enExec);
+	assert.equal(enReal.lang, 'en');
+	assert.ok(enReal.created.includes('docs/process/README.md'));
+	assert.ok(!enReal.created.some((f) => f.startsWith('docs/process/en/')), '英文骨架源不该再嵌一层 en/');
+
+	const enManifest = JSON.parse(await readFile(join(enRoot, 'docs/process/.process-kit.json'), 'utf8'));
+	assert.equal(enManifest.lang, 'en', '卸载清单必须记语言，否则下次 auto 又猜错');
+
+	const enScaffold = await readFile(join(enRoot, 'docs/process/README.md'), 'utf8');
+	assert.equal((enScaffold.match(CJK) ?? []).length, 0, '英文骨架不得残留中文');
+	assert.match(enScaffold, /^# /, '英文骨架应是英文文档');
+
+	const enProject = await readFile(join(enRoot, 'docs/process/PROJECT.md'), 'utf8');
+	assert.match(enProject, /^lang: en$/m, '英文 PROJECT.md 必须声明 lang: en');
+	assert.ok(enProject.includes('<!-- process:owner-table -->'), '英文 PROJECT.md 必须带属主表标记');
+	assert.ok((await readFile(join(enRoot, 'docs/process/tools/README.md'), 'utf8')).includes('<!-- process:registry -->'));
+
+	const enAgents = await readFile(join(enRoot, 'AGENTS.md'), 'utf8');
+	assert.match(enAgents, /## Development process/, '应使用英文 AGENTS 模板');
+	assert.equal((enAgents.match(CJK) ?? []).length, 0, '英文 AGENTS 模板不得含中文');
+
+	// 工具报告也要说英文
+	const enStatus = await byName.process_status.execute({}, enExec);
+	const enText = byName.process_status.output.render({}, enStatus)[0].text;
+	assert.equal((enText.match(CJK) ?? []).length, 0, `英文仓库的状态报告不得夹中文：\n${enText}`);
+	assert.match(enText, /Process status|no active package/i, `英文仓库的状态报告应是英文：\n${enText}`);
+
+	// 英文骨架 + 英文报告一起用：gate_summary 也是英文
+	await writeFile(
+		join(enRoot, 'docs/process/input/FEAT-201-check.md'),
+		'---\nid: FEAT-201\nkind: requirement-check\nstatus: pending\ngate0: pending\nflow: full\nuiDesign: not-needed\n---\n\n# check\n',
+		'utf8',
+	);
+	const enSummary = await byName.gate_summary.execute({ id: 'FEAT-201' }, enExec);
+	assert.equal((enSummary.skeleton.match(CJK) ?? []).length, 0, `英文仓库的 Gate 摘要不得夹中文：\n${enSummary.skeleton}`);
+	assert.match(enSummary.skeleton, /What was done/);
+
+	// 显式 lang 覆盖自动推断（这里是反向：英文仓库里强制中文）
+	const forced = await byName.process_init.execute({ dryRun: true, lang: 'zh' }, enExec);
+	assert.equal(forced.lang, 'zh', '显式 lang 必须压过自动推断');
+	await assert.rejects(() => byName.process_init.execute({ dryRun: true, lang: 'fr' }, enExec), /zh \/ en \/ auto/);
+
+	await rm(enRoot, { recursive: true, force: true });
+}
+
+// 切语言：框架自有文件按新语言覆盖（先备份），项目可定制文件永不覆盖
+{
+	const swRoot = await mkdtemp(join(tmpdir(), 'process-kit-switch-'));
+	const swExec = { ...exec, agent: { session: { header: { cwd: swRoot } } } };
+	await byName.process_init.execute({ agents: false }, swExec); // 默认 zh
+	const mineProject = '---\nproject: mine\nprocessVersion: 2\nlang: zh\n---\n\n# 我填的 PROJECT\n';
+	await writeFile(join(swRoot, 'docs/process/PROJECT.md'), mineProject, 'utf8');
+
+	const switched = await byName.process_init.execute({ upgrade: true, lang: 'en', agents: false }, swExec);
+	assert.equal(switched.lang, 'en');
+	assert.ok(switched.updated.includes('docs/process/README.md'), '框架自有文件应按新语言覆盖');
+	assert.ok(switched.manual.includes('docs/process/PROJECT.md'), '项目可定制文件应进「需人工比对」而不是被覆盖');
+	assert.equal(await readFile(join(swRoot, 'docs/process/PROJECT.md'), 'utf8'), mineProject, 'PROJECT.md 绝不能被语言切换覆盖');
+	assert.match(switched.report, /language switched from zh to en/);
+	const enAfter = await readFile(join(swRoot, 'docs/process/README.md'), 'utf8');
+	assert.equal((enAfter.match(CJK) ?? []).length, 0, '切换后框架文件应是英文');
+
+	// 清单语言优先于 PROJECT.md 的 lang（切换后 PROJECT.md 仍是 zh，不能把仓库拽回 zh）
+	const langs = JSON.parse(await readFile(join(swRoot, 'docs/process/.process-kit.json'), 'utf8'));
+	assert.equal(langs.lang, 'en');
+	const statusAfter = byName.process_status.output.render({}, await byName.process_status.execute({}, swExec))[0].text;
+	assert.match(statusAfter, /Process status|no active package/i, '切换后报告应跟随清单语言（en）');
+
+	await rm(swRoot, { recursive: true, force: true });
+}
+
+// 技能 provider：英文仓库 / PROCESS_KIT_LANG=en 时取 SKILL.en.md
+{
+	process.env.PROCESS_KIT_LANG = 'en';
+	try {
+		const enCandidates = await provider.list();
+		assert.equal(enCandidates.length, 9);
+		const pm = enCandidates.find((c) => c.name === 'product-manager');
+		assert.equal((pm.description.match(CJK) ?? []).length, 0, '英文模式下技能描述不得是中文');
+		const loaded = await provider.get(pm);
+		assert.equal((loaded.content.match(CJK) ?? []).length, 0, '英文模式下技能正文不得是中文');
+		assert.match(loaded.path, /SKILL\.en\.md$/, '英文模式应加载 SKILL.en.md');
+	} finally {
+		delete process.env.PROCESS_KIT_LANG;
+	}
+	const zhCandidates = await provider.list();
+	const zhPm = zhCandidates.find((c) => c.name === 'product-manager');
+	assert.match(zhPm.description, CJK, '默认（中文仓库）仍应给中文技能');
+	assert.match((await provider.get(zhPm)).path, /SKILL\.md$/, '中文模式应加载 SKILL.md');
+}
 
 // ---- 清理 ------------------------------------------------------------
 

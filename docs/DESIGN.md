@@ -55,7 +55,7 @@ dsh-process-kit/
 - **清理边界**：产品源码 / 测试 / git 历史 / `package.json` 不在删除范围；`package.json` 里仍指向已删脚本的命令只报告、不代改。删完是工作区改动，需要人提交。
 - **先清仓库，再卸插件**：`process_uninstall` 由插件提供；插件先卸掉，仓库里的流程内容就只能手工处理。
 
-## 五处必须同步
+## 六处必须同步
 
 改动时如果只改一处，流程会自相矛盾：
 
@@ -63,7 +63,8 @@ dsh-process-kit/
 2. **journal 语义**：`lib/index.js` 的 `journalAppend` / `journalChain` / `journalIntegrity` 与 `scripts/journal-append.mjs` 必须保持锁、指纹、备份、自校验语义一致；**链式指纹的式子必须逐字相同**（`chain_n = hash16(chain_{n-1} + line_n)`，`chain_0 = ""`）。两边算法一旦分叉，读取侧会把正常 journal 判成「篡改」，或反过来把篡改判成正常。`test/host.test.mjs` 里有一条「测试侧链式算法应与 lib 一致」的断言专门守这条。另加一份**故意独立**的实现：`docs/ACCEPTANCE.md` 里给「不装插件的人」复算用的那段核验脚本 —— 核验者不该被迫信任被核验方的代码，代价就是**它是同一个式子的第三份拷贝**，改公式时必须一并改（漏改的后果很刺眼：正常 journal 被判「篡改嫌疑」）。
 3. **角色与总纲**：`skills/**` 里引用的章节号必须真实存在于 `scaffold/README.md`。
 4. **journal 字段语义**：`lib/index.js` 的 `process_journal` 参数、总纲 §7 的字段清单、以及 `gate_summary` / `process_status` 的取值口径是**同一套契约**（`action:"run"` 必带 `command` + `exitCode`；`action:"approve"` 带 `gate` + `via`）。加字段或改语义时三处一起改，否则会出现「记了但没人读」或「读了但没人记」——后者更危险：摘要显示「未记录」，而人以为早就跑过。
-5. **卸载归属**：`process_init` 写清单的字段（[CONTRACT](./CONTRACT.md) 契约 5）与 `process_uninstall` 的删除判据必须同步。新增一个「和用户内容可能混在一起」的落点时，先在清单里记录 created / hash，再允许卸载删；不能先写删除逻辑、再补归属证据。
+5. **双语文档**：`scaffold/**` ↔ `scaffold/en/**`、`skills/<role>/SKILL.md` ↔ `SKILL.en.md`、`scripts/*.mjs` 里成对的 `msg(zh, en)`、`docs/I18N.md` 的配置键对照表 ↔ `scripts/project-config.mjs` 的 `CONFIG_KEYS` —— 改一语言必须同轮改另一语言。锚点（机器标记 / 标题别名 / 配置键）尤其危险：只加中文别名时英文仓库不会报错，会**静默退化**成「门禁跳过」。`test/i18n.test.mjs` 守这一条。
+6. **卸载归属**：`process_init` 写清单的字段（[CONTRACT](./CONTRACT.md) 契约 5）与 `process_uninstall` 的删除判据必须同步。新增一个「和用户内容可能混在一起」的落点时，先在清单里记录 created / hash，再允许卸载删；不能先写删除逻辑、再补归属证据。
 
 ## 技能广播机制
 
@@ -108,6 +109,6 @@ pnpm add github:SHADOW-LI0327/dsh-process-kit
 npm test
 ```
 
-三项冒烟测试：`host.test.mjs`（工具与状态机）、`skill-registry.test.mjs`（挂进真实 `@deepseek-ai/dsh-skill` 注册表）、`scripts.test.mjs`（门禁脚本回归）。
+四项冒烟测试：`host.test.mjs`（工具与状态机）、`skill-registry.test.mjs`（挂进真实 `@deepseek-ai/dsh-skill` 注册表）、`scripts.test.mjs`（门禁脚本回归）、`i18n.test.mjs`（双语一致性 + 英文仓库端到端门禁）。
 
 `skill-registry.test.mjs` 在本机找不到 DSH 安装时会**跳过并退出 0**——这是故意的，没有 DSH 的机器也要能跑通。

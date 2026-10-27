@@ -35,7 +35,8 @@ import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { configValue, parseList, readSection } from "./project-config.mjs";
+import { CONFIG_KEYS, SECTION, configValue, parseList, readSection } from "./project-config.mjs";
+import { detectLangFromRepo, makeMsg, resolveLang } from "./i18n.mjs";
 
 const PROJECT_REL = "docs/process/PROJECT.md";
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
@@ -46,6 +47,12 @@ const DEFAULTS = {
   rulesDir: "docs/process/rules",
   prdDir: "docs/process/prd",
 };
+
+/**
+ * 取词器：`msg(中文, English)`。root 还没解析出来时先按 cwd 推断语言，
+ * 拿到 root 后立刻切成仓库语言（双语文档见 docs/I18N.md）。
+ */
+let msg = makeMsg(detectLangFromRepo(process.cwd()));
 
 /** 沿目录向上找仓库根：命中 `docs/process/` 或 `.git` 即认定。 */
 function findRepoRoot(start) {
@@ -58,37 +65,46 @@ function findRepoRoot(start) {
   }
 }
 
-function fail(msg) {
-  console.error(`[sync-prd-version] ✗ ${msg}`);
+function fail(message) {
+  console.error(`[sync-prd-version] ✗ ${message}`);
   process.exit(1);
 }
 
 const root = findRepoRoot(process.cwd());
 if (!root) {
   fail(
-    `从 ${process.cwd()} 向上找不到仓库根（既无 docs/process/ 也无 .git）。\n` +
-      `  请在仓库内运行，或先创建 docs/process/ 目录。`,
+    msg(
+      `从 ${process.cwd()} 向上找不到仓库根（既无 docs/process/ 也无 .git）。\n` +
+        `  请在仓库内运行，或先创建 docs/process/ 目录。`,
+      `cannot find the repo root above ${process.cwd()} (neither docs/process/ nor .git exists).\n` +
+        `  Run inside the repository, or create docs/process/ first.`,
+    ),
   );
 }
+// root 已确定 ⇒ 立刻按仓库语言取词（环境变量 / .process-kit.json / PROJECT.md frontmatter / 文档推断）
+msg = makeMsg(resolveLang(root));
 const projectFile = join(root, PROJECT_REL);
 if (!existsSync(projectFile)) {
   fail(
-    `找不到流程配置 ${PROJECT_REL}（仓库根：${root}）。\n` +
-      `  版本同步需要它来确定测试目录与文件后缀（§4 项目配置）。\n` +
-      `  请先创建 docs/process/PROJECT.md；缺失即无法定位声明位，故直接拒绝。\n` +
-      `  退出码：1（配置缺失）`,
+    msg(
+      `找不到流程配置 ${PROJECT_REL}（仓库根：${root}）。\n` +
+        `  版本同步需要它来确定测试目录与文件后缀（§4 项目配置）。\n` +
+        `  请先创建 docs/process/PROJECT.md；缺失即无法定位声明位，故直接拒绝。\n` +
+        `  退出码：1（配置缺失）`,
+      `cannot find the process config ${PROJECT_REL} (repo root: ${root}).\n` +
+        `  Version sync needs it to resolve the test dirs and file suffixes (§4 project config).\n` +
+        `  Create docs/process/PROJECT.md first; without it the declaration sites cannot be located, so it refuses outright.\n` +
+        `  exit code: 1 (missing config)`,
+    ),
   );
 }
 const projectText = readFileSync(projectFile, "utf8");
-const sec4 = readSection(
-  projectText,
-  (level, title) => level === 2 && /^4([.、\s:：]|$)/.test(title) && !/^4\.\d/.test(title),
-);
+const sec4 = readSection(projectText, SECTION.projectConfig);
 const cfg = {
-  testSuffixes: parseList(configValue(sec4, "测试文件后缀")) ?? DEFAULTS.testSuffixes,
-  packageDir: (parseList(configValue(sec4, "需求包测试目录")) ?? DEFAULTS.packageDirs)[0],
-  rulesDir: (parseList(configValue(sec4, "台账目录")) ?? [DEFAULTS.rulesDir])[0],
-  prdDir: (parseList(configValue(sec4, "PRD 目录")) ?? [DEFAULTS.prdDir])[0],
+  testSuffixes: parseList(configValue(sec4, CONFIG_KEYS.testSuffixes)) ?? DEFAULTS.testSuffixes,
+  packageDir: (parseList(configValue(sec4, CONFIG_KEYS.packageTestDirs)) ?? DEFAULTS.packageDirs)[0],
+  rulesDir: (parseList(configValue(sec4, CONFIG_KEYS.rulesDir)) ?? [DEFAULTS.rulesDir])[0],
+  prdDir: (parseList(configValue(sec4, CONFIG_KEYS.prdDir)) ?? [DEFAULTS.prdDir])[0],
 };
 
 function readIfExists(p) {
@@ -137,7 +153,10 @@ function main() {
   const args = process.argv.slice(2);
   if (args.length === 0) {
     fail(
-      "用法：node scripts/process/sync-prd-version.mjs <ID> [--to N] [--check] [--header-only]",
+      msg(
+        "用法：node scripts/process/sync-prd-version.mjs <ID> [--to N] [--check] [--header-only]",
+        "Usage: node scripts/process/sync-prd-version.mjs <ID> [--to N] [--check] [--header-only]",
+      ),
     );
   }
   const id = args[0];
@@ -145,7 +164,7 @@ function main() {
   const scope = args.includes("--header-only") ? "header" : "all";
   const toIdx = args.indexOf("--to");
   const target = toIdx >= 0 ? args[toIdx + 1] : undefined;
-  if (toIdx >= 0 && !/^\d+$/.test(target ?? "")) fail("--to 需要一个整数");
+  if (toIdx >= 0 && !/^\d+$/.test(target ?? "")) fail(msg("--to 需要一个整数", "--to needs an integer"));
 
   const prdRel = join(cfg.prdDir, `${id}.md`);
   const prdPath = join(root, prdRel);
@@ -158,9 +177,16 @@ function main() {
   const testDir = join(root, cfg.packageDir, id);
 
   const prd = readIfExists(prdPath);
-  if (prd === null) fail(`找不到 PRD：${prdRel}`);
+  if (prd === null) fail(msg(`找不到 PRD：${prdRel}`, `cannot find the PRD: ${prdRel}`));
   const prdBefore = matchFieldVersion(prd);
-  if (prdBefore === null) fail(`PRD frontmatter 里没有 prdVersion 字段行：${prdRel}`);
+  if (prdBefore === null) {
+    fail(
+      msg(
+        `PRD frontmatter 里没有 prdVersion 字段行：${prdRel}`,
+        `no prdVersion field line in the PRD frontmatter: ${prdRel}`,
+      ),
+    );
+  }
 
   const want = target ?? prdBefore;
   const sites = [];
@@ -180,14 +206,19 @@ function main() {
   if (rules !== null) {
     const before = matchFieldVersion(rules);
     if (before === null) {
-      console.warn(`  ✗ ${rulesRel} 里没有 prdVersion 字段行 —— 判**不一致**（不判跳过），文末汇总`);
-      missingField.push({ label: "rules 台账", path: rulesPath });
+      console.warn(
+        msg(
+          `  ✗ ${rulesRel} 里没有 prdVersion 字段行 —— 判**不一致**（不判跳过），文末汇总`,
+          `  ✗ no prdVersion field line in ${rulesRel} — judged **inconsistent** (not skipped); summarised at the end`,
+        ),
+      );
+      missingField.push({ label: msg("rules 台账", "rules ledger"), path: rulesPath });
     } else if (before !== want) {
       rulesAfter = replaceFieldVersion(rules, want);
-      sites.push({ path: rulesPath, label: "rules 台账", before });
+      sites.push({ path: rulesPath, label: msg("rules 台账", "rules ledger"), before });
     }
   } else {
-    console.warn(`  ⚠ 找不到 rules 台账：${rulesRel}，跳过`);
+    console.warn(msg(`  ⚠ 找不到 rules 台账：${rulesRel}，跳过`, `  ⚠ no rules ledger found: ${rulesRel}, skipped`));
   }
 
   // 3) 设计与说明（与 PRD 同源，常被漏改）
@@ -196,11 +227,16 @@ function main() {
   if (design !== null) {
     const before = matchFieldVersion(design);
     if (before === null) {
-      console.warn(`  ✗ ${designRel} 里没有 prdVersion 字段行 —— 判**不一致**（不判跳过），文末汇总`);
-      missingField.push({ label: "设计与说明", path: designPath });
+      console.warn(
+        msg(
+          `  ✗ ${designRel} 里没有 prdVersion 字段行 —— 判**不一致**（不判跳过），文末汇总`,
+          `  ✗ no prdVersion field line in ${designRel} — judged **inconsistent** (not skipped); summarised at the end`,
+        ),
+      );
+      missingField.push({ label: msg("设计与说明", "design notes"), path: designPath });
     } else if (before !== want) {
       designAfter = replaceFieldVersion(design, want);
-      sites.push({ path: designPath, label: "设计与说明", before });
+      sites.push({ path: designPath, label: msg("设计与说明", "design notes"), before });
     }
   }
 
@@ -210,11 +246,16 @@ function main() {
   if (arch !== null) {
     const before = matchFieldVersion(arch);
     if (before === null) {
-      console.warn(`  ✗ ${archRel} 里没有 prdVersion 字段行 —— 判**不一致**（不判跳过），文末汇总`);
-      missingField.push({ label: "架构设计与取舍", path: archPath });
+      console.warn(
+        msg(
+          `  ✗ ${archRel} 里没有 prdVersion 字段行 —— 判**不一致**（不判跳过），文末汇总`,
+          `  ✗ no prdVersion field line in ${archRel} — judged **inconsistent** (not skipped); summarised at the end`,
+        ),
+      );
+      missingField.push({ label: msg("架构设计与取舍", "architecture design & trade-offs"), path: archPath });
     } else if (before !== want) {
       archAfter = replaceFieldVersion(arch, want);
-      sites.push({ path: archPath, label: "架构设计与取舍", before });
+      sites.push({ path: archPath, label: msg("架构设计与取舍", "architecture design & trade-offs"), before });
     }
   }
 
@@ -225,7 +266,12 @@ function main() {
         .map((f) => join(testDir, f))
     : [];
   if (testFiles.length === 0) {
-    console.warn(`  ⚠ 测试目录为空或不存在：${relative(root, testDir)}`);
+    console.warn(
+      msg(
+        `  ⚠ 测试目录为空或不存在：${relative(root, testDir)}`,
+        `  ⚠ test dir is empty or missing: ${relative(root, testDir)}`,
+      ),
+    );
   }
   const testAfter = new Map();
   const missingHeader = [];
@@ -241,58 +287,105 @@ function main() {
     const versions = allVersions(text);
     const stale = [...new Set(versions.filter((v) => v !== want))];
     const headerNeeds = before !== want;
-    if (stale.length > 0) staleInlineReport.push(`${rel}（用例内 ${stale.join("/")}）`);
+    if (stale.length > 0) {
+      staleInlineReport.push(
+        msg(`${rel}（用例内 ${stale.join("/")}）`, `${rel} (inside cases: ${stale.join("/")})`),
+      );
+    }
     if (!headerNeeds && stale.length === 0) continue;
 
     const parts = [];
-    if (headerNeeds) parts.push(`头 ${before}→${want}`);
+    if (headerNeeds) parts.push(msg(`头 ${before}→${want}`, `header ${before}→${want}`));
     if (stale.length > 0) {
       parts.push(
-        scope === "all" ? `用例内 ${stale.join("/")}→${want}` : `用例内 ${stale.join("/")}=未动`,
+        scope === "all"
+          ? msg(`用例内 ${stale.join("/")}→${want}`, `inside cases ${stale.join("/")}→${want}`)
+          : msg(`用例内 ${stale.join("/")}=未动`, `inside cases ${stale.join("/")}=untouched`),
       );
     }
     const replaced = replaceVersions(text, want, scope);
     if (replaced !== text) {
       testAfter.set(p, replaced);
-      sites.push({ path: p, label: `测试 ${rel}（${parts.join("；")}）`, before });
+      sites.push({
+        path: p,
+        label: msg(
+          `测试 ${rel}（${parts.join("；")}）`,
+          `tests ${rel} (${parts.join("; ")})`,
+        ),
+        before,
+      });
     }
   }
 
   if (missingHeader.length > 0) {
     console.warn(
-      `  ⚠ ${missingHeader.length} 个测试文件没有文件级 @prdVersion 头（本脚本不静默注入，请手工补）：`,
+      msg(
+        `  ⚠ ${missingHeader.length} 个测试文件没有文件级 @prdVersion 头（本脚本不静默注入，请手工补）：`,
+        `  ⚠ ${missingHeader.length} test file(s) have no file-level @prdVersion header (this script does not inject it silently; add it by hand):`,
+      ),
     );
     for (const p of missingHeader) console.warn(`      ${p}`);
   }
   if (staleInlineReport.length > 0 && scope === "header") {
     console.warn(
-      `  ⚠ ${staleInlineReport.length} 个文件的**用例内** @prdVersion 仍是旧值（--header-only 未处理，也不影响门禁）：`,
+      msg(
+        `  ⚠ ${staleInlineReport.length} 个文件的**用例内** @prdVersion 仍是旧值（--header-only 未处理，也不影响门禁）：`,
+        `  ⚠ ${staleInlineReport.length} file(s) still carry the old **in-case** @prdVersion (--header-only left them, and they do not affect the gates):`,
+      ),
     );
     for (const p of staleInlineReport) console.warn(`      ${p}`);
   }
 
   if (missingField.length > 0) {
     console.warn(
-      `  ✗ ${missingField.length} 处产物**存在但没有 prdVersion 字段行**（判不一致，不判跳过）：`,
+      msg(
+        `  ✗ ${missingField.length} 处产物**存在但没有 prdVersion 字段行**（判不一致，不判跳过）：`,
+        `  ✗ ${missingField.length} artifact(s) **exist but have no prdVersion field line** (judged inconsistent, not skipped):`,
+      ),
     );
-    for (const s2 of missingField) console.warn(`      ${s2.label}：${relative(root, s2.path)}`);
-    console.warn("      本脚本不静默注入字段行，请手工补上（PRD 本体缺字段一直就是判红的）");
+    for (const s2 of missingField) {
+      console.warn(msg(`      ${s2.label}：${relative(root, s2.path)}`, `      ${s2.label}: ${relative(root, s2.path)}`));
+    }
+    console.warn(
+      msg(
+        "      本脚本不静默注入字段行，请手工补上（PRD 本体缺字段一直就是判红的）",
+        "      This script does not inject field lines silently; add them by hand (a missing field in the PRD itself has always been red)",
+      ),
+    );
   }
   if (sites.length === 0) {
     if (missingHeader.length > 0 || missingField.length > 0) process.exitCode = 1;
     console.log(
       missingField.length > 0
-        ? `✗ ${id} 的 prdVersion 声明位不齐：${missingField.length} 处缺字段行（= ${want}）`
-        : `✓ ${id} 的文件级头已全部一致（= ${want}）`,
+        ? msg(
+            `✗ ${id} 的 prdVersion 声明位不齐：${missingField.length} 处缺字段行（= ${want}）`,
+            `✗ prdVersion declaration sites for ${id} are incomplete: ${missingField.length} place(s) missing the field line (= ${want})`,
+          )
+        : msg(
+            `✓ ${id} 的文件级头已全部一致（= ${want}）`,
+            `✓ all file-level headers for ${id} already agree (= ${want})`,
+          ),
     );
     return;
   }
 
-  console.log(`${check ? "【检查模式，不写入】" : ""}目标版本：${want}`);
-  for (const s of sites) console.log(`  ${check ? "✗ 不一致" : "→ 同步"}：${s.label}`);
+  console.log(
+    msg(
+      `${check ? "【检查模式，不写入】" : ""}目标版本：${want}`,
+      `${check ? "[check mode, nothing written] " : ""}target version: ${want}`,
+    ),
+  );
+  for (const s of sites) {
+    console.log(
+      msg(
+        `  ${check ? "✗ 不一致" : "→ 同步"}：${s.label}`,
+        `  ${check ? "✗ inconsistent" : "→ syncing"}: ${s.label}`,
+      ),
+    );
+  }
 
   if (check) {
-    console.log(`\n✗ 共 ${sites.length} 处需要同步到 ${want}。`);
+    console.log(msg(`\n✗ 共 ${sites.length} 处需要同步到 ${want}。`, `\n✗ ${sites.length} place(s) need syncing to ${want}.`));
     process.exit(1);
   }
 
@@ -302,9 +395,19 @@ function main() {
   if (archAfter !== null) writeFileSync(archPath, archAfter);
   for (const [p, text] of testAfter) writeFileSync(p, text);
 
-  console.log(`\n${missingField.length > 0 ? "⚠" : "✓"} 已同步 ${sites.length} 处声明位。`);
+  console.log(
+    msg(
+      `\n${missingField.length > 0 ? "⚠" : "✓"} 已同步 ${sites.length} 处声明位。`,
+      `\n${missingField.length > 0 ? "⚠" : "✓"} synced ${sites.length} declaration site(s).`,
+    ),
+  );
   if (missingField.length > 0) process.exitCode = 1;
-  console.log("  下一步：node scripts/process/check-rules.mjs 应显示 ⑥ 全绿。");
+  console.log(
+    msg(
+      "  下一步：node scripts/process/check-rules.mjs 应显示 ⑥ 全绿。",
+      "  next: node scripts/process/check-rules.mjs should show ⑥ all green.",
+    ),
+  );
 
   // 顺手跑一次 rules 校验，把"改完是否自洽"当场暴露出来
   try {
@@ -312,12 +415,19 @@ function main() {
       cwd: root,
       encoding: "utf-8",
     });
-    const summary = out.split("\n").find((l) => l.includes("check-rules：")) ?? "";
+    // 摘要行前缀是 `check-rules：`（zh）/ `check-rules:`（en）—— 两种冒号都认，
+    // 否则英文仓库里这一段会静默变成空行（docs/I18N.md §3「锚点两种语言都认」）。
+    const summary = out.split("\n").find((l) => /check-rules[:：]/.test(l)) ?? "";
     const bad = out.split("\n").filter((l) => l.trim().startsWith("❌"));
     console.log(`\n${summary.trim()}`);
     for (const l of bad) console.log(l);
   } catch {
-    console.warn("\n⚠ check-rules 未能执行或返回非零，请手工复核");
+    console.warn(
+      msg(
+        "\n⚠ check-rules 未能执行或返回非零，请手工复核",
+        "\n⚠ check-rules could not run or returned non-zero; review by hand",
+      ),
+    );
   }
 }
 

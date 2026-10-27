@@ -19,7 +19,8 @@
  *   0 = 追加成功（并已写入 `<journal>.meta.json` 指纹）
  *   1 = 用法错误 / payload 非法 / 缺必填字段 / 锁超时 / 检测到并发改写 / 自校验失败
  *
- * 配置依赖：无。本脚本不读 PROJECT.md，journal 路径由参数显式给出。
+ * 配置依赖：无。本脚本不读 PROJECT.md，journal 路径由参数显式给出；语言按 cwd 所在仓库判定
+ *           （`PROCESS_KIT_LANG` 仍可显式覆盖，见 docs/I18N.md §1）。
  *
  * 副作用文件：
  *   <journal>.lock      持锁标记（成功或失败都会释放）
@@ -30,8 +31,16 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { createHash } from "node:crypto";
+import { makeMsg, resolveLang } from "./i18n.mjs";
 
 const LOCK_STALE_MS = 30_000;
+
+/**
+ * 取词器：`msg(中文, English)`。
+ * 本脚本没有「拿到 root 再切换」的时机 —— 它不解析 PROJECT.md，journal 路径由参数给出，
+ * 所以语言在模块加载时按 cwd 一次判定（`resolveLang` 永不返回 null，回退 zh）。
+ */
+const msg = makeMsg(resolveLang(process.cwd()));
 
 /** 取内容的前 16 位 sha256，用作行指纹。 */
 const hash = (s) => createHash("sha256").update(s).digest("hex").slice(0, 16);
@@ -40,7 +49,7 @@ const hash = (s) => createHash("sha256").update(s).digest("hex").slice(0, 16);
 // 失败路径会留下陈旧锁，后续调用要白等一个 LOCK_STALE_MS 周期。
 let heldLock = null;
 
-function fail(msg) {
+function fail(message) {
   if (heldLock) {
     try {
       fs.unlinkSync(heldLock);
@@ -49,7 +58,7 @@ function fail(msg) {
     }
     heldLock = null;
   }
-  process.stderr.write(`[journal-append] 失败：${msg}\n`);
+  process.stderr.write(`[journal-append] ${msg("失败：", "FAILED: ")}${message}\n`);
   process.exit(1);
 }
 
@@ -68,7 +77,7 @@ function acquireLock(lockPath) {
       fs.writeFileSync(lockPath, `${process.pid}\n${new Date().toISOString()}\n`, { flag: "wx" });
       return;
     } catch (err) {
-      if (err.code !== "EEXIST") fail(`建锁失败：${err.message}`);
+      if (err.code !== "EEXIST") fail(msg(`建锁失败：${err.message}`, `cannot create the lock: ${err.message}`));
       // 陈旧锁（持有者已死或超时）清掉重试，避免死锁
       try {
         const age = Date.now() - fs.statSync(lockPath).mtimeMs;
@@ -79,7 +88,14 @@ function acquireLock(lockPath) {
       } catch {
         /* 锁在此期间被释放，直接重试 */
       }
-      if (Date.now() > deadline) fail("等待锁超时（另一进程正在写同一 journal）");
+      if (Date.now() > deadline) {
+        fail(
+          msg(
+            "等待锁超时（另一进程正在写同一 journal）",
+            "timed out waiting for the lock (another process is writing the same journal)",
+          ),
+        );
+      }
       // 忙等 50ms：journal 写入是毫秒级操作，不值得引入异步依赖
       const until = Date.now() + 50;
       while (Date.now() < until) {
@@ -92,7 +108,12 @@ function acquireLock(lockPath) {
 function main() {
   const [file, payloadArg] = process.argv.slice(2);
   if (!file || !payloadArg) {
-    fail("用法：node scripts/process/journal-append.mjs <journal 路径> <payload.json | --stdin>");
+    fail(
+      msg(
+        "用法：node scripts/process/journal-append.mjs <journal 路径> <payload.json | --stdin>",
+        "Usage: node scripts/process/journal-append.mjs <journal path> <payload.json | --stdin>",
+      ),
+    );
   }
 
   const raw =
@@ -102,19 +123,26 @@ function main() {
   try {
     parsed = JSON.parse(raw);
   } catch (err) {
-    fail(`payload 不是合法 JSON：${err.message}`);
+    fail(msg(`payload 不是合法 JSON：${err.message}`, `payload is not valid JSON: ${err.message}`));
   }
   const records = Array.isArray(parsed) ? parsed : [parsed];
-  if (records.length === 0) fail("payload 为空数组，无可追加内容");
+  if (records.length === 0) fail(msg("payload 为空数组，无可追加内容", "payload is an empty array; nothing to append"));
 
   const lines = [];
   for (let i = 0; i < records.length; i += 1) {
     const rec = records[i];
     if (rec === null || typeof rec !== "object" || Array.isArray(rec)) {
-      fail(`第 ${i + 1} 条不是 JSON 对象`);
+      fail(msg(`第 ${i + 1} 条不是 JSON 对象`, `record ${i + 1} is not a JSON object`));
     }
     const missing = ["at", "actor", "id"].filter((k) => typeof rec[k] !== "string" || rec[k] === "");
-    if (missing.length > 0) fail(`第 ${i + 1} 条缺少必填字段：${missing.join(" / ")}`);
+    if (missing.length > 0) {
+      fail(
+        msg(
+          `第 ${i + 1} 条缺少必填字段：${missing.join(" / ")}`,
+          `record ${i + 1} is missing required field(s): ${missing.join(" / ")}`,
+        ),
+      );
+    }
     // 单行化：journal 是 JSONL，条目内不得含裸换行
     lines.push(JSON.stringify(rec));
   }
@@ -155,21 +183,33 @@ function main() {
       if (prior && typeof prior.lines === "number") {
         if (before.length < prior.lines) {
           fail(
-            `检测到历史被截断：写入前 ${before.length} 行 < 上次记录 ${prior.lines} 行。` +
-              `疑似并发覆盖，已拒绝写入。上一版备份见 ${backupPath}`,
+            msg(
+              `检测到历史被截断：写入前 ${before.length} 行 < 上次记录 ${prior.lines} 行。` +
+                `疑似并发覆盖，已拒绝写入。上一版备份见 ${backupPath}`,
+              `history looks truncated: ${before.length} line(s) before writing < ${prior.lines} line(s) in the last record. ` +
+                `Concurrent overwrite suspected, write refused. Previous backup: ${backupPath}`,
+            ),
           );
         }
         if (before.length > prior.lines && hash(before[prior.lines - 1] ?? "") !== prior.lastHash) {
           fail(
-            `检测到既有内容被改写：第 ${prior.lines} 行与上次记录不符。` +
-              `疑似并发覆盖，已拒绝写入。上一版备份见 ${backupPath}`,
+            msg(
+              `检测到既有内容被改写：第 ${prior.lines} 行与上次记录不符。` +
+                `疑似并发覆盖，已拒绝写入。上一版备份见 ${backupPath}`,
+              `existing content looks rewritten: line ${prior.lines} does not match the last record. ` +
+                `Concurrent overwrite suspected, write refused. Previous backup: ${backupPath}`,
+            ),
           );
         }
         // 链式指纹能盖住「中间某行被改」——只比末行是查不出来的
         if (typeof prior.chainHash === "string" && chainOf(before.slice(0, prior.lines)) !== prior.chainHash) {
           fail(
-            `检测到既有内容被改写：前 ${prior.lines} 行的链式指纹与上次记录不符` +
-              `（中间行被改 / 删行 / 换行），已拒绝写入。上一版备份见 ${backupPath}`,
+            msg(
+              `检测到既有内容被改写：前 ${prior.lines} 行的链式指纹与上次记录不符` +
+                `（中间行被改 / 删行 / 换行），已拒绝写入。上一版备份见 ${backupPath}`,
+              `existing content looks rewritten: the chain fingerprint of the first ${prior.lines} line(s) does not match the last record ` +
+                `(a middle line changed / lines deleted / lines reordered); write refused. Previous backup: ${backupPath}`,
+            ),
           );
         }
       }
@@ -184,18 +224,26 @@ function main() {
     // 落盘自校验
     const after = readEntries(abs);
     if (after.length !== merged.length) {
-      fail(`自校验失败：预期 ${merged.length} 行、实际 ${after.length} 行`);
+      fail(
+        msg(
+          `自校验失败：预期 ${merged.length} 行、实际 ${after.length} 行`,
+          `self-check failed: expected ${merged.length} line(s), got ${after.length}`,
+        ),
+      );
     }
     for (let i = 0; i < after.length; i += 1) {
       try {
         JSON.parse(after[i]);
       } catch {
-        fail(`自校验失败：第 ${i + 1} 行不是合法 JSON`);
+        fail(msg(`自校验失败：第 ${i + 1} 行不是合法 JSON`, `self-check failed: line ${i + 1} is not valid JSON`));
       }
     }
     fs.writeFileSync(metaPath, `${JSON.stringify(fingerprintOf(after), null, 2)}\n`, "utf8");
     process.stdout.write(
-      `[journal-append] OK：${before.length} -> ${after.length} 行（+${lines.length}）${abs}\n`,
+      msg(
+        `[journal-append] OK：${before.length} -> ${after.length} 行（+${lines.length}）${abs}\n`,
+        `[journal-append] OK: ${before.length} -> ${after.length} lines (+${lines.length}) ${abs}\n`,
+      ),
     );
   } finally {
     try {
