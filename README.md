@@ -12,7 +12,7 @@
 
 为 [DSH](https://github.com/deepseek-ai/deepseek-harness) 增加一套文件驱动的工程化开发流程。需求包的状态、门禁签署、流程与 bug 记录都写在目标仓库的 `docs/process/**` 里；插件只做读取、渲染、安全追加和脚手架落地，不另外保存状态。
 
-同时内置 9 个角色 subagent，彼此有硬边界：写实现的不写测试，写测试的不做验收；产品与架构的借鉴调研在 Gate0 前**按需**并行，候选只进核对件、不直接进 AC。
+同时内置 10 个角色 subagent，彼此有硬边界：写实现的不写测试，写测试的不做验收；产品与架构的借鉴调研在 Gate0 前**按需**并行，候选只进核对件、不直接进 AC。
 
 ## 特性
 
@@ -29,7 +29,7 @@
 同一套流程、两种语言。语言只影响**文字**，不影响**落点与判据**：
 
 - **选语言**：`process_init({ lang: "en" })` 落英文骨架、`zh` 落中文；`auto`（默认）依次看 `.process-kit.json` 的 `lang` → 仓库 `AGENTS.md` / `README.md` 的语言 → 回退 `zh`。环境变量 `PROCESS_KIT_LANG=zh|en` 可一次性覆盖。**换语言** = `process_init({ upgrade: true, lang: "en" })`（框架自有文件按新语言覆盖并先备份，`PROJECT.md` / 令牌类文件不覆盖、只报告差异）。
-- **门禁与工具跟着仓库走**：门禁脚本的运行期消息、`process_status` / `gate_summary` 的报告、9 个角色技能正文都按仓库语言输出/取用（英文仓库拿英文，中文仓库行为不变）。
+- **门禁与工具跟着仓库走**：门禁脚本的运行期消息、`process_status` / `gate_summary` 的报告、10 个角色技能正文都按仓库语言输出/取用（英文仓库拿英文，中文仓库行为不变）。
 - **机器认标记，人读文字**：模板在关键小节上方放 HTML 注释标记（`<!-- process:owner-table -->` / `<!-- process:registry -->`），门禁优先按标记定位，缺失才回退中英标题别名；§4 / §5 的配置键**中英都认**（如 `台账目录` / `Rules dir`）；核对件中英两种文件名都认，权威判据是 frontmatter `kind: requirement-check`。
 - **完整契约**：[docs/I18N.md](./docs/I18N.md)（解析优先级、标记清单、26 个配置键对照表、维护纪律）；`test/i18n.test.mjs` 会核对两套骨架一致、零残留，并在英文仓库里跑到绿。
 
@@ -43,7 +43,7 @@
 
 安装即生效；若界面没刷新，再重启客户端
 
-> **装不到最新版？不是安装故障。** pnpm 默认带 24 小时供应链保护（`minimumReleaseAge = 1440`）：发布不满 24 小时的版本不会被 `^范围` / `latest` 选中。**等 24 小时**，或**钉确切版本**（`dsh-process-kit@0.9.0`，显式钉版本按设计绕开该策略）；不建议把 `minimumReleaseAge` 置 0（等于关掉这道保护）。
+> **装不到最新版？不是安装故障。** pnpm 默认带 24 小时供应链保护（`minimumReleaseAge = 1440`）：发布不满 24 小时的版本不会被 `^范围` / `latest` 选中。**等 24 小时**，或**钉确切版本**（`dsh-process-kit@0.10.0`，显式钉版本按设计绕开该策略）；不建议把 `minimumReleaseAge` 置 0（等于关掉这道保护）。
 
 ## 快速开始
 
@@ -108,7 +108,7 @@ process_uninstall({ confirm: true, dryRun: false })  // 人明确确认后才真
 
 角色由插件自带技能提供，安装即注册，无需配置。技能在所有工作区可用，与仓库是否已初始化流程无关；项目内 `.dsh/skills/**` 的同名技能优先级更高。设置环境变量 `PROCESS_KIT_SKILLS=off` 可关闭。
 
-### 角色清单（9 个）
+### 角色清单（10 个）
 
 | 角色 | 职责 | 自 |
 | --- | --- | --- |
@@ -121,14 +121,17 @@ process_uninstall({ confirm: true, dryRun: false })  // 人明确确认后才真
 | `security-review-agent` | 源码 diff 的鉴权 / 越权 / 注入 / 密钥 / 敏感数据评审 | `0.1.0` |
 | `logic-review-agent` | 规则表与源码的对抗式逻辑评审：规则→分支映射、未覆盖分支、具体反例 | `0.1.0` |
 | `ui-designer` | 把《设计与说明》里触及 UI 的条目翻译成**可验收的 UI 规格**（组件判定 / 状态矩阵 / 文案定稿 / 字面数值），产出**可打开的 HTML/CSS 原型 + `handoff.md` 交接表**；dev 实现后、UAT 前做 **UI 还原核对**。是否派单由人在 Gate0 用 `uiDesign: required / not-needed` 显式决定；**不产出 PNG/PSD** | `0.2.0` |
+| `domain-expert` | 按需引入的**领域专家**（律师 / 教师 / 电商运营 / 建筑 / 电气 / 数据中心规划 / 暖通 / 算力集群 / 网络 / DCIM 等）：按专家设定卡对 PRD / 设计与说明 / UI 规格 / HTML 原型给专业视角的风险与问题；只出建议、不替代持证专业人士 | `0.10.0` |
 
 > 完整版本沿革见 [CHANGELOG](./CHANGELOG.md)；npm 上的具体版本以 registry 为准。
 
 **`ui-designer` 的边界**：**只翻译不发明**（上游没写的进「未定口径」清单交人裁）；**项目令牌优先**（`PROJECT.md` §4 配了项目令牌就必须照抄，不得自创配色/字号/间距）；**HTML 是交付主件**（`index.html` + `styles.css` + `handoff.md`，不产出 PNG/PSD）；**UI 还原核对在 dev 后、UAT 前**（逐条 `UI-NN` 出 `reports/ui-review/<ID>.md`，`pass` 才进 UAT）；**审美留给 Gate**（`check-ui-prototype` 只判交接完整性）。
 
+**`domain-expert` 按需引入**：默认不派。主控判断需要专业视角时（合规 / 教学 / 运营 / 结构 / 电气…），先查 `docs/process/experts/**` 的预设卡（律师 / 教师 / 电商运营 / 建筑 / 电气 / 数据中心规划 / 暖通 / 供配电 / 网络 / 算力集群 / DCIM）；没有命中就检索公开来源、按模板生成临时卡（`input/<ID>-expert-<slug>.md`），再派专家评审。结论只作 Gate1 的建议材料，**需持证专业人士确认的项原样带给人**，专家不代替持证方下结论。
+
 ### 三个评审角色什么时候会跑到
 
-9 个角色不是平权的：`product-manager` / `architect` / `ui-designer` / `test-agent` / `dev-agent` / `uat-agent` 在单包流程里按状态机派；`code-review-agent` / `security-review-agent` / `logic-review-agent` **只在「发布前整体回归」**被派，而该环节由人显式发起 —— **没发起过发布回归，就等于这三个角色一次都没跑过**（`process_status` 会如实报 `reports/release/**` 有没有报告，没有就是没跑）。
+10 个角色不是平权的：`product-manager` / `architect` / `ui-designer` / `test-agent` / `dev-agent` / `uat-agent` 在单包流程里按状态机派；`code-review-agent` / `security-review-agent` / `logic-review-agent` **只在「发布前整体回归」**被派，而该环节由人显式发起 —— **没发起过发布回归，就等于这三个角色一次都没跑过**（`process_status` 会如实报 `reports/release/**` 有没有报告，没有就是没跑）。`domain-expert` 是另一类：**主控按需派**，跑不跑取决于需求是否需要该专业视角，不属于评审三件套。
 
 两个例外会让它们提前上场：① 人在任一 Gate 上点名；② 包触及 RBAC / 金额·分摊 / schema / 新增对外接口，主控会在 Gate 摘要里给出「是否提前跑评审」这一条。
 

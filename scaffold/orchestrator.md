@@ -37,7 +37,7 @@
 | `research-brief` 已存在，但 `prior-art` / `tech-scan` 缺一、或未汇合 | 补齐缺件 / 完成汇合；**没汇合不得当调研完成，不得进 Gate0** | 无（补齐后按第 1 行继续） |
 | 核对件 `gate0=pending` | 按人裁定修订核对件，**主控不改 gate 值** | 停下等 **Gate0** |
 | 核对件 `gate0=approved` 且 `flow=fast`（人已在 Gate0 定档，不建 PRD） | 不派 pm、不产生 Gate1/Gate2、**不做调研**；直接派 dev（按 §3.1 最小派单包：目标 / 范围 / 命令 / 已知红）+ 存量回归，结论记 journal。触及 schema / RBAC / 金额 / 对外接口 ⇒ 退回全流程（回核对件改 `flow: full`，重走 Gate0 之后的环节） | 无（仅 Gate0；触安全红线另计） |
-| `gate0=approved` 且 `status=draft` 且 `gate1=pending` | 调 **pm** 产出 PRD + 契约 + 设计与说明（设计与说明必须逐条对齐 `R-NN`）；**有架构影响时**（schema / RBAC / 金额·分摊 / 新增对外接口 / 多端 / 新模块）再调 **architect** 出 `prd/<ID>-arch.md`（决策 + 取舍 + 数据/接口影响 + 风险），随 Gate1 加审；**若核对件 `uiDesign: required`**，再调 **ui-designer** 产出 **HTML 原型**（`prototypes/<ID>/index.html` + `styles.css` + `handoff.md`，交付主件；不产出 PNG/PSD）与 UI 规格 `prd/<ID>-ui-spec.md`（只翻译不发明；每条须可观察；视觉数值须给字面值；交接表须覆盖全部 UI-NN） | 停下等 **Gate1** |
+| `gate0=approved` 且 `status=draft` 且 `gate1=pending` | 调 **pm** 产出 PRD + 契约 + 设计与说明（设计与说明必须逐条对齐 `R-NN`）；**有架构影响时**（schema / RBAC / 金额·分摊 / 新增对外接口 / 多端 / 新模块）再调 **architect** 出 `prd/<ID>-arch.md`（决策 + 取舍 + 数据/接口影响 + 风险），随 Gate1 加审；**若核对件 `uiDesign: required`**，再调 **ui-designer** 产出 **HTML 原型**（`prototypes/<ID>/index.html` + `styles.css` + `handoff.md`，交付主件；不产出 PNG/PSD）与 UI 规格 `prd/<ID>-ui-spec.md`（只翻译不发明；每条须可观察；视觉数值须给字面值；交接表须覆盖全部 UI-NN）；**上游产物落盘后**，主控**按需**调 **domain-expert**（预设专家卡或临时卡，见 §3.5）做专业指导，结论折进 Gate1（需持证确认项原样进 `❓`） | 停下等 **Gate1** |
 | `gate1=approved` 且 `status=frozen` 且 `gate2=pending` | 调 **test** 生成 P0 测试并出红灯归因（盘点 N 绿 / M 红） | 停下等 **Gate2** |
 | `gate2=approved` 且 `status=red` | 调 **dev** 实现到绿 → 改 `status=implementing` | — |
 | `status=implementing` | 由 **test** 独立复跑 **L2 包验证**（裁判运动员分离，总纲 §6.9）；**有 UI 的包**：L2 绿后调 **ui-designer** 做 **UI 还原核对**（`reports/ui-review/<ID>.md`），`fail`/`conditional` 回 dev，`pass` 后才置 `status=uat`；评审三件套不在本步 | — |
@@ -65,6 +65,7 @@
 - **重试上限**：同一失败测试 **3 次**修复尝试；第 3 次仍红 ⇒ 停，报告「试过什么 / 当前红 / 判断」，由主控改派或打回 pm/test。**不设时间 / 文件数 / diff 行数上限**——大改动正常，切片按「可独立验证的 AC 组」切。
 - **不发事实型消息**：只发「请重读 `<文件>` 的 rev N」；口径 / 结论 / 背书类变更一律走**勘误追加**，不靠「发一条新消息宣布前面作废」。
 - **不给单一角色未复核的旧结论当事实前提**：需要时标注「据某角色、未独立复核」，并要求执行角色先核前提。
+- **领域专家派单（按需）**：只在「需要某专业视角」时派（§3.5）。必附：**专家设定卡路径**（预设 `experts/<slug>.md` 或临时 `input/<ID>-expert-<slug>.md`）+ 待审对象（PRD / 设计 / UI 规格 / 原型）+ 要回答的问题 + 法域 / 标准体系（不清楚写 `not-specified`）。**没有卡不派**；专家只出建议，不改稿。
 
 ### 3.2 复用账（效率取向，不是硬禁令）
 
@@ -97,9 +98,30 @@
 | **test** | 测试用例 + 独立复跑报告 + 发布前自动化回归 | 只验收 dev 产出物；禁读业务实现细节、禁改 `src` |
 | **dev** | `src` 改动 + 交付证据 | 禁改 `test/` / `e2e/`；禁止无证据的"已测试通过"；按派单范围写；同一失败测试 3 次上限；内循环 L1 / 交付前 L2 |
 | **uat** | 黑盒验收报告 + 发布前黑盒回归 | 不知代码、不知测过什么；只判"对不对得上预期" |
+| **domain-expert** | 按专家卡对 **PRD / 设计与说明 / UI 规格 + HTML 原型** 给专业视角的风险与问题（`reports/experts/<ID>-<slug>.md`） | 只出建议、不写别人的稿；禁改 PRD / 设计 / 原型 / 测试 / 源码；**不替代持证专业人士**、不做 Gate 决策；**主控按需派** |
 | **评审三件套** | 逻辑 / 正确性 / 安全结论与反例 | 只出结论，不贴大段代码、不改 `src`；对象 = 发布批次 `src` diff |
 
 **分诊口诀**：发现前置缺失 ⇒ **退回**对应角色；发现结论缺证据 ⇒ **退回**对应角色；主控**不代做**别人专责（代做的代价是责任人无从追溯）。
+
+### 3.5 按需领域专家（预设 + 自由创建）
+
+**触发**：需求或设计里有专业领域判断（合规 / 教学 / 运营 / 结构 / 电气 / 医疗 / 财税 / 安全…），pm / ui-designer 没有该专业背景；或人点名；或高风险面需要独立专业视角。**不默认每包都派**；fast 路径不派（没有 PRD / 原型）。
+
+**先查预设**：`docs/process/experts/**`（`lawyer` / `teacher` / `ecommerce-operator` / `civil-engineer` / `electrical-engineer` / `data-center-architect` / `hvac-engineer` / `dc-power-engineer` / `network-engineer` / `gpu-cluster-engineer` / `dcim-operations`）。命中 ⇒ 直接把卡路径写进派单。
+
+**没有预设 ⇒ 主控建临时卡**（这是「自由创建」的唯一口子）：
+
+1. **检索公开来源**（法规 / 标准 / 行业实践），记来源 + 日期 + 法域 / 版本；**只查「这个职业看什么」，不查本项目结论**。
+2. 按 `docs/process/experts/_TEMPLATE.md` 写 `docs/process/input/<ID>-expert-<slug>.md`：专业 / 适用场景 / 关注清单 / 依据 / 红线 / 需持证确认项。
+3. 派 `domain-expert`：**技能 + 卡路径 + 待审对象 + 要回答的问题**；没有卡不派。
+4. 结论由主控折进 Gate1（需持证确认项原样进 `❓`，其余进 `📎`）；**不设新 Gate、不阻塞流程**。
+
+**纪律**：
+
+- 专家卡只写「这个专业看什么」，**不写项目结论**；卡与现行法域 / 标准冲突 ⇒ 停下报告，不自行改卡。
+- 可多专家并行（只读、不占构建通道）；同一专家同一包不重复派。
+- **专家不是持证专业人士**：法律 / 结构 / 电气 / 医疗结论只能写「需确认什么」，由人 / 持证方定。
+- 临时卡随包清理（`input/**`）；反复用到同一专业 ⇒ 由人决定是否升级为 `experts/**` 预设卡。
 
 ---
 
@@ -116,6 +138,7 @@
 7. **按 Gate 折叠专项**：
    - Gate0：人的裁定条数、`Q` 总数与是否收敛（未收敛 ⇒ `❓` 各列一条，标注「建议非结论」）；**做过借鉴调研的**另报候选 n / 采纳为 Q m / 不采纳 k（各一句理由），调研文件进 `📎`。
    - Gate1：**`✅` 给实物**（**打开 `prototypes/<ID>/index.html`**、状态切换方式、可跑命令，人先看这个）；**机器侧进 `📎`**：设计与说明 ↔ `R-NN` 对齐结论、UI 规格 ↔ 设计与说明 对齐结论、**视觉数值是否给足字面值**、**HTML 原型门禁原始输出**（`data-ui` / `handoff.md` / 外链 / 本地链接）；**未落实项 / 偏差 / 不可断言 / 无理由新增组件 ⇒ `❓` 列条**。**只有 PNG/PSD、没有 HTML ⇒ 按未交付处理**。
+   - 派过**领域专家**的：报「专家意见 n 条 / 采纳 m / 未采纳 k / 未处理 j」；**需持证专业人士确认的项原样进 `❓`**；未派写「未派（按需）」。
    - Gate2：**只给人归因三行**（`401` 基建假红 / `200` 真缺口 / `404` 契约漂移各几条、是否含阻断项）；**另加一行验证层级 / 范围**（L2 / L3、全量是否跑，见总纲 §6.9）；断言全文不贴，归 dev 与 test。
    - 触及数据层（schema 变更）：`📎` 加「列变更 / 补偿 SQL / 回滚」，`❓` 写「是否同意该 schema 变更」。
    - 共享账号 / 数据库被改动：**摘要第一行 ⚠ 置顶**（改了什么 / 原值 / 恢复方案）——这是唯一允许出现在两段之外的行。
@@ -160,7 +183,7 @@
 
 **必记时机**：① 每个 Gate 的产出落盘后；② 每次派单后（含 `rev` 与只读白名单）；③ dev 每次交付后（把 `git diff` 存 `reports/dev-patches/<ID>-<n>.patch` 并登记）；④ 每次复跑 / 验证的**命令与结果**；⑤ 每次裁定（含人裁结论与依据文档）；⑥ 包收口。
 
-**字段**：`id`（包 ID）/ `at`（**机器时间**，禁用模型自述时间）/ `step`（pm/architect/test/dev/uat/review/archives…）/ `actor`（能定位到具体角色）/ `action`（write/run/approve…）/ `phase`（阶段，用于复算阶段耗时与返工次数）/ `note`（一句话事实；`action:"run"` 必须写明层级与范围 L1/L2/L3；研究汇合写「pm+architect 调研汇合完成」）/ `files`（涉及文件）。
+**字段**：`id`（包 ID）/ `at`（**机器时间**，禁用模型自述时间）/ `step`（pm/architect/domain-expert/test/dev/uat/review/archives…）/ `actor`（能定位到具体角色）/ `action`（write/run/approve…）/ `phase`（阶段，用于复算阶段耗时与返工次数）/ `note`（一句话事实；`action:"run"` 必须写明层级与范围 L1/L2/L3；研究汇合写「pm+architect 调研汇合完成」）/ `files`（涉及文件）。
 
 **纪律**：append-only，单行追加，每行自带 `actor`；并发只允许追加、不得读-改-写；主控只记四类（裁定 / 派单 / 收口 / 研究汇合），其余由各角色各自的写入同步登记。
 

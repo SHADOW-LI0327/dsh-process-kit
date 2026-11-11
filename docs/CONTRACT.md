@@ -42,7 +42,7 @@
 | `at` | ✅ | ISO8601 **机器时间**（工具自动填，不是模型自述时间） |
 | `actor` | ✅ | 谁做的，如 `orchestrator` / `subagent:test-agent` |
 | `id` | ✅ | 包 ID |
-| `step` | | 环节：`pm` / `architect` / `test` / `dev` / `uat` / `review` / `archives` … |
+| `step` | | 环节：`pm` / `architect` / `domain-expert` / `test` / `dev` / `uat` / `review` / `archives` … |
 | `action` | | `write` / `run` / `approve` / … |
 | `phase` | | 阶段（用于复算阶段耗时 / 返工次数） |
 | `files` | | 涉及文件数组 |

@@ -13,7 +13,7 @@ No documents, no reports, no process narrative — **only what actually runs cou
 | Reason | Explanation |
 | --- | --- |
 | **Most intuitive** | The deliverable = commands that run + an interface you can look at. Whether it is good is obvious at a glance, with no need to understand this plugin's design |
-| **Broadest coverage** | One chain presses on all of this at once: the state machine / the four Gates / the 9 role boundaries / the gate scripts / artifact write targets / journal integrity / the Gate evidence section |
+| **Broadest coverage** | One chain presses on all of this at once: the state machine / the four Gates / the 10 role boundaries / the gate scripts / artifact write targets / journal integrity / the Gate evidence section |
 | **"A brand-new project" is a hard precondition** | It rules out the illusion of "this repository was configured long ago"; what it verifies is **a process that exists as soon as you install it**, not a result assembled from historical state |
 | **AI-hosted Gates let it run unattended to the end** | In the acceptance harness an AI signs the Gates on the human's behalf (see below), so the whole chain can run through automatically, with nobody standing guard at each stop and wait |
 
@@ -136,7 +136,7 @@ A single successful run is often luck; only two successful runs count as a pass.
 | 5 | Gate evidence is complete | the "🔒 Gate evidence for this round" section of the Gate summary | no "not recorded", no unexplained non-zero exit code |
 | 6 | Write-target and rules ledger gates | `check-artifact-paths.mjs` / `check-rules.mjs` | `exit 0` |
 | 7 | The state can be consumed externally | run the CI snippet from [CONTRACT](./CONTRACT.en.md) in the delivery repository | `exit 0`, journal detected |
-| 8 | Role coverage (on demand among the 9) | distinct `actor` values in the journal | at least 5 roles appear in a single-package flow; `architect` counts only when prior-art research was triggered (not triggered is not judged a failure) |
+| 8 | Role coverage (on demand among the 10) | distinct `actor` values in the journal | at least 5 roles appear in a single-package flow; `architect` / `domain-expert` count only when triggered on demand (not triggered is not judged a failure) |
 | 9 | Artifacts land where the ownership table allows | the delivery repository's file tree vs `PROJECT.md` §3 | no out-of-bounds files |
 
 ## Known deviations (MUST be stated honestly, MUST NOT be hidden)

@@ -1,7 +1,7 @@
 {
   "name": "dsh-process-kit",
-  "version": "0.9.0",
-  "description": "通用单人开发流程框架：文件状态机 + Gate 必停 + 角色分离。自带 9 个角色 subagent、流程骨架文档、门禁脚本与 process_init / process_uninstall 工具。",
+  "version": "0.10.0",
+  "description": "通用单人开发流程框架：文件状态机 + Gate 必停 + 角色分离。自带 10 个角色 subagent（含按需领域专家）、流程骨架文档、门禁脚本与 process_init / process_uninstall 工具。",
   "type": "module",
   "license": "MIT",
   "author": "SHADOW-LI0327",
@@ -60,8 +60,8 @@
     "catalog": {
       "category": "workflow",
       "summary": {
-        "zh": "通用单人开发流程框架（中文 / 英文双语）：文件状态机 + Gate 必停 + 角色分离。自带 9 个角色 subagent、双语流程骨架、门禁脚本与 process_init 初始化工具。",
-        "en": "A bilingual (zh / en) file-driven development-process framework for one person plus AI: file state machine, human-signed gates, and role separation. Bundles 9 role subagents, bilingual scaffolds, gate scripts, and the process_init bootstrapper."
+        "zh": "通用单人开发流程框架（中文 / 英文双语）：文件状态机 + Gate 必停 + 角色分离。自带 10 个角色 subagent（含按需领域专家）、双语流程骨架、门禁脚本与 process_init 初始化工具。",
+        "en": "A bilingual (zh / en) file-driven development-process framework for one person plus AI: file state machine, human-signed gates, and role separation. Bundles 10 role subagents (including on-demand domain experts), bilingual scaffolds, gate scripts, and the process_init bootstrapper."
       },
       "capabilities": ["fs", "skill"]
     }

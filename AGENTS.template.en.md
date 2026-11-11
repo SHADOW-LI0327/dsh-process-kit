@@ -15,7 +15,7 @@ Guidance for AI agents working in this repository.
 
 **Standing actions**: on every wake-up call `process_status` for the state-machine snapshot and the next action (never rely on chat history); talk to the human in the two-part format (✅ what was done / ❓ what still needs a decision); the journal is append-only (use `process_journal`).
 
-**Roles**: provided by the same-named skills bundled with the `dsh-process-kit` plugin — `product-manager` · `architect` · `ui-designer` · `test-agent` · `dev-agent` · `uat-agent` · `code-review-agent` · `security-review-agent` · `logic-review-agent`. When dispatching, have the subagent read the matching skill; do not restate role duties here.
+**Roles**: provided by the same-named skills bundled with the `dsh-process-kit` plugin — `product-manager` · `architect` · `ui-designer` · `test-agent` · `dev-agent` · `uat-agent` · `code-review-agent` · `security-review-agent` · `logic-review-agent` · `domain-expert` (on demand). When dispatching, have the subagent read the matching skill; do not restate role duties here.
 
 **Want to stop using the process**: call `process_uninstall` after the human confirms (first `{ dryRun: true }` to preview, then `{ confirm: true, dryRun: false }`); it removes `docs/process` and `scripts/process` and leaves a customized `AGENTS.md`, user skills and product code alone. See "Uninstall" in the plugin README.
 

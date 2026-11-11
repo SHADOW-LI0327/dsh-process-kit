@@ -11,7 +11,7 @@ A pure server-side plugin (**no page part**; it registers no client slot):
 ```
 dsh-process-kit/
 ├── lib/index.js          4 tools + role-skill registration + standing reminders
-├── skills/               9 generic role skills (bundled, rank 600)
+├── skills/               10 generic role skills (bundled, rank 600)
 ├── scaffold/             the process scaffold: installed into the target repository's docs/process/**
 ├── scripts/              gate and process scripts (zero-dependency .mjs)
 └── test/                 smoke tests (node test/*.test.mjs)
@@ -24,7 +24,7 @@ After changing `lib/index.js` you MUST restart `dsh web`: Node's ESM module cach
 - The `docs/process/**` files in the target repository are the **single source of truth**; the plugin keeps no state of its own;
 - The plugin only does "read + render + safe journal append + add-only, never-overwrite initialization" and **never writes process artifacts on your behalf**;
 - It imports no `@deepseek-ai/*` runtime package and introduces no plugin `Config` (a profile may install it via `link:`, and the linked package's own dependencies are not installed);
-- **Role boundaries are not enforced in code**. The 9 roles are prompt-level personas; **delivery quality rests on human rulings at the Gates**, while the division of roles buys **efficiency** (everyone writes their own part, no reworking each other's). Do not add host middleware, a permission matrix or preset changes in the name of "being stricter" — the reasons are in the next section.
+- **Role boundaries are not enforced in code**. The 10 roles are prompt-level personas; **delivery quality rests on human rulings at the Gates**, while the division of roles buys **efficiency** (everyone writes their own part, no reworking each other's). Do not add host middleware, a permission matrix or preset changes in the name of "being stricter" — the reasons are in the next section.
 
 ## Why role boundaries are not enforced in code
 
@@ -68,9 +68,17 @@ If you change only one of them, the process contradicts itself:
 5. **Bilingual documents**: `scaffold/**` ↔ `scaffold/en/**`, `skills/<role>/SKILL.md` ↔ `SKILL.en.md`, the paired `msg(zh, en)` in `scripts/*.mjs`, the config-key mapping table in `docs/I18N.md` ↔ `CONFIG_KEYS` in `scripts/project-config.mjs` — changing one language MUST go with changing the other in the same round. Anchors (machine markers / heading aliases / config keys) are especially dangerous: if you only add a Chinese alias, an English repository does not error out, it **silently degrades** into "the gate is skipped". `test/i18n.test.mjs` guards this.
 6. **Uninstall ownership**: the fields `process_init` writes into the manifest ([CONTRACT](./CONTRACT.en.md) contract 5) and the deletion criteria of `process_uninstall` MUST stay in sync. When adding a write target that "may be mixed with user content", first record created / hash in the manifest and only then allow uninstall to delete it; never write the deletion logic first and add the ownership evidence afterwards.
 
+## Domain experts: one skill + briefs
+
+Domain experts do **not** get one skill per profession:
+
+- The registry holds a single `domain-expert` skill that owns the generic discipline ("review against the brief, advice only, never stand in for a licence");
+- The profession-specific lens lives in `scaffold/experts/<slug>.md` (presets) or `input/<ID>-expert-<slug>.md` (created by the orchestrator for one package after research) — it is **data, not code**;
+- Adding a profession therefore needs no skill-registry change and no restart, and "lawyer / teacher / engineer" cannot drift into separate boundary sets. **The cost**: brief quality decides review quality, so a brief must carry source and jurisdiction, and no brief means no dispatch.
+
 ## How skill broadcasting works
 
-The 9 role skills are registered by the plugin at **rank 600** (the bundled tier DSH defines) and **are broadcast in all workspaces by default** — "install it and the roles are there" is the core promise and does not depend on whether the target repository has the process initialized. A project's own `.dsh/skills/**` (rank 100/200) always overrides a plugin skill of the same name. `PROCESS_KIT_SKILLS=off` disables the broadcast.
+The 10 role skills are registered by the plugin at **rank 600** (the bundled tier DSH defines) and **are broadcast in all workspaces by default** — "install it and the roles are there" is the core promise and does not depend on whether the target repository has the process initialized. A project's own `.dsh/skills/**` (rank 100/200) always overrides a plugin skill of the same name. `PROCESS_KIT_SKILLS=off` disables the broadcast.
 
 ### A trap already stepped on: do not go back to "gating on whether the directory exists"
 

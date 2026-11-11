@@ -70,13 +70,14 @@ lang: en
 ```markdown
 | Role | Writable paths | Forbidden |
 | --- | --- | --- |
-| `<role-orchestrator>` (orchestrator) | `docs/process/README.md` · `docs/process/orchestrator.md` · `docs/process/PROJECT.md` · `docs/process/input/**` · `docs/process/ui/**` (the UI default layer landed by the framework: tokens / recipe) · `docs/process/tools/README.md` (registry section) · `docs/process/prd/*.journal.jsonl*` · `scripts/process/**` (framework-provided gate / journal / init scripts, resident) · `reports/orchestrator/**` | Writing implementation / writing tests / making Gate decisions on the human's behalf |
+| `<role-orchestrator>` (orchestrator) | `docs/process/README.md` · `docs/process/orchestrator.md` · `docs/process/PROJECT.md` · `docs/process/input/**` · `docs/process/ui/**` (the UI default layer landed by the framework: tokens / recipe) · `docs/process/experts/**` (the preset domain-expert briefs landed by the framework) · `docs/process/tools/README.md` (registry section) · `docs/process/prd/*.journal.jsonl*` · `scripts/process/**` (framework-provided gate / journal / init scripts, resident) · `reports/orchestrator/**` | Writing implementation / writing tests / making Gate decisions on the human's behalf |
 | `<role-pm>` | `docs/process/prd/**` · `docs/process/contracts/**` · `docs/process/input/<ID>-prior-art.md` · `docs/process/uat/<ID>-checklist.md` · `reports/pm-review/**` | Reading business implementation / tests / e2e / logs; writing implementation |
 | `<role-architect>` | `docs/process/input/<ID>-tech-scan.md` · `docs/process/prd/<ID>-arch.md` · `reports/architect/**` | Reading business-logic implementation; writing PRD / contracts / AC / tests / source; copying external code or introducing dependencies |
 | `<role-ui-designer>` | `docs/process/prd/<ID>-ui-spec.md` · `docs/process/prototypes/<ID>/**` · `reports/ui-review/**` | Changing production implementation source; reading backend implementation / frontend component internals / tests / e2e / logs; writing other roles' artifacts |
 | `<role-test>` | `<test-dir>/packages/<ID>/**` · `<test-dir>/fixtures/<ID>-*` · `docs/process/rules/**` · `reports/test/**` · `docs/process/tools/<ID>/**` | Changing `src`; reading business implementation details (except signatures / schema) |
 | `<role-dev>` | `<app-a>/src/**` · `<app-b>/src/**` · `<app-c>/src/**` · `scripts/<ID>-<purpose>.{ts,sql}` (production migration / ops scripts only, and they must be registered first) | Changing `test/` · changing `e2e/` |
 | `<role-uat>` | `docs/process/uat/**` · `reports/uat/**` (including `evidence/`) · `<e2e-dir>/**` | Reading any code / tests / logs; judging anything beyond whether the feature is right |
+| `<role-domain-expert>` | `reports/experts/**` | Changing the PRD / design / UI spec / prototype / tests / source; concluding on behalf of a licensed professional |
 | `<role-logic-review>` · `<role-code-review>` · `<role-security-review>` | `reports/<role>/**` | Changing `src`; pasting large code blocks |
 ```
 

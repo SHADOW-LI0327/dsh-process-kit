@@ -70,13 +70,14 @@ lang: zh # zh / en —— 流程语言：门禁脚本、工具输出、角色技
 ```markdown
 | 角色 | 可写路径 | 禁止 |
 | --- | --- | --- |
-| `<role-orchestrator>`（主控） | `docs/process/README.md` · `docs/process/orchestrator.md` · `docs/process/PROJECT.md` · `docs/process/input/**` · `docs/process/ui/**`（框架落地的 UI 默认层：tokens / recipe） · `docs/process/tools/README.md`（登记区） · `docs/process/prd/*.journal.jsonl*` · `scripts/process/**`（框架自带门禁 / journal / 初始化脚本，常驻） · `reports/orchestrator/**` | 写实现 / 写测试 / 替人做 Gate 决策 |
+| `<role-orchestrator>`（主控） | `docs/process/README.md` · `docs/process/orchestrator.md` · `docs/process/PROJECT.md` · `docs/process/input/**` · `docs/process/ui/**`（框架落地的 UI 默认层：tokens / recipe） · `docs/process/experts/**`（框架落地的领域专家预设卡） · `docs/process/tools/README.md`（登记区） · `docs/process/prd/*.journal.jsonl*` · `scripts/process/**`（框架自带门禁 / journal / 初始化脚本，常驻） · `reports/orchestrator/**` | 写实现 / 写测试 / 替人做 Gate 决策 |
 | `<role-pm>` | `docs/process/prd/**` · `docs/process/contracts/**` · `docs/process/input/<ID>-prior-art.md` · `docs/process/uat/<ID>-checklist.md` · `reports/pm-review/**` | 读业务实现 / 测试 / e2e / 日志；写实现 |
 | `<role-architect>` | `docs/process/input/<ID>-tech-scan.md` · `docs/process/prd/<ID>-arch.md` · `reports/architect/**` | 读业务逻辑实现；写 PRD / 契约 / AC / 测试 / 源码；复制外部代码或引入依赖 |
 | `<role-ui-designer>` | `docs/process/prd/<ID>-ui-spec.md` · `docs/process/prototypes/<ID>/**` · `reports/ui-review/**` | 改生产实现源码；读后端实现 / 前端组件内部实现 / 测试 / e2e / 日志；写其它角色产物 |
 | `<role-test>` | `<test-dir>/packages/<ID>/**` · `<test-dir>/fixtures/<ID>-*` · `docs/process/rules/**` · `reports/test/**` · `docs/process/tools/<ID>/**` | 改 `src`；读业务实现细节（签名 / schema 除外） |
 | `<role-dev>` | `<app-a>/src/**` · `<app-b>/src/**` · `<app-c>/src/**` · `scripts/<ID>-<用途>.{ts,sql}`（仅生产迁移 / 运维脚本，且须先登记） | 改 `test/` · 改 `e2e/` |
 | `<role-uat>` | `docs/process/uat/**` · `reports/uat/**`（含 `evidence/`） · `<e2e-dir>/**` | 读任何代码 / 测试 / 日志；判功能对错以外的事 |
+| `<role-domain-expert>` | `reports/experts/**` | 改 PRD / 设计 / UI 规格 / 原型 / 测试 / 源码；替持证专业人士下结论 |
 | `<role-logic-review>` · `<role-code-review>` · `<role-security-review>` | `reports/<角色>/**` | 改 `src`；贴大段代码 |
 ```
 

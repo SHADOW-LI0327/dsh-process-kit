@@ -37,7 +37,7 @@
 | `research-brief` exists, but `prior-art` / `tech-scan` is missing one, or there was no convergence | Fill in the missing piece / complete the convergence; **without convergence the research is not done and Gate0 MUST NOT be entered** | none (continue per row 1 once filled) |
 | Requirement check `gate0=pending` | Revise the check per the human's rulings; **the orchestrator does not change the gate value** | Stop and wait for **Gate0** |
 | Requirement check `gate0=approved` and `flow=fast` (the human graded it at Gate0; no PRD is built) | Do not dispatch pm, produce no Gate1/Gate2, **run no research**; dispatch dev directly (per the minimal dispatch package of §3.1: objective / scope / commands / known reds) + existing regression, and record the conclusion in the journal. If schema / RBAC / amounts / external interfaces are touched ⇒ send it back to the full flow (change `flow: full` in the check, redo the stages after Gate0) | none (Gate0 only; security red lines count separately) |
-| `gate0=approved` and `status=draft` and `gate1=pending` | Dispatch **pm** to produce PRD + contract + design notes (the design notes MUST align with each `R-NN`); **when there is architectural impact** (schema / RBAC / amounts·allocation / new external interfaces / multi-app / new module) also dispatch **architect** for `prd/<ID>-arch.md` (decisions + trade-offs + data/interface impact + risks), reviewed additionally with Gate1; **if the check declares `uiDesign: required`**, also dispatch **ui-designer** to produce the **HTML prototype** (`prototypes/<ID>/index.html` + `styles.css` + `handoff.md`, the main deliverable; no PNG/PSD) and the UI spec `prd/<ID>-ui-spec.md` (translate only, never invent; every item must be observable; visual values must be literal values; the handoff table must cover every UI-NN) | Stop and wait for **Gate1** |
+| `gate0=approved` and `status=draft` and `gate1=pending` | Dispatch **pm** to produce PRD + contract + design notes (the design notes MUST align with each `R-NN`); **when there is architectural impact** (schema / RBAC / amounts·allocation / new external interfaces / multi-app / new module) also dispatch **architect** for `prd/<ID>-arch.md` (decisions + trade-offs + data/interface impact + risks), reviewed additionally with Gate1; **if the check declares `uiDesign: required`**, also dispatch **ui-designer** to produce the **HTML prototype** (`prototypes/<ID>/index.html` + `styles.css` + `handoff.md`, the main deliverable; no PNG/PSD) and the UI spec `prd/<ID>-ui-spec.md` (translate only, never invent; every item must be observable; visual values must be literal values; the handoff table must cover every UI-NN); **once the upstream artifacts are on disk**, the orchestrator dispatches **domain-expert** **on demand** (a preset brief or an ad-hoc brief, see §3.5) for professional guidance, folding its conclusions into Gate1 (items needing licensed confirmation go into `❓` verbatim) | Stop and wait for **Gate1** |
 | `gate1=approved` and `status=frozen` and `gate2=pending` | Dispatch **test** to generate P0 tests and report red-light attribution (inventory N green / M red) | Stop and wait for **Gate2** |
 | `gate2=approved` and `status=red` | Dispatch **dev** to implement until green → set `status=implementing` | — |
 | `status=implementing` | **test** independently re-runs the **L2 package verification** (referee/player separation, master doctrine §6.9); **packages with UI**: once L2 is green, dispatch **ui-designer** for the **UI restoration check** (`reports/ui-review/<ID>.md`); `fail`/`conditional` goes back to dev, and only `pass` sets `status=uat`; the three reviews are not part of this step | — |
@@ -65,6 +65,7 @@
 - **Retry cap**: **3** fix attempts on the same failing test; still red on the 3rd ⇒ stop and report "what was tried / the current red / the judgement", and the orchestrator either re-dispatches or sends it back to pm/test. **No cap on time / file count / diff lines** — large changes are normal; slices are cut by "a group of ACs that can be verified independently".
 - **No fact-carrying messages**: send only "please re-read `<file>` at rev N"; changes of semantics / conclusions / endorsement always go through an **appendix erratum**, never through "send a new message declaring the previous one void".
 - **Never hand a single role's unreviewed old conclusion to another role as a factual premise**: when needed, mark it "per some role, not independently re-checked" and require the executing role to verify the premise first.
+- **Domain-expert dispatch (on demand)**: dispatch only when "a professional lens is needed" (§3.5). Always attach: the **expert brief path** (preset `experts/<slug>.md` or ad-hoc `input/<ID>-expert-<slug>.md`) + the objects under review (PRD / design / UI spec / prototype) + the questions to answer + the jurisdiction / standards regime (write `not-specified` when unknown). **No brief, no dispatch**; the expert gives advice only and never edits drafts.
 
 ### 3.2 Reuse ledger (efficiency-oriented, not a hard ban)
 
@@ -97,9 +98,30 @@
 | **test** | Test cases + independent re-run report + pre-release automation regression | Accepts only dev deliverables; must not read business implementation details, must not change `src` |
 | **dev** | `src` changes + delivery evidence | Must not change `test/` / `e2e/`; no "tested and passing" without evidence; write within the dispatch scope; 3 attempts per failing test; L1 inner loop / L2 before delivery |
 | **uat** | Black-box acceptance report + pre-release black-box regression | Does not know the code, does not know what was tested; only judges "does it match expectations" |
+| **domain-expert** | Reviews the **PRD / design notes / UI spec + HTML prototype** against the expert brief for professional risks and questions (`reports/experts/<ID>-<slug>.md`) | Advice only, never edits someone else's draft; MUST NOT modify the PRD / design / prototype / tests / source; **never stands in for a licensed professional**, makes no Gate decision; **dispatched by the orchestrator on demand** |
 | **the three reviews** | Logic / correctness / security conclusions and counterexamples | Conclusions only, no large code blocks, no `src` changes; object = the release batch's `src` diff |
 
 **Triage rule of thumb**: a missing prerequisite ⇒ **send back** to the corresponding role; a conclusion without evidence ⇒ **send back** to the corresponding role; the orchestrator **does not do other people's specialities itself** (the price of doing it is that responsibility becomes untraceable).
+
+### 3.5 On-demand domain experts (presets + free creation)
+
+**Trigger**: the requirement or design contains a professional judgement (compliance / pedagogy / operations / structural / electrical / medical / tax / safety…), and pm / ui-designer lack that background; or the human names one; or a high-risk surface needs an independent professional lens. **Not dispatched for every package by default**; not on the fast path (no PRD / prototype).
+
+**Check presets first**: `docs/process/experts/**` (`lawyer` / `teacher` / `ecommerce-operator` / `civil-engineer` / `electrical-engineer` / `data-center-architect` / `hvac-engineer` / `dc-power-engineer` / `network-engineer` / `gpu-cluster-engineer` / `dcim-operations`). On a hit, put the brief path straight into the dispatch.
+
+**No preset ⇒ the orchestrator creates an ad-hoc brief** (the only door for "free creation"):
+
+1. **Search public sources** (statutes / standards / industry practice) and record source + date + jurisdiction / version; **research only "what this profession looks at", never this project's conclusions**.
+2. Write `docs/process/input/<ID>-expert-<slug>.md` following `docs/process/experts/_TEMPLATE.md`: profession / scope / checklist / basis / red lines / items needing licensed confirmation.
+3. Dispatch `domain-expert`: **skill + brief path + objects under review + questions to answer**; no brief, no dispatch.
+4. The orchestrator folds the conclusions into Gate1 (licensed-confirmation items go into `❓` verbatim, the rest into `📎`); **no new Gate, no blockage**.
+
+**Discipline**:
+
+- A brief records only "what this profession looks at", **never project conclusions**; if the brief conflicts with the current jurisdiction / standard ⇒ stop and report, do not edit it.
+- Multiple experts may run in parallel (read-only, no build-channel occupation); the same expert is not dispatched twice for the same package.
+- **An expert is not a licensed professional**: legal / structural / electrical / medical conclusions may only state "what must be confirmed", to be decided by the human / licence holder.
+- Ad-hoc briefs are cleaned up with the package (`input/**`); if the same profession keeps recurring, the human decides whether to promote it to a preset under `experts/**`.
 
 ---
 
@@ -116,6 +138,7 @@
 7. **Fold the per-Gate specifics**:
    - Gate0: number of human rulings, the total number of `Q` and whether they converged (not converged ⇒ one `❓` item each, marked "suggestion, not conclusion"); **if prior-art research was done** additionally report candidates n / adopted as Q m / rejected k (one reason each), with the research files under `📎`.
    - Gate1: **`✅` gives the physical artifact** (**open `prototypes/<ID>/index.html`**, how to switch states, runnable commands — the human looks at this first); **the machine side goes into `📎`**: design notes ↔ `R-NN` alignment conclusions, UI spec ↔ design notes alignment conclusions, **whether the visual values are given as literal values**, **the raw output of the HTML prototype gate** (`data-ui` / `handoff.md` / external links / local links); **unimplemented items / deviations / non-assertable items / new components without justification ⇒ one `❓` item each**. **Only PNG/PSD and no HTML ⇒ treated as not delivered**.
+   - When a **domain expert** was dispatched: report "expert items n / adopted m / rejected k / open j"; **items needing licensed confirmation go into `❓` verbatim**; if not dispatched, write "not dispatched (on demand)".
    - Gate2: **give the human only the three attribution lines** (`401` infrastructure false red / `200` real gap / `404` contract drift, how many of each, whether any is blocking); **plus one line of verification level / scope** (L2 / L3, whether the full suite ran, see master doctrine §6.9); the full assertion text is not pasted — it belongs to dev and test.
    - Touching the data layer (schema change): add "column changes / compensating SQL / rollback" to `📎`, and write "do you approve this schema change" in `❓`.
    - Shared account / database modified: **the first line of the summary, ⚠ on top** (what changed / the original value / the recovery plan) — this is the only line allowed outside the two parts.
@@ -160,7 +183,7 @@
 
 **Mandatory timings**: ① after each Gate's artifacts land; ② after every dispatch (including `rev` and the read-only allowlist); ③ after every dev delivery (save the `git diff` as `reports/dev-patches/<ID>-<n>.patch` and register it); ④ the **command and result** of every re-run / verification; ⑤ every ruling (including the human's conclusion and the basis document); ⑥ package close-out.
 
-**Fields**: `id` (package ID) / `at` (**machine time**; model-narrated time is forbidden) / `step` (pm/architect/test/dev/uat/review/archives…) / `actor` (locatable to a concrete role) / `action` (write/run/approve…) / `phase` (stage, used to recompute stage duration and rework count) / `note` (a one-line fact; `action:"run"` MUST state the level and scope L1/L2/L3; research convergence says "pm+architect research convergence complete") / `files` (files involved).
+**Fields**: `id` (package ID) / `at` (**machine time**; model-narrated time is forbidden) / `step` (pm/architect/domain-expert/test/dev/uat/review/archives…) / `actor` (locatable to a concrete role) / `action` (write/run/approve…) / `phase` (stage, used to recompute stage duration and rework count) / `note` (a one-line fact; `action:"run"` MUST state the level and scope L1/L2/L3; research convergence says "pm+architect research convergence complete") / `files` (files involved).
 
 **Discipline**: append-only, one line per append, every line carries its own `actor`; concurrency only allows appends, never read-modify-write; the orchestrator records only four kinds (rulings / dispatches / close-outs / research convergence), everything else is registered by each role alongside its own writes.
 

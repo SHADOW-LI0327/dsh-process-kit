@@ -545,7 +545,7 @@ const provider = registered.providers[0];
 // 默认**无条件**广播：与本工作区是否已有 docs/process 无关。
 // （按目录门禁会产生「清空目录 → 角色消失 → 初始化也回不来」的缓存陷阱，实测确认。）
 const notARepo = await mkdtemp(join(tmpdir(), 'process-kit-norepo-'));
-assert.equal((await provider.list({ cwd: notARepo })).length, 9, '默认应在任何工作区广播 9 个角色');
+assert.equal((await provider.list({ cwd: notARepo })).length, 10, '默认应在任何工作区广播 10 个角色');
 
 // 需要安静时用环境变量关掉
 process.env.PROCESS_KIT_SKILLS = 'off';
@@ -555,11 +555,11 @@ try {
 	delete process.env.PROCESS_KIT_SKILLS;
 }
 
-// cwd 是流程仓 ⇒ 同样广播 9 个打包角色
+// cwd 是流程仓 ⇒ 同样广播 10 个打包角色
 const candidates = await provider.list({ cwd: root });
 assert.deepEqual(
 	candidates.map((c) => c.name).sort(),
-	['architect', 'code-review-agent', 'dev-agent', 'logic-review-agent', 'product-manager', 'security-review-agent', 'test-agent', 'uat-agent', 'ui-designer'],
+	['architect', 'code-review-agent', 'dev-agent', 'domain-expert', 'logic-review-agent', 'product-manager', 'security-review-agent', 'test-agent', 'uat-agent', 'ui-designer'],
 );
 for (const candidate of candidates) {
 	assert.equal(candidate.rank, 600, '打包技能必须是 bundled 档（低于项目 .dsh/skills）');
@@ -949,7 +949,7 @@ const CJK = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/g;
 	process.env.PROCESS_KIT_LANG = 'en';
 	try {
 		const enCandidates = await provider.list();
-		assert.equal(enCandidates.length, 9);
+		assert.equal(enCandidates.length, 10);
 		const pm = enCandidates.find((c) => c.name === 'product-manager');
 		assert.equal((pm.description.match(CJK) ?? []).length, 0, '英文模式下技能描述不得是中文');
 		const loaded = await provider.get(pm);

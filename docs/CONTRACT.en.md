@@ -44,7 +44,7 @@ The YAML frontmatter of `docs/process/prd/<ID>.md` and `docs/process/input/<ID>.
 | `at` | ✅ | ISO8601 **machine time** (filled in by the tool, not a time the model asserts) |
 | `actor` | ✅ | Who did it, e.g. `orchestrator` / `subagent:test-agent` |
 | `id` | ✅ | Package ID |
-| `step` | | Stage: `pm` / `architect` / `test` / `dev` / `uat` / `review` / `archives` … |
+| `step` | | Stage: `pm` / `architect` / `domain-expert` / `test` / `dev` / `uat` / `review` / `archives` … |
 | `action` | | `write` / `run` / `approve` / … |
 | `phase` | | Phase (used to recompute stage duration / rework count) |
 | `files` | | Array of files involved |

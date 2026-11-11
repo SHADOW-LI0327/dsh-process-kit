@@ -14,7 +14,7 @@ A multi-role + multi-agent parallel development plugin that raises output qualit
 
 Adds a file-driven engineering development process to [DSH](https://github.com/deepseek-ai/deepseek-harness). A requirement package's status, Gate sign-offs, and its process and bug records all live in the target repository's `docs/process/**`; the plugin only reads, renders, appends safely and lays down scaffolds — it keeps no state of its own.
 
-It also bundles 9 role subagents with hard boundaries between them: whoever writes the implementation does not write the tests, and whoever writes the tests does not do acceptance; the product and architecture prior-art research runs **on demand** in parallel before Gate0, and candidates only enter the requirement check, never an AC directly.
+It also bundles 10 role subagents with hard boundaries between them: whoever writes the implementation does not write the tests, and whoever writes the tests does not do acceptance; the product and architecture prior-art research runs **on demand** in parallel before Gate0, and candidates only enter the requirement check, never an AC directly.
 
 ## Features
 
@@ -31,7 +31,7 @@ It also bundles 9 role subagents with hard boundaries between them: whoever writ
 One process, two languages. Language affects **wording** only — never **write targets or criteria**:
 
 - **Choosing a language**: `process_init({ lang: "en" })` lays down the English scaffold, `zh` the Chinese one; `auto` (the default) looks in order at `lang` in `docs/process/.process-kit.json` → the language of the repository's `AGENTS.md` / `README.md` → `zh`. The environment variable `PROCESS_KIT_LANG=zh|en` overrides it once, for that process. **Changing the language** = `process_init({ upgrade: true, lang: "en" })` (framework-owned files are overwritten in the new language, backed up first; `PROJECT.md` / token files are not overwritten, only reported as needing a manual merge).
-- **Gates and tools follow the repository**: gate scripts' runtime messages, the reports of `process_status` / `gate_summary`, and the body text of all 9 role skills are emitted and taken according to the repository language (an English repository gets English; a Chinese repository behaves exactly as before).
+- **Gates and tools follow the repository**: gate scripts' runtime messages, the reports of `process_status` / `gate_summary`, and the body text of all 10 role skills are emitted and taken according to the repository language (an English repository gets English; a Chinese repository behaves exactly as before).
 - **The machine reads markers, the human reads prose**: templates place HTML comment markers above key sections (`<!-- process:owner-table -->` / `<!-- process:registry -->`); gates locate sections by marker first and fall back to a heading alias in either language only when a marker is missing; §4 / §5 config keys are accepted under **both languages** (e.g. `Rules dir` and its Chinese alias); the requirement check is recognized under both filenames, authoritative by frontmatter `kind: requirement-check`.
 - **Full contract**: [docs/I18N.md](./docs/I18N.md) (resolution priority, marker list, the 26-key config mapping, maintenance discipline); `test/i18n.test.mjs` verifies the two scaffolds match, leave no residue, and that the gates run green in an English repository.
 
@@ -45,7 +45,7 @@ One process, two languages. Language affects **wording** only — never **write 
 
 Effective immediately; restart the client only if the UI has not picked it up.
 
-> **Cannot install the latest version? It is not an installation failure.** pnpm ships a 24-hour supply-chain protection by default (`minimumReleaseAge = 1440`): a version published less than 24 hours ago is not selected by `^range` / `latest` resolution. **Wait 24 hours**, or **pin an exact version** (`dsh-process-kit@0.9.0` — an explicit pin bypasses the policy by design). Setting `minimumReleaseAge` to 0 is not recommended: that turns the whole protection off.
+> **Cannot install the latest version? It is not an installation failure.** pnpm ships a 24-hour supply-chain protection by default (`minimumReleaseAge = 1440`): a version published less than 24 hours ago is not selected by `^range` / `latest` resolution. **Wait 24 hours**, or **pin an exact version** (`dsh-process-kit@0.10.0` — an explicit pin bypasses the policy by design). Setting `minimumReleaseAge` to 0 is not recommended: that turns the whole protection off.
 
 ## Quick start
 
@@ -110,7 +110,7 @@ process_uninstall({ confirm: true, dryRun: false })  // deletes for real only af
 
 Roles are provided by skills bundled with the plugin and are registered on install — no configuration needed. The skills work in every workspace, whether or not the repository has the process initialized; a same-named skill in the project's `.dsh/skills/**` takes precedence. Set the environment variable `PROCESS_KIT_SKILLS=off` to disable them.
 
-### Role list (9 roles)
+### Role list (10 roles)
 
 | Role | Duty | Since |
 | --- | --- | --- |
@@ -123,14 +123,17 @@ Roles are provided by skills bundled with the plugin and are registered on insta
 | `security-review-agent` | Authorization / privilege escalation / injection / secrets / sensitive-data review of the source diff | `0.1.0` |
 | `logic-review-agent` | Adversarial logic review of the rules ledger and the source: rule→branch mapping, uncovered branches, concrete counter-examples | `0.1.0` |
 | `ui-designer` | Translates the UI-touching items of the design notes into an **acceptable UI spec** (component decisions / state matrix / final copy / literal values) and produces an **openable HTML/CSS prototype + a `handoff.md` handoff table**; after dev implements and before UAT it runs the **UI restoration check**. Whether to dispatch is decided explicitly by the human at Gate0 with `uiDesign: required / not-needed`; **produces no PNG/PSD** | `0.2.0` |
+| `domain-expert` | On-demand **domain expert** (lawyer / teacher / e-commerce operator / civil / electrical / data-centre planning / HVAC / compute cluster / network / DCIM and more): reviews the PRD / design notes / UI spec / HTML prototype against an expert brief for professional risks and questions; advice only, never stands in for a licensed professional | `0.10.0` |
 
 > Full version history is in [CHANGELOG](./CHANGELOG.md) (zh); the exact version on npm is whatever the registry says.
 
 **`ui-designer`'s boundaries**: **translate, never invent** (anything upstream did not write goes into an "undecided criteria" list for a human ruling); **project tokens first** (if `PROJECT.md` §4 configures project tokens they MUST be copied verbatim — no invented colours / font sizes / spacing); **HTML is the primary deliverable** (`index.html` + `styles.css` + `handoff.md`, no PNG/PSD); **the UI restoration check sits after dev and before UAT** (one `UI-NN` row per item into `reports/ui-review/<ID>.md`; only `pass` proceeds to UAT); **aesthetics are left to the Gate** (`check-ui-prototype` judges handoff completeness only).
 
+**`domain-expert` is brought in on demand**: it is not dispatched by default. When the orchestrator judges that a professional lens is needed (compliance / pedagogy / operations / structural / electrical…), it first checks the preset briefs under `docs/process/experts/**` (lawyer / teacher / e-commerce operator / civil / electrical / data-centre planning / HVAC / power distribution / network / compute cluster / DCIM); if none matches, it searches public sources, creates an ad-hoc brief from the template (`input/<ID>-expert-<slug>.md`), and dispatches the expert. The conclusions are advisory material for Gate1 only — **items requiring a licensed professional are carried to the human verbatim**, and the expert never concludes on the licence holder's behalf.
+
 ### When the three review roles actually run
 
-The 9 roles are not peers: `product-manager` / `architect` / `ui-designer` / `test-agent` / `dev-agent` / `uat-agent` are dispatched by the state machine inside a single-package flow; `code-review-agent` / `security-review-agent` / `logic-review-agent` run **only in the "pre-release full regression"**, and that stage is started explicitly by the human — **if a release regression was never started, these three never ran once** (`process_status` reports honestly whether `reports/release/**` has a report; absent means it never ran).
+The 10 roles are not peers: `product-manager` / `architect` / `ui-designer` / `test-agent` / `dev-agent` / `uat-agent` are dispatched by the state machine inside a single-package flow; `code-review-agent` / `security-review-agent` / `logic-review-agent` run **only in the "pre-release full regression"**, and that stage is started explicitly by the human — **if a release regression was never started, these three never ran once** (`process_status` reports honestly whether `reports/release/**` has a report; absent means it never ran). `domain-expert` is a different category: **the orchestrator dispatches it on demand**, depending on whether the requirement needs that professional lens; it is not one of the three reviews.
 
 Two exceptions bring them on stage early: ① the human names them at any Gate; ② the package touches RBAC / amounts·allocation / schema / a new external interface, in which case the orchestrator puts "should the review run early" into the Gate summary.
 

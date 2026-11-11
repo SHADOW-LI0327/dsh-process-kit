@@ -475,13 +475,13 @@ async function makeRulesFixture() {
 // ── 6s. 每个角色技能都必须出现在常驻指针 AGENTS 模板的清单里 ─────────────────
 //
 // 「加了一个角色，但忘了把它写进派单说明」是个很容易犯、又很难发现的错：
-// 插件管理器里能看到 9 个角色，主控却永远想不到派第 9 个。这条把它钉住。
+// 插件管理器里能看到 10 个角色，主控却永远想不到派第 10 个。这条把它钉住。
 
 {
 	const skills = (await readdir(join(PKG, 'skills'), { withFileTypes: true }))
 		.filter((d) => d.isDirectory())
 		.map((d) => d.name);
-	assert.ok(skills.length >= 9, `应至少有 9 个角色技能，实际 ${skills.length}`);
+	assert.ok(skills.length >= 10, `应至少有 10 个角色技能，实际 ${skills.length}`);
 	const pointer = await readFile(join(PKG, 'lib/index.js'), 'utf8');
 	// ⚠️ **必须锚定「角色清单那一行」**，不能拿整份文件 `includes()`：
 	// 角色名在 lib/index.js 里还出现在别处（如 nextAction 的 gate0 文案），

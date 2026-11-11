@@ -2,6 +2,23 @@
 
 本插件自身的变更日志。按 GitHub 风格简要记录功能与行为变更，只记变更本身、不记开发过程。
 
+## 0.10.0
+
+> 按需引入的领域专家：需要哪一行，就带哪一行的专业视角看 PRD / 设计 / 原型。
+
+### Added
+
+- **新增第 10 个内置角色 `domain-expert`（领域专家，按需）**：主控判断需要专业视角时派单，对 PRD / 设计与说明 / UI 规格 / HTML 原型做专业评审；只出建议与问题，不改稿、不做 Gate 决策、不替代持证专业人士。产出 `reports/experts/<ID>-<slug>.md`，结论由主控折进 Gate1（需持证确认项原样带给人）。
+- **11 张预设专家设定卡 + 模板**：通用 5 张（律师 / 教师 / 电商运营 / 建筑 / 电气）+ AIDC 6 张（`data-center-architect` / `hvac-engineer` / `dc-power-engineer` / `network-engineer` / `gpu-cluster-engineer` / `dcim-operations`），落在 `docs/process/experts/**`（`process_init` 随骨架落地，中英双语）。卡里只写「这个专业看什么 / 依据 / 红线 / 需持证确认项」，不含项目结论。
+- **AIDC 现有卡扩展**：`electrical-engineer` 与 `civil-engineer` 各加「数据中心（AIDC）补充」一节（高密机柜电气安全 / 液冷 / 楼面荷载 / 抗震 / 气体灭火 / 管廊吊装）。
+- **自由创建**：预设没有命中时，主控检索公开来源（记来源 + 日期 + 法域），按 `experts/_TEMPLATE.md` 生成临时卡 `input/<ID>-expert-<slug>.md`，再派 `domain-expert`；临时卡随包清理，反复用到同一专业可由人升级为 `experts/**` 预设。
+- **主控检索例外**：为建专家卡，主控可检索公开资料并登记来源；该例外不得用于核实角色产出的技术结论（原硬边界不变）。
+
+### Changed
+
+- 角色数 9 → 10；README / DESIGN / ACCEPTANCE / 包元数据 / AGENTS 模板 / 常驻指针 / 注册表测试同步。
+- 总纲角色矩阵与边界、调度手册（Gate1 行 / 派单纪律 / 硬边界 / Gate1 摘要）、`PROJECT.md` §3 属主表示例新增 `domain-expert` 行。
+
 ## 0.9.0
 
 > 面向国外英文用户：同一套流程，中文 / 英文两种语言。
