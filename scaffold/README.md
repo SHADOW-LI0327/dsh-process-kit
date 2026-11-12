@@ -38,7 +38,7 @@
 > 原则：**流程必须的文件保留，每个需求的都不要**。目的：下一批**干净重新开始**，历史文件不影响新批次，也才能真正验证流程优化。
 
 - **需求专属**（工作区内产生 → 包收口即清理，**先经人提交**（默认归档 = git）→ **不留在工作区**）：`input/**`（含 Gate0 前的 `research-brief` / `prior-art` / `tech-scan`，以及主控为某包临时建的专家卡 `<ID>-expert-<slug>.md`）、`prd/<ID>.md`、`prd/<ID>-design.md`、`prd/<ID>-arch.md`、`prd/<ID>-ui-spec.md`、`contracts/<ID>.md`、`rules/<ID>.yaml`、`bugs/<ID>*.md`、`uat/<ID>-checklist.md`、`prd/*.journal.jsonl` 与其旁挂指纹 `prd/*.journal.jsonl.meta.json`、**HTML 原型目录** `prototypes/<ID>/**`（`index.html` + `styles.css` + `handoff.md`，见 §5 UI 原型门禁）、**需求专属测试**（含设备脚本与夹具种子）。具体清单见 `PROJECT.md` §1。
-- **过程产物**：`reports/**`（uat / pm / dev / test / review / architect / gaps / **ui-review** / **experts** / 证据 / dev-patches）。
+- **过程产物**：`reports/**`（uat / pm / dev / test / review / architect / gaps / **ui-review** / **experts / domain-review** / 证据 / dev-patches）。
 - **恢复方式与常驻例外**：**默认归档 = git 提交**（提交过即可回溯）；只有「要整体清空且尚未提交」时才打归档包到 `reports/_archives/`，**不留存 ≠ 丢弃**；流程骨架自带的**示范台账与其配对测试**是唯一保留的台账对（用于证明门禁本身可用，见 §6.7）。
 - **整体卸载**：不打算继续使用本流程时，由人确认后调用 `process_uninstall`（先 `{ dryRun: true }` 预览，再 `{ confirm: true, dryRun: false }`）；它清 `docs/process/**` 与 `scripts/process/**`，已有 `AGENTS.md` / 用户技能 / 产品代码不删。**先清仓库，再卸插件**；详见插件 README「卸载」。
 
@@ -59,7 +59,7 @@
 | **pm** | subagent（读**同名技能** `pm`） | PRD + 契约 + 设计与说明 + **UAT 清单** + uat 后审核报告；Gate0 前可做**需求借鉴调研**（`input/<ID>-prior-art.md`） | 禁读业务实现、测试、e2e、日志；允许读数据层 schema 与接口路由**签名**（§11.1）；借鉴调研只读公开**说明 / 文档 / issue**，源码核实归 architect |
 | **architect** | subagent（读**同名技能** `architect`） | **技术借鉴与约束扫描**（`input/<ID>-tech-scan.md`，Gate0 前，与 pm 并行）+ **架构设计与取舍**（`prd/<ID>-arch.md`，Gate0 后按需） | 禁读业务实现逻辑（**结构层可读**：模块布局 / 依赖 / 构建 / schema / 路由签名 / 中间件接线）；禁写 PRD / 契约 / AC / 测试 / 源码；外部源码只用于核事实，不复制、不引入依赖 |
 | **ui-designer** | subagent（读**同名技能** `ui-designer`） | **HTML 原型**（`prototypes/<ID>/index.html` + `styles.css` + `handoff.md`，交付主件）+ **UI 规格**（`prd/<ID>-ui-spec.md`）+ **UI 还原核对报告**（`reports/ui-review/<ID>.md`，dev 实现后） | **仅触及 UI 的包**；只翻译不发明业务口径；**禁改生产实现源码**、禁读后端实现与前端组件内部实现；**不产出 PNG/PSD**；设计交付不做功能验收，UI 还原核对只判「实现是否偏离设计」，不代替 UAT |
-| **domain-expert** | subagent（读**同名技能** `domain-expert` + **专家设定卡**） | **专业评审报告**（`reports/experts/<ID>-<slug>.md`）：按卡对 PRD / 设计与说明 / UI 规格 / HTML 原型给专业视角的风险与问题 | 只出建议、不写别人的稿；禁改 PRD / 设计 / 原型 / 测试 / 源码；**不替代持证专业人士**、不做 Gate 决策；**主控按需派，非每包必派** |
+| **domain-expert** | subagent（读**同名技能** + **专家卡 / 派单内联设定**） | 单包或**发布批次**的专业评审报告（`reports/experts/**` / `reports/domain-review/**`）：可合并相邻子专业 | 只出建议、不写别人的稿；禁改 PRD / 设计 / 原型 / 测试 / 源码 / 归档；不跑 DB、不 commit；**不替代持证专业人士**、不做 Gate 决策；**主控按需派** |
 | **test** | subagent（读**同名技能** `test`） | 测试用例 + verify 执行报告 + 发布前回归·自动化半 | 只验收 dev 产出物；可读路由签名 / schema / 既有测试；禁读服务实现细节、禁改实现源码 |
 | **dev** | subagent（读**同名技能** `dev`） | 实现源码改动 | 禁改测试 / e2e |
 | **uat** | subagent（读**同名技能** `uat`） | uat 报告 + 发布前回归·黑盒半 | 扮演真实用户：**不知代码、不知测过什么**；只判「对不对得上预期」；**两段观察**（按 AC 黑盒 + 角色扮演探索，§6.6） |
@@ -75,7 +75,7 @@
 - **ui-designer 定「界面该有哪些状态」+ 实现后做 UI 还原核对，uat 判「界面用起来对不对」** —— 前者是 Gate1 的规格产出与设计一致性核对，后者是 Gate4 的功能黑盒结论；**UI 还原核对不是功能验收，ui-designer 不替 uat 下结论**。
 - **dev 自测（TDD 内循环）≠ 验收**：dev 跑测试只为让自己变绿；「真绿」由 test 独立复跑确认 —— **裁判运动员分离**。dev 内循环可只跑 L1 定向，交付前跑 L2 包验证，不要求每次全量（§6.9）。
 - **pm 定「要什么、怎么验收」，architect 定「怎么搭、代价是什么」**：pm 不选型，architect 不定业务口径、不替 pm 写 AC。二者在 Gate0 前可并行做借鉴调研，但**各写各的文件**，汇合后才能进 Gate0（§3.2）。
-- **architect 定「怎么搭」，domain-expert 给「这个专业会看什么、缺什么、哪里要持证确认」**：前者写架构决策与产物，后者只出建议、不改稿；专家意见不是「合规 / 合法」结论，安全 / 法律 / 医疗红线必须由持证专业人士确认，专家卡不能替代执业判断。
+- **architect 定「怎么搭」，domain-expert 给「这个专业会看什么、缺什么、哪里要持证确认」**：前者写架构决策与产物，后者只出建议、不改稿；专家意见不是「合规 / 合法」结论，安全 / 法律 / 医疗红线必须由持证专业人士确认，专家卡不能替代执业判断；**合并多个子专业时同样按子专业分开标「需持证」**。
 - **借鉴调研 ≠ 需求裁定**：`pm` 的 `C-NN` 与 `architect` 的 `K-NN` 只是候选，只有主控折成核对件的 `Q` 或被人在 Gate0 采纳后才生效；**不得直接进 AC**。
 
 ### 2.2 verify 归属
@@ -90,7 +90,7 @@ verify 由 **test** 角色执行，主控只消费报告。命令执行集中到
 
 ### 2.4 禁读边界按信息类型分层
 
-「禁读」禁的是会带偏判断的**业务实现**，不禁校准产出所需的**契约层**（接口签名、表结构）。pm 与 test 的白名单一致（§11.1；**借鉴调研时 pm 另可读公开说明 / 文档 / issue，源码核实仍归 architect**）；**architect 白名单 = 契约层 + 结构层**（模块布局 / 依赖清单 / 构建与部署配置 / schema / 路由签名 / 中间件接线，**仍禁业务逻辑实现**）；**ui-designer 白名单叠加「既有前端组件的清单与对外 props 签名 / 设计令牌」**（判复用与新增用，**仍禁组件内部实现**）；**UI 还原核对阶段**可读运行页面 / DOM / 计算样式，仍不读组件内部源码；**domain-expert 白名单 = 专家设定卡 + 上游产物（PRD / 设计与说明 / UI 规格 / HTML 原型 / 契约）+ 结构层（判断技术可行性用）**，仍禁业务实现 / 测试 / 日志、不读组件内部实现；**uat 是唯一全禁角色**。
+「禁读」禁的是会带偏判断的**业务实现**，不禁校准产出所需的**契约层**（接口签名、表结构）。pm 与 test 的白名单一致（§11.1；**借鉴调研时 pm 另可读公开说明 / 文档 / issue，源码核实仍归 architect**）；**architect 白名单 = 契约层 + 结构层**（模块布局 / 依赖清单 / 构建与部署配置 / schema / 路由签名 / 中间件接线，**仍禁业务逻辑实现**）；**ui-designer 白名单叠加「既有前端组件的清单与对外 props 签名 / 设计令牌」**（判复用与新增用，**仍禁组件内部实现**）；**UI 还原核对阶段**可读运行页面 / DOM / 计算样式，仍不读组件内部源码；**domain-expert 白名单 = 专家卡 / 派单内联设定 + 上游产物（PRD / 设计与说明 / UI 规格 / HTML 原型 / 契约）+ 发布说明 / UAT 证据 / 归档（只读）+ 结构层（判断技术可行性用）**，仍禁业务实现 / 测试 / 日志、不读组件内部实现；**uat 是唯一全禁角色**。
 
 ### 2.5 派单纪律（单包串行）
 

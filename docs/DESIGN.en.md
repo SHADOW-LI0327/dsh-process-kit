@@ -74,7 +74,7 @@ Domain experts do **not** get one skill per profession:
 
 - The registry holds a single `domain-expert` skill that owns the generic discipline ("review against the brief, advice only, never stand in for a licence");
 - The profession-specific lens lives in `scaffold/experts/<slug>.md` (presets) or `input/<ID>-expert-<slug>.md` (created by the orchestrator for one package after research) — it is **data, not code**;
-- Adding a profession therefore needs no skill-registry change and no restart, and "lawyer / teacher / engineer" cannot drift into separate boundary sets. **The cost**: brief quality decides review quality, so a brief must carry source and jurisdiction, and no brief means no dispatch.
+- Adding a profession therefore needs no skill-registry change and no restart, and "lawyer / teacher / engineer" cannot drift into separate boundary sets. Adjacent professions may also be **merged at dispatch time** (e.g. power + data-centre site operations) without a new brief for every combination; findings are tagged per sub-discipline and licensed conclusions stay separate. **The cost**: brief / inline-setting quality decides review quality, so it must carry source and jurisdiction, and **no brief and no inline setting means no dispatch**.
 
 ## How skill broadcasting works
 

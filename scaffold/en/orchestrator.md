@@ -65,7 +65,7 @@
 - **Retry cap**: **3** fix attempts on the same failing test; still red on the 3rd ⇒ stop and report "what was tried / the current red / the judgement", and the orchestrator either re-dispatches or sends it back to pm/test. **No cap on time / file count / diff lines** — large changes are normal; slices are cut by "a group of ACs that can be verified independently".
 - **No fact-carrying messages**: send only "please re-read `<file>` at rev N"; changes of semantics / conclusions / endorsement always go through an **appendix erratum**, never through "send a new message declaring the previous one void".
 - **Never hand a single role's unreviewed old conclusion to another role as a factual premise**: when needed, mark it "per some role, not independently re-checked" and require the executing role to verify the premise first.
-- **Domain-expert dispatch (on demand)**: dispatch only when "a professional lens is needed" (§3.5). Always attach: the **expert brief path** (preset `experts/<slug>.md` or ad-hoc `input/<ID>-expert-<slug>.md`) + the objects under review (PRD / design / UI spec / prototype) + the questions to answer + the jurisdiction / standards regime (write `not-specified` when unknown). **No brief, no dispatch**; the expert gives advice only and never edits drafts.
+- **Domain-expert dispatch (on demand)**: dispatch only when "a professional lens is needed" (§3.5). Three options: **preset brief / ad-hoc brief / inline dispatch setting**; always attach the sub-disciplines, objects and version, questions, jurisdiction (write `not-specified` when unknown), materials and report path. **A merged lens must list every sub-discipline**; if none of the three exists, do not dispatch; the expert gives advice only and never edits drafts.
 
 ### 3.2 Reuse ledger (efficiency-oriented, not a hard ban)
 
@@ -98,30 +98,60 @@
 | **test** | Test cases + independent re-run report + pre-release automation regression | Accepts only dev deliverables; must not read business implementation details, must not change `src` |
 | **dev** | `src` changes + delivery evidence | Must not change `test/` / `e2e/`; no "tested and passing" without evidence; write within the dispatch scope; 3 attempts per failing test; L1 inner loop / L2 before delivery |
 | **uat** | Black-box acceptance report + pre-release black-box regression | Does not know the code, does not know what was tested; only judges "does it match expectations" |
-| **domain-expert** | Reviews the **PRD / design notes / UI spec + HTML prototype** against the expert brief for professional risks and questions (`reports/experts/<ID>-<slug>.md`) | Advice only, never edits someone else's draft; MUST NOT modify the PRD / design / prototype / tests / source; **never stands in for a licensed professional**, makes no Gate decision; **dispatched by the orchestrator on demand** |
+| **domain-expert** | Reviews a single package's **PRD / design notes / UI spec + HTML prototype**, or a **release batch / version**, against the expert brief or an inline setting (merged adjacent sub-disciplines allowed; `reports/experts/**` or `reports/domain-review/**`) | Advice only, never edits someone else's draft; MUST NOT modify the PRD / design / prototype / tests / source / archive; no DB, no commit; **never stands in for a licensed professional**, makes no Gate decision; **dispatched by the orchestrator on demand** |
 | **the three reviews** | Logic / correctness / security conclusions and counterexamples | Conclusions only, no large code blocks, no `src` changes; object = the release batch's `src` diff |
 
 **Triage rule of thumb**: a missing prerequisite ⇒ **send back** to the corresponding role; a conclusion without evidence ⇒ **send back** to the corresponding role; the orchestrator **does not do other people's specialities itself** (the price of doing it is that responsibility becomes untraceable).
 
-### 3.5 On-demand domain experts (presets + free creation)
+### 3.5 On-demand domain experts (preset / ad-hoc brief / inline setting)
 
-**Trigger**: the requirement or design contains a professional judgement (compliance / pedagogy / operations / structural / electrical / medical / tax / safety…), and pm / ui-designer lack that background; or the human names one; or a high-risk surface needs an independent professional lens. **Not dispatched for every package by default**; not on the fast path (no PRD / prototype).
+**Trigger**: the requirement or design contains a professional judgement (compliance / pedagogy / operations / structural / electrical / medical / tax / safety…), and pm / ui-designer lack that background; a **release batch / version retrospective** (human-initiated) needs a professional review of a batch of changes; the human names the role; or a high-risk surface needs an independent professional lens. **Not dispatched per package by default**; not on the fast path (no PRD / prototype).
 
-**Check presets first**: `docs/process/experts/**` (`lawyer` / `teacher` / `ecommerce-operator` / `civil-engineer` / `electrical-engineer` / `data-center-architect` / `hvac-engineer` / `dc-power-engineer` / `network-engineer` / `gpu-cluster-engineer` / `dcim-operations`). On a hit, put the brief path straight into the dispatch.
+**Three dispatch options (none ⇒ no dispatch)**:
 
-**No preset ⇒ the orchestrator creates an ad-hoc brief** (the only door for "free creation"):
+1. **Preset brief**: `docs/process/experts/<slug>.md` (11 presets).
+2. **Ad-hoc brief**: `docs/process/input/<ID>-expert-<slug>.md` (created by the orchestrator after public research, cleaned up with the package).
+3. **Inline setting**: written directly into the dispatch — sub-disciplines / objects and version / jurisdiction / questions / materials / report path / read-only boundary.
 
-1. **Search public sources** (statutes / standards / industry practice) and record source + date + jurisdiction / version; **research only "what this profession looks at", never this project's conclusions**.
-2. Write `docs/process/input/<ID>-expert-<slug>.md` following `docs/process/experts/_TEMPLATE.md`: profession / scope / checklist / basis / red lines / items needing licensed confirmation.
-3. Dispatch `domain-expert`: **skill + brief path + objects under review + questions to answer**; no brief, no dispatch.
-4. The orchestrator folds the conclusions into Gate1 (licensed-confirmation items go into `❓` verbatim, the rest into `📎`); **no new Gate, no blockage**.
+**Merged lens (allowed, with boundaries)**:
+
+- Adjacent professions may be merged into one dispatch (e.g. power + data-centre site operations), especially when the objects and materials are the same (same version / same site / same UAT evidence).
+- List every **sub-discipline**; tag each finding `[sub-discipline]`; licensed conclusions are tagged "needs licensed confirmation" per sub-discipline.
+- **Never apply one profession's conclusion to another**; when the span is too wide (legal + structural + electrical + medical) ⇒ split the dispatch.
+- A merged lens never replaces a licensed signature, and "three professions looked at it" must not become one "compliant" line.
+
+**Release retrospective**: objects = a batch of packages + release notes + UAT evidence + archive; report default `reports/domain-review/<date>-<version>.md` (`PROJECT.md` §3 / the dispatch win); **no new Gate**; conclusions go into the release conclusion / human ruling.
+
+**Inline dispatch template**:
+
+```text
+You are the domain-expert role. Load and follow the `domain-expert` skill first.
+Task: do a professional-perspective retrospective on <version / batch> (<sub-discipline A> + <sub-discipline B>); advice and questions only, no edits, no Gate decisions.
+Repository root = <path>
+
+## Scope
+<which packages / changes; the scope the human has fixed>
+
+## Materials (read-only)
+<RELEASE / CHANGELOG / release notes / UAT evidence / archive; extract the archive under /tmp>
+
+## What to review
+<questions per sub-discipline; field consequences, not code details>
+
+## Output
+<report path> (Chinese or English; §1 conclusion / §2 P0-P1-P2 / §3 good design / §4 out of scope / §5 minimal changes)
+
+## Hard boundaries
+Write this one file only; do not modify source / PRD / contract / archive; do not run the DB; do not commit; never impersonate a licensed professional.
+```
 
 **Discipline**:
 
-- A brief records only "what this profession looks at", **never project conclusions**; if the brief conflicts with the current jurisdiction / standard ⇒ stop and report, do not edit it.
-- Multiple experts may run in parallel (read-only, no build-channel occupation); the same expert is not dispatched twice for the same package.
+- A brief records only "what this profession looks at", **never project conclusions**; if the brief / inline setting conflicts with the current jurisdiction / standards ⇒ stop and report, do not edit it.
+- Multiple experts may run in parallel (read-only, no build-channel occupation); the same expert is not dispatched twice for the same object.
 - **An expert is not a licensed professional**: legal / structural / electrical / medical conclusions may only state "what must be confirmed", to be decided by the human / licence holder.
 - Ad-hoc briefs are cleaned up with the package (`input/**`); if the same profession keeps recurring, the human decides whether to promote it to a preset under `experts/**`.
+- **The report path must fall inside the expert row of `PROJECT.md` §3**; out of bounds ⇒ stop and report.
 
 ---
 

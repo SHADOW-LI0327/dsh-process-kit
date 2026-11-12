@@ -77,7 +77,7 @@ lang: zh # zh / en —— 流程语言：门禁脚本、工具输出、角色技
 | `<role-test>` | `<test-dir>/packages/<ID>/**` · `<test-dir>/fixtures/<ID>-*` · `docs/process/rules/**` · `reports/test/**` · `docs/process/tools/<ID>/**` | 改 `src`；读业务实现细节（签名 / schema 除外） |
 | `<role-dev>` | `<app-a>/src/**` · `<app-b>/src/**` · `<app-c>/src/**` · `scripts/<ID>-<用途>.{ts,sql}`（仅生产迁移 / 运维脚本，且须先登记） | 改 `test/` · 改 `e2e/` |
 | `<role-uat>` | `docs/process/uat/**` · `reports/uat/**`（含 `evidence/`） · `<e2e-dir>/**` | 读任何代码 / 测试 / 日志；判功能对错以外的事 |
-| `<role-domain-expert>` | `reports/experts/**` | 改 PRD / 设计 / UI 规格 / 原型 / 测试 / 源码；替持证专业人士下结论 |
+| `<role-domain-expert>` | `reports/experts/**` · `reports/domain-review/**` | 改 PRD / 设计 / UI 规格 / 原型 / 测试 / 源码；替持证专业人士下结论 |
 | `<role-logic-review>` · `<role-code-review>` · `<role-security-review>` | `reports/<角色>/**` | 改 `src`；贴大段代码 |
 ```
 
