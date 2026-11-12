@@ -3,6 +3,7 @@ expert: <slug>
 name: <职业名>
 appliesTo: <适用场景：哪类产品 / 哪个环节需要这个专业视角>
 jurisdiction: <法域 / 标准体系；不确定写 not-specified>
+perspective: <owner | vendor>（默认 owner 甲方自用；vendor 仅用于对外交付）
 cardVersion: 1
 updatedAt: <YYYY-MM-DD>
 sources:
@@ -12,6 +13,8 @@ sources:
 # <职业名> 专家设定卡（<slug>）
 
 > 本卡是**评审视角**，不是执业意见。`domain-expert` 按本卡审 PRD / 设计 / 原型；卡里没有覆盖的，标「卡未覆盖」，不要脑补。
+>
+> **视角**：本卡默认按 **甲方 / 业主（自建自用）** 使用；若你是乙方交付，把「验收 / 客户 / SLA / 合同」按合同口径展开，其余检查点不变。
 > 预设卡放在 `docs/process/experts/<slug>.md`；主控为某个包临时建的卡放 `docs/process/input/<ID>-expert-<slug>.md`，随包清理。
 
 ## 1. 这个专业在这类产品里看什么

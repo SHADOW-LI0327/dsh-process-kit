@@ -12,6 +12,8 @@ sources:
 # Lawyer expert brief
 
 > This brief is a **review lens**, not legal advice. `domain-expert` reviews the PRD / design / prototype against it; anything the brief does not cover is marked "not covered by the brief" — do not fill the gap by guessing.
+>
+> **Perspective**: this brief defaults to the **owner / operator (built and used in-house)** view; for vendor delivery, read "acceptance / customer / SLA / contract" through the contract, while the other checkpoints stay unchanged.
 
 ## 1. What this profession looks at in this kind of product
 

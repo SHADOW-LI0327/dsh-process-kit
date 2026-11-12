@@ -65,7 +65,7 @@
 - **Retry cap**: **3** fix attempts on the same failing test; still red on the 3rd ⇒ stop and report "what was tried / the current red / the judgement", and the orchestrator either re-dispatches or sends it back to pm/test. **No cap on time / file count / diff lines** — large changes are normal; slices are cut by "a group of ACs that can be verified independently".
 - **No fact-carrying messages**: send only "please re-read `<file>` at rev N"; changes of semantics / conclusions / endorsement always go through an **appendix erratum**, never through "send a new message declaring the previous one void".
 - **Never hand a single role's unreviewed old conclusion to another role as a factual premise**: when needed, mark it "per some role, not independently re-checked" and require the executing role to verify the premise first.
-- **Domain-expert dispatch (on demand)**: dispatch only when "a professional lens is needed" (§3.5). Three options: **preset brief / ad-hoc brief / inline dispatch setting**; always attach the sub-disciplines, objects and version, questions, jurisdiction (write `not-specified` when unknown), materials and report path. **A merged lens must list every sub-discipline**; if none of the three exists, do not dispatch; the expert gives advice only and never edits drafts.
+- **Domain-expert dispatch (on demand)**: dispatch only when "a professional lens is needed" (§3.5). Three options: **preset brief / ad-hoc brief / inline dispatch setting**; always attach the sub-disciplines, objects and version, **perspective (owner in-house by default / vendor delivery)**, questions, jurisdiction (write `not-specified` when unknown), materials and report path. **A merged lens must list every sub-discipline**; if none of the three exists, do not dispatch; the expert gives advice only and never edits drafts.
 
 ### 3.2 Reuse ledger (efficiency-oriented, not a hard ban)
 
@@ -98,7 +98,7 @@
 | **test** | Test cases + independent re-run report + pre-release automation regression | Accepts only dev deliverables; must not read business implementation details, must not change `src` |
 | **dev** | `src` changes + delivery evidence | Must not change `test/` / `e2e/`; no "tested and passing" without evidence; write within the dispatch scope; 3 attempts per failing test; L1 inner loop / L2 before delivery |
 | **uat** | Black-box acceptance report + pre-release black-box regression | Does not know the code, does not know what was tested; only judges "does it match expectations" |
-| **domain-expert** | Reviews a single package's **PRD / design notes / UI spec + HTML prototype**, or a **release batch / version**, against the expert brief or an inline setting (merged adjacent sub-disciplines allowed; `reports/experts/**` or `reports/domain-review/**`) | Advice only, never edits someone else's draft; MUST NOT modify the PRD / design / prototype / tests / source / archive; no DB, no commit; **never stands in for a licensed professional**, makes no Gate decision; **dispatched by the orchestrator on demand** |
+| **domain-expert** | Reviews a single package's **PRD / design notes / UI spec + HTML prototype**, or a **release batch / version**, against the expert brief or an inline setting (with a **perspective**: owner in-house by default; merged adjacent sub-disciplines allowed; `reports/experts/**` or `reports/domain-review/**`) | Advice only, never edits someone else's draft; MUST NOT modify the PRD / design / prototype / tests / source / archive; no DB, no commit; **never stands in for a licensed professional**, makes no Gate decision; **dispatched by the orchestrator on demand** |
 | **the three reviews** | Logic / correctness / security conclusions and counterexamples | Conclusions only, no large code blocks, no `src` changes; object = the release batch's `src` diff |
 
 **Triage rule of thumb**: a missing prerequisite ⇒ **send back** to the corresponding role; a conclusion without evidence ⇒ **send back** to the corresponding role; the orchestrator **does not do other people's specialities itself** (the price of doing it is that responsibility becomes untraceable).
@@ -111,7 +111,7 @@
 
 1. **Preset brief**: `docs/process/experts/<slug>.md` (11 presets).
 2. **Ad-hoc brief**: `docs/process/input/<ID>-expert-<slug>.md` (created by the orchestrator after public research, cleaned up with the package).
-3. **Inline setting**: written directly into the dispatch — sub-disciplines / objects and version / jurisdiction / questions / materials / report path / read-only boundary.
+3. **Inline setting**: written directly into the dispatch — sub-disciplines / objects and version / **perspective** / jurisdiction / questions / materials / report path / read-only boundary.
 
 **Merged lens (allowed, with boundaries)**:
 
@@ -120,13 +120,19 @@
 - **Never apply one profession's conclusion to another**; when the span is too wide (legal + structural + electrical + medical) ⇒ split the dispatch.
 - A merged lens never replaces a licensed signature, and "three professions looked at it" must not become one "compliant" line.
 
+**Perspective (owner / vendor)**:
+
+- Default `owner` (client / operator, built and used in-house): ask "what risk does this create for my own operations, safety, cost, compliance, audit and maintainability"; **do not use customer acceptance / SLA / contract / payment as criteria**.
+- Use `vendor` (delivery side) only for external delivery: ask "customer acceptance / SLA / contract boundaries / delivery responsibility".
+- The report declaration MUST state the perspective; the same fact can lead to opposite conclusions under the two perspectives, so never mix the vocabularies.
+
 **Release retrospective**: objects = a batch of packages + release notes + UAT evidence + archive; report default `reports/domain-review/<date>-<version>.md` (`PROJECT.md` §3 / the dispatch win); **no new Gate**; conclusions go into the release conclusion / human ruling.
 
 **Inline dispatch template**:
 
 ```text
 You are the domain-expert role. Load and follow the `domain-expert` skill first.
-Task: do a professional-perspective retrospective on <version / batch> (<sub-discipline A> + <sub-discipline B>); advice and questions only, no edits, no Gate decisions.
+Task: do a professional-perspective retrospective on <version / batch> (<sub-discipline A> + <sub-discipline B>; perspective: <owner in-house / vendor delivery>); advice and questions only, no edits, no Gate decisions.
 Repository root = <path>
 
 ## Scope

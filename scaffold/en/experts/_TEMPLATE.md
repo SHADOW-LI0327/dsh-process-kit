@@ -3,6 +3,7 @@ expert: <slug>
 name: <profession>
 appliesTo: <where this lens is needed: which product / stage>
 jurisdiction: <jurisdiction / standards regime; write not-specified when unknown>
+perspective: <owner | vendor> (owner in-house by default; vendor only for external delivery)
 cardVersion: 1
 updatedAt: <YYYY-MM-DD>
 sources:
@@ -12,6 +13,8 @@ sources:
 # <Profession> expert brief (<slug>)
 
 > This brief is a **review lens**, not a professional opinion. `domain-expert` reviews the PRD / design / prototype against it; anything the brief does not cover is marked "not covered by the brief" — do not fill the gap by guessing.
+>
+> **Perspective**: this brief defaults to the **owner / operator (built and used in-house)** view; for vendor delivery, read "acceptance / customer / SLA / contract" through the contract, while the other checkpoints stay unchanged.
 > Preset briefs live in `docs/process/experts/<slug>.md`; an ad-hoc brief the orchestrator creates for one package lives in `docs/process/input/<ID>-expert-<slug>.md` and is cleaned up with the package.
 
 ## 1. What this profession looks at in this kind of product
