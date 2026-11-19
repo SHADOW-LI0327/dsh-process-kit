@@ -2,6 +2,21 @@
 
 本插件自身的变更日志。按 GitHub 风格简要记录功能与行为变更，只记变更本身、不记开发过程。
 
+## 0.11.0
+
+> 托管档：Gate0 一次授权，Gate1/2 不停，验收再停。
+
+### Added
+
+- **新增 `flow: managed`（托管全流程）**：Gate0 人签时用 `delegate: ["gate1","gate2"]` 预授权；PRD / 设计 / 原型 / 测试照做，但 Gate1/2 是不停的检查点；只停 Gate0 + Gate4。
+- **`process_status` / `gate_summary` 增加四步状态线**：`需求确认 → 方案确认 → 测试确认 → 验收确认`，并标出 `full / managed / fast`；托管包显示「Gate1/2 已在 Gate0 授权」。
+- **`gateHost: delegated`**：被 Gate0 授权的 Gate 不再显示 `⚠无留痕`，而是明确标成 `delegated`；Gate4 仍必须人签。
+
+### Changed
+
+- **journal 新增 `delegate`**：仅 `action:"approve"` + `gate:"gate0"` + `via:"human"` 可用；`via:"ai-hosted"` 带 `delegate` 直接拒绝。契约 2 / 契约 6 同步。
+- **档位文档**：总纲 §8 / 调度手册 §2 / README 增补 `managed`；`flow` 允许 `full / managed / fast`。
+
 ## 0.10.1
 
 > 派单分诊：先判断要不要加角色。

@@ -37,7 +37,9 @@
 | `research-brief` 已存在，但 `prior-art` / `tech-scan` 缺一、或未汇合 | 补齐缺件 / 完成汇合；**没汇合不得当调研完成，不得进 Gate0** | 无（补齐后按第 1 行继续） |
 | 核对件 `gate0=pending` | 按人裁定修订核对件，**主控不改 gate 值** | 停下等 **Gate0** |
 | 核对件 `gate0=approved` 且 `flow=fast`（人已在 Gate0 定档，不建 PRD） | 不派 pm、不产生 Gate1/Gate2、**不做调研**；直接派 dev（按 §3.1 最小派单包：目标 / 范围 / 命令 / 已知红）+ 存量回归，结论记 journal。触及 schema / RBAC / 金额 / 对外接口 ⇒ 退回全流程（回核对件改 `flow: full`，重走 Gate0 之后的环节） | 无（仅 Gate0；触安全红线另计） |
+| `gate0=approved` 且 `flow=managed` 且 `gate1=pending` | **托管**：调 **pm** 产出 PRD + 契约 + 设计与说明（有架构影响加 architect；`uiDesign: required` 加 ui-designer 原型 / UI 规格；按需领域专家）；**完成后置 `gate1: approved`（delegated）**，直接调 test，**不停 Gate1** | 无（检查点，非停点） |
 | `gate0=approved` 且 `status=draft` 且 `gate1=pending` | 调 **pm** 产出 PRD + 契约 + 设计与说明（设计与说明必须逐条对齐 `R-NN`）；**有架构影响时**（schema / RBAC / 金额·分摊 / 新增对外接口 / 多端 / 新模块）再调 **architect** 出 `prd/<ID>-arch.md`（决策 + 取舍 + 数据/接口影响 + 风险），随 Gate1 加审；**若核对件 `uiDesign: required`**，再调 **ui-designer** 产出 **HTML 原型**（`prototypes/<ID>/index.html` + `styles.css` + `handoff.md`，交付主件；不产出 PNG/PSD）与 UI 规格 `prd/<ID>-ui-spec.md`（只翻译不发明；每条须可观察；视觉数值须给字面值；交接表须覆盖全部 UI-NN）；**上游产物落盘后**，主控**按需**调 **domain-expert**（预设专家卡或临时卡，见 §3.5）做专业指导，结论折进 Gate1（需持证确认项原样进 `❓`） | 停下等 **Gate1** |
+| `gate1=approved` 且 `flow=managed` 且 `gate2=pending` | **托管**：调 **test** 生成 P0 测试并出红灯归因；**完成后置 `gate2: approved`（delegated）**，直接调 dev，**不停 Gate2** | 无（检查点，非停点） |
 | `gate1=approved` 且 `status=frozen` 且 `gate2=pending` | 调 **test** 生成 P0 测试并出红灯归因（盘点 N 绿 / M 红） | 停下等 **Gate2** |
 | `gate2=approved` 且 `status=red` | 调 **dev** 实现到绿 → 改 `status=implementing` | — |
 | `status=implementing` | 由 **test** 独立复跑 **L2 包验证**（裁判运动员分离，总纲 §6.9）；**有 UI 的包**：L2 绿后调 **ui-designer** 做 **UI 还原核对**（`reports/ui-review/<ID>.md`），`fail`/`conditional` 回 dev，`pass` 后才置 `status=uat`；评审三件套不在本步 | — |
@@ -48,6 +50,8 @@
 | `status=terminated`（人裁不发布 / 终止） | **不再流转**：不生成 uat、不做 Gate4；产物原地保留；`gate1`/`gate2` 保留历史真实值，**不得涂改成 rejected** | — |
 
 > 表里出现但状态位缺失（如两个包共用同名 ID、frontmatter 解析失败）⇒ 按「状态位异常」停下报告，不得自行择一推进。
+>
+> `flow=managed` 的 Gate1/2 **不是消失**：它们是不停的检查点。`gate1/gate2: approved` 必须在检查点完成后由主控写入，`gateHost` 记为 `delegated`；没有 Gate0 的 `delegate` 记录就不得跳过停等。
 
 ---
 
@@ -176,6 +180,7 @@
 7. **按 Gate 折叠专项**：
    - Gate0：人的裁定条数、`Q` 总数与是否收敛（未收敛 ⇒ `❓` 各列一条，标注「建议非结论」）；**做过借鉴调研的**另报候选 n / 采纳为 Q m / 不采纳 k（各一句理由），调研文件进 `📎`。
    - Gate1：**`✅` 给实物**（**打开 `prototypes/<ID>/index.html`**、状态切换方式、可跑命令，人先看这个）；**机器侧进 `📎`**：设计与说明 ↔ `R-NN` 对齐结论、UI 规格 ↔ 设计与说明 对齐结论、**视觉数值是否给足字面值**、**HTML 原型门禁原始输出**（`data-ui` / `handoff.md` / 外链 / 本地链接）；**未落实项 / 偏差 / 不可断言 / 无理由新增组件 ⇒ `❓` 列条**。**只有 PNG/PSD、没有 HTML ⇒ 按未交付处理**。
+   - **托管包**（`flow=managed`）：进度线显示「托管（Gate1/2 已在 Gate0 授权）」；Gate1/2 不得写成 `human` 签，验收 Gate4 仍必停。
    - 派过**领域专家**的：报「专家意见 n 条 / 采纳 m / 未采纳 k / 未处理 j」；**需持证专业人士确认的项原样进 `❓`**；未派写「未派（按需）」。
    - Gate2：**只给人归因三行**（`401` 基建假红 / `200` 真缺口 / `404` 契约漂移各几条、是否含阻断项）；**另加一行验证层级 / 范围**（L2 / L3、全量是否跑，见总纲 §6.9）；断言全文不贴，归 dev 与 test。
    - 触及数据层（schema 变更）：`📎` 加「列变更 / 补偿 SQL / 回滚」，`❓` 写「是否同意该 schema 变更」。
@@ -222,6 +227,8 @@
 **必记时机**：① 每个 Gate 的产出落盘后；② 每次派单后（含 `rev` 与只读白名单）；③ dev 每次交付后（把 `git diff` 存 `reports/dev-patches/<ID>-<n>.patch` 并登记）；④ 每次复跑 / 验证的**命令与结果**；⑤ 每次裁定（含人裁结论与依据文档）；⑥ 包收口。
 
 **字段**：`id`（包 ID）/ `at`（**机器时间**，禁用模型自述时间）/ `step`（pm/architect/domain-expert/test/dev/uat/review/archives…）/ `actor`（能定位到具体角色）/ `action`（write/run/approve…）/ `phase`（阶段，用于复算阶段耗时与返工次数）/ `note`（一句话事实；`action:"run"` 必须写明层级与范围 L1/L2/L3；研究汇合写「pm+architect 调研汇合完成」）/ `files`（涉及文件）。
+
+**托管授权**：`action:"approve"` + `gate:"gate0"` + `via:"human"` 时另带 `delegate: ["gate1","gate2"]`（数组，至少一项）；Gate1/2 不另写人签，`gateHost` 由这条记录解释为 `delegated`。
 
 **纪律**：append-only，单行追加，每行自带 `actor`；并发只允许追加、不得读-改-写；主控只记四类（裁定 / 派单 / 收口 / 研究汇合），其余由各角色各自的写入同步登记。
 

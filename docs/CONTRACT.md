@@ -22,7 +22,7 @@
 | --- | --- | --- |
 | `id` | `^[A-Z]+-\d+$` | 需求包 ID，全流程主键 |
 | `status` | `intake` / `clarifying` / `red` / `implementing` / `verifying` / `uat` / `archives` / `done` / `terminated` … | 流程走到哪（状态机见总纲） |
-| `flow` | `full` / `fast` | 档位。`fast` 只有 Gate0 |
+| `flow` | `full` / `managed` / `fast` | 档位。`fast` 只有 Gate0；`managed` 只停 Gate0 + Gate4（Gate1/2 由 Gate0 授权，见契约 2 `delegate`） |
 | `gate0` `gate1` `gate2` `gate4` | `pending` / `approved` … | **状态位**：某个 Gate 过了没。**它不记谁批准的**（见契约 2） |
 | `prdVersion` | 整数 | PRD 版本，与规则台账、测试头三方一致 |
 | `uiDesign` | `required` / 缺省 | 是否触及 UI（决定是否派 ui-designer） |
@@ -52,15 +52,18 @@
 | `exitCode` | 见下 | 该命令的**真实退出码** |
 | `artifact` | | 证据指针（产物 / 报告路径） |
 | `via` | 见下 | `human`（人签）/ `ai-hosted`（AI 代签） |
+| `delegate` | 见下 | 仅 `gate0` + `via:"human"`：`["gate1","gate2"]` 的托管预授权；被授权的 Gate 不是人签 |
 
 **两条带条件的硬约束**（写入侧强制，消费侧可依赖）：
 
 - `action: "run"` ⇒ **必须**同时有 `command` 与 `exitCode`。没有退出码的「跑过了」正是总纲禁止的掩盖。**这是「本 Gate 跑没跑、红没红」的唯一机器可核验来源。**
 - `action: "approve"` ⇒ **必须**带 `gate`（`gate0` / `gate1` / `gate2` / `gate4`）与 `via`（**工具层强制**：缺任一项直接报错）。**正式开发 `via` 只许 `human`**；`ai-hosted` 只许出现在验收 / 回归装置（例：全新项目端到端跑通一个电商 app），且不得冒充人签。
+- `delegate` ⇒ 只在 `action:"approve"` + `gate:"gate0"` + `via:"human"` 时允许，数组至少一项；**AI 不得替人授权**（`via:"ai-hosted"` + `delegate` 直接报错）。Gate1/2 不另写人签，`gateHost` 显示 `delegated`。
 
 - **未声明的字段 ⇒ 直接拒绝**（拼错的大小写也算，工具会给出「是不是想写 `exitCode`？」这类建议）。旧版本是**静默丢弃**，实测因此丢了 4 条记录的命令与退出码 —— 「我记了」变成了「其实没记」。
 
 > 状态位 `approved` 而 journal 里查不到对应 `approve` 记录 ⇒ 插件显示 `⚠无留痕`（来源无从考证）；`via:"ai-hosted"` ⇒ 显示 `gate2:approved🤖AI托管`。
+> 托管包：Gate0 的 `approve` 带 `delegate:[...]` ⇒ 被授权的 Gate 显示 `delegated`；这不是人签，验收 Gate4 仍必须人签。
 
 ## 契约 3：旁挂指纹与完整性校验
 
@@ -149,10 +152,10 @@ chainHash  = fold(lines, (chain, line) => hash16(chain + line), 初始值 "")
 
 `process_status` / `gate_summary` / `process_journal` / `process_init` / `process_uninstall` 的返回值是**结构化对象**（`render` 只负责显示）。其中可依赖的字段：
 
-- `process_status` → `{ found, root, lang, processDir, generatedAt, packages[], openBugCount, orphanBugs[], warnings[], releasePending, releaseReports[] }`（`lang` 决定报告语言）；每个包含 `id` / `status` / `gates` / **`gateHost`**（`human` / `ai-hosted` / `unrecorded`）/ `prdVersion` / `artifacts`（含 `uiSpec` / `prototype` / `uiReview` 等）/ `openBugs` / `next`，以及 `journal: { lines, lastAt, lastActor, lastStep, integrity, runs[], approvals[] }`。
+- `process_status` → `{ found, root, lang, processDir, generatedAt, packages[], openBugCount, orphanBugs[], warnings[], releasePending, releaseReports[] }`（`lang` 决定报告语言）；每个包含 `id` / `status` / `flow` / `gates` / **`gateHost`**（`human` / `ai-hosted` / `delegated` / `unrecorded`）/ `progress`（一行四步进度）/ `prdVersion` / `artifacts`（含 `uiSpec` / `prototype` / `uiReview` 等）/ `openBugs` / `next`，以及 `journal: { lines, lastAt, lastActor, lastStep, integrity, runs[], approvals[] }`。
 - `journal.integrity` → `{ state: 'verified' | 'legacy' | 'tampered' | 'unverified', reason?, lines? }`。
 - `journal.runs[]` → `{ at, gate, actor, step, command, exitCode, artifact }`（契约 2 的 `action:"run"`）。
-- `journal.approvals[]` → `{ at, gate, actor, via }`（契约 2 的 `action:"approve"`）。
+- `journal.approvals[]` → `{ at, gate, actor, via, delegate }`（契约 2 的 `action:"approve"`；`delegate` 仅 Gate0 托管授权有值）。
 - `process_init` → `{ created[], skipped[], updated[], manual[], upgrade, dryRun, lang, manifest, manifestChanged, report }`；`manifest` 固定 `docs/process/.process-kit.json`；`lang` 是**解析后的**骨架语言（`auto` 会被解析成 `zh` / `en`），与清单里的 `lang` 一致。
 - `process_uninstall` → `{ dryRun, manifest, removed[], preserved[], backupDir, report }`；`removed` 是目录级 / 文件级已删清单，`backupDir` 为 `null` 表示未备份。
 
@@ -216,6 +219,8 @@ for(const f of fs.readdirSync(dir).sort()){
   console.log(`${id}\t${via}`);
 }'
 ```
+
+> **托管包例外**：`flow: managed` 的 Gate2 没有 `approve gate2` 记录，只有 Gate0 的 `delegate`；按 `gate2` approve 找会误报「无批准留痕」，应同时读 Gate0 的 `delegate` 并显示 `delegated`。
 
 > 这里顺带示范了加载器的两条规则：**`_` 前缀跳过**、**主件为准**。少任何一条，`_TEMPLATE.md` 或 `FEAT-001-design.md` 就会被当成一个「在等 Gate2 的包」（实例验收里两条都踩到了）。
 

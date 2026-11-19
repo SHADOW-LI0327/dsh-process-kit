@@ -539,6 +539,61 @@ const aiText = byName.process_status.output.render({}, await byName.process_stat
 assert.match(aiText, /gate2:approved🤖AI托管/, 'AI 托管的批准必须显式标记，不得伪装成人签');
 assert.match((await byName.gate_summary.execute({ id: 'FEAT-101' }, journalExec)).skeleton, /AI 托管.*不是人签/);
 
+// ---- managed flow：Gate0 托管授权 + 状态线 ------------------------------
+
+{
+	const rootM = await mkdtemp(join(tmpdir(), 'process-kit-managed-'));
+	const dirM = join(rootM, 'docs/process');
+	for (const sub of ['input', 'prd']) await mkdir(join(dirM, sub), { recursive: true });
+	await writeFile(
+		join(dirM, 'input', 'FEAT-201-需求核对件.md'),
+		`---\nid: FEAT-201\nkind: requirement-check\nstatus: confirmed\ngate0: approved\nflow: managed\n---\n\n# check\n`,
+		'utf8',
+	);
+	await writeFile(
+		join(dirM, 'prd', 'FEAT-201.md'),
+		`---\nid: FEAT-201\nstatus: frozen\ngate1: approved\ngate2: approved\ngate4: pending\nprdVersion: 1\n---\n\n# PRD\n`,
+		'utf8',
+	);
+	await writeFile(
+		join(dirM, 'prd', 'FEAT-201.journal.jsonl'),
+		JSON.stringify({ at: new Date().toISOString(), actor: 'orchestrator', id: 'FEAT-201', action: 'approve', gate: 'gate0', via: 'human', delegate: ['gate1', 'gate2'] }) + '\n',
+		'utf8',
+	);
+	const execM = { ...exec, agent: { session: { header: { cwd: rootM } } } };
+	const snapM = await byName.process_status.execute({}, execM);
+	const pkgM = snapM.packages.find((p) => p.id === 'FEAT-201');
+	assert.equal(pkgM.flow, 'managed');
+	assert.equal(pkgM.gateHost.gate1, 'delegated', 'Gate1 必须显示为 Gate0 授权，而不是无留痕');
+	assert.equal(pkgM.gateHost.gate2, 'delegated');
+	assert.equal(pkgM.gateHost.gate4, null, 'pending 的 Gate 不应显示无留痕');
+	assert.equal(pkgM.next.gate, null, 'managed 时 Gate1/Gate2 不再停等');
+	assert.match(pkgM.progress, /托管/);
+	assert.match(pkgM.progress, /需求确认 ✓/);
+	const textM = byName.process_status.output.render({}, snapM)[0].text;
+	assert.match(textM, /🏳托管/);
+	assert.match(textM, /Gate1\/2 已在 Gate0 授权/);
+	const sumM = await byName.gate_summary.execute({ id: 'FEAT-201' }, execM);
+	assert.match(sumM.skeleton, /托管/);
+	assert.match(sumM.skeleton, /Gate1\/2 已由你在 Gate0 授权/);
+
+	// journal 接受 delegate，并拒绝冒充人签 / 授权非 gate0
+	const appr = await byName.process_journal.execute(
+		{ id: 'FEAT-201', actor: 'orchestrator', action: 'approve', gate: 'gate0', via: 'human', delegate: ['gate1', 'gate2'] },
+		execM,
+	);
+	assert.equal(appr.linesAfter, 2);
+	await assert.rejects(
+		() => byName.process_journal.execute({ id: 'FEAT-201', actor: 'x', action: 'approve', gate: 'gate0', via: 'ai-hosted', delegate: ['gate1'] }, execM),
+		/via=human/,
+	);
+	await assert.rejects(
+		() => byName.process_journal.execute({ id: 'FEAT-201', actor: 'x', action: 'approve', gate: 'gate1', via: 'human', delegate: ['gate2'] }, execM),
+		/gate=gate0/,
+	);
+	console.log('✓ managed flow：Gate0 托管授权 / delegated gateHost / 状态线');
+}
+
 // ---- 角色技能 provider（安装即得基础 subagent）------------------------
 
 const provider = registered.providers[0];

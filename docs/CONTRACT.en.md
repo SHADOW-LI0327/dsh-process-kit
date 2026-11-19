@@ -24,7 +24,7 @@ The YAML frontmatter of `docs/process/prd/<ID>.md` and `docs/process/input/<ID>.
 | --- | --- | --- |
 | `id` | `^[A-Z]+-\d+$` | Requirement package ID, the primary key of the whole process |
 | `status` | `intake` / `clarifying` / `red` / `implementing` / `verifying` / `uat` / `archives` / `done` / `terminated` … | How far the process has got (for the state machine see the master doctrine) |
-| `flow` | `full` / `fast` | Tier. `fast` has Gate0 only |
+| `flow` | `full` / `managed` / `fast` | Tier. `fast` has Gate0 only; `managed` stops only at Gate0 + Gate4 (Gate1/2 delegated at Gate0, see contract 2 `delegate`) |
 | `gate0` `gate1` `gate2` `gate4` | `pending` / `approved` … | **Status bits**: whether a given Gate has passed. **They do not record who approved it** (see contract 2) |
 | `prdVersion` | integer | PRD version; MUST agree three-way with the rules ledger and the test header |
 | `uiDesign` | `required` / absent | Whether UI is touched (decides whether ui-designer is dispatched) |
@@ -54,15 +54,18 @@ The YAML frontmatter of `docs/process/prd/<ID>.md` and `docs/process/input/<ID>.
 | `exitCode` | see below | The **real exit code** of that command |
 | `artifact` | | Evidence pointer (artifact / report path) |
 | `via` | see below | `human` (human signature) / `ai-hosted` (AI-hosted signature) |
+| `delegate` | see below | only `gate0` + `via:"human"`: a managed pre-authorization for `["gate1","gate2"]`; delegated gates are not human-signed |
 
 **Two conditional hard constraints** (enforced on the write side, dependable on the consume side):
 
 - `action: "run"` ⇒ **MUST** carry both `command` and `exitCode`. "It ran", with no exit code, is exactly the masking the master doctrine forbids. **This is the only machine-verifiable source for "did this Gate run, and did it go red".**
 - `action: "approve"` ⇒ **MUST** carry `gate` (`gate0` / `gate1` / `gate2` / `gate4`) and `via` (**enforced at the tool layer**: missing either one is an immediate error). **In real development `via` MUST be `human` only**; `ai-hosted` is allowed only in acceptance / regression harnesses (e.g. a brand-new project running an e-commerce app end to end), and it MUST NOT pose as a human signature.
+- `delegate` ⇒ allowed only for `action:"approve"` + `gate:"gate0"` + `via:"human"`, as a non-empty array; **an AI must not delegate for the human** (`via:"ai-hosted"` + `delegate` is rejected). Gate1/2 get no separate human signature; `gateHost` reports `delegated`.
 
 - **An undeclared field ⇒ outright rejection** (a misspelled capitalisation counts too; the tool offers suggestions such as "did you mean `exitCode`?"). Older versions **silently dropped** them, and in a real run 4 records consequently lost their command and exit code — "I recorded it" turned into "it was never actually recorded".
 
 > If the status bit says `approved` but the journal has no matching `approve` record ⇒ the plugin displays `⚠no record` (the provenance cannot be established); `via:"ai-hosted"` ⇒ the display is `gate2:approved🤖AI-hosted`.
+> Managed package: the Gate0 `approve` carries `delegate:[...]` ⇒ the delegated gates display `delegated`; that is not a human signature, and Gate4 still requires one.
 
 ## Contract 3: side-car fingerprint and integrity verification
 
@@ -151,10 +154,10 @@ chainHash  = fold(lines, (chain, line) => hash16(chain + line), initial value ""
 
 The return values of `process_status` / `gate_summary` / `process_journal` / `process_init` / `process_uninstall` are **structured objects** (`render` only takes care of display). The fields you may depend on:
 
-- `process_status` → `{ found, root, lang, processDir, generatedAt, packages[], openBugCount, orphanBugs[], warnings[], releasePending, releaseReports[] }` (`lang` decides the report language); each package carries `id` / `status` / `gates` / **`gateHost`** (`human` / `ai-hosted` / `unrecorded`) / `prdVersion` / `artifacts` (including `uiSpec` / `prototype` / `uiReview` etc.) / `openBugs` / `next`, plus `journal: { lines, lastAt, lastActor, lastStep, integrity, runs[], approvals[] }`.
+- `process_status` → `{ found, root, lang, processDir, generatedAt, packages[], openBugCount, orphanBugs[], warnings[], releasePending, releaseReports[] }` (`lang` decides the report language); each package carries `id` / `status` / `flow` / `gates` / **`gateHost`** (`human` / `ai-hosted` / `delegated` / `unrecorded`) / `progress` (one-line four-step progress) / `prdVersion` / `artifacts` (including `uiSpec` / `prototype` / `uiReview` etc.) / `openBugs` / `next`, plus `journal: { lines, lastAt, lastActor, lastStep, integrity, runs[], approvals[] }`.
 - `journal.integrity` → `{ state: 'verified' | 'legacy' | 'tampered' | 'unverified', reason?, lines? }`.
 - `journal.runs[]` → `{ at, gate, actor, step, command, exitCode, artifact }` (`action:"run"` of contract 2).
-- `journal.approvals[]` → `{ at, gate, actor, via }` (`action:"approve"` of contract 2).
+- `journal.approvals[]` → `{ at, gate, actor, via, delegate }` (`action:"approve"` of contract 2; `delegate` is non-null only on a Gate0 managed delegation).
 - `process_init` → `{ created[], skipped[], updated[], manual[], upgrade, dryRun, lang, manifest, manifestChanged, report }`; `manifest` is always `docs/process/.process-kit.json`; `lang` is the **resolved** scaffold language (`auto` is resolved to `zh` / `en`) and agrees with `lang` in the manifest.
 - `process_uninstall` → `{ dryRun, manifest, removed[], preserved[], backupDir, report }`; `removed` is the list of directory-level / file-level deletions, and `backupDir` being `null` means nothing was backed up.
 
@@ -218,6 +221,8 @@ for(const f of fs.readdirSync(dir).sort()){
   console.log(`${id}\t${via}`);
 }'
 ```
+
+> **Managed package exception**: a `flow: managed` Gate2 has no `approve gate2` record, only the Gate0 `delegate`; searching for a `gate2` approve produces a false "no approval record". Read the Gate0 `delegate` as well and display `delegated`.
 
 > Along the way this also demonstrates two loader rules: **`_` prefixes are skipped** and **the primary file is authoritative**. Miss either one and `_TEMPLATE.md` or `FEAT-001-design.md` is taken for "a package waiting for Gate2" (the instance acceptance tripped over both).
 

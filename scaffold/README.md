@@ -176,7 +176,7 @@ id: <ID>
 kind: requirement-check
 status: draft        # draft / confirmed
 gate0: pending      # pending / approved / rejected
-flow: full          # full（全流程）/ fast（快速路径）—— fast 不建 PRD、不产生 Gate1 / Gate2
+flow: full          # full（逐步）/ managed（托管：Gate1/2 不停）/ fast（仅 Gate0）
 ---
 ```
 
@@ -560,6 +560,7 @@ dev 修复后置 `fixed` → test 复跑 → `verified`。`bugs.status=open` 时
 {"at":"<ISO8601>","step":"architect","actor":"subagent:architect","action":"write","files":["docs/process/input/<ID>-tech-scan.md"]}
 {"at":"<ISO8601>","step":"test","actor":"subagent:test","action":"run","gate":"gate2","command":"<命令>","exitCode":1,"artifact":"<报告路径>"}
 {"at":"<ISO8601>","step":"gate2","actor":"orchestrator","action":"approve","gate":"gate2","via":"human"}
+{"at":"<ISO8601>","step":"gate0","actor":"orchestrator","action":"approve","gate":"gate0","via":"human","delegate":["gate1","gate2"]}
 ```
 
 1. **append-only** —— 只追加，**禁止覆写整文件**；也不得删改历史行。
@@ -570,7 +571,7 @@ dev 修复后置 `fixed` → test 复跑 → `verified`。`bugs.status=open` 时
 6. **缺 journal 视为未交付** —— 每次 subagent 写入产物必须同步追加 journal；**主控 journal 只记四类**（裁定 / 派单 / 收口 / 研究汇合）。
 7. **元数据滞后容许** —— 工具维护的元数据落后于文件是容许的；**不得手工改元数据**。
 8. **门禁执行要留退出码** —— `action:"run"` 必须带 `command` 与 `exitCode`（整数，**工具层强制**：缺任一项直接报错，不留半条记录）：**没有退出码的「跑过了」正是 §5 第 3 条禁止的掩盖**。Gate 摘要的「🔒 本轮门禁证据」段只从这里取数——**没记录就显示「未记录」，不得当已覆盖**。
-9. **批准要留来源** —— `action:"approve"` **必须**带 `gate` 与 `via`（**工具层强制**）：`via:"human"`（人签）/ `via:"ai-hosted"`（AI 代签）。**正式开发只许 `human`**；`ai-hosted` **只许出现在验收 / 回归装置**（例：全新项目端到端跑通一个电商 app 的验收），且状态里必须显式标出（`gate2:approved🤖AI托管`），**不得冒充人签**。frontmatter 已 `approved` 而 journal 查不到批准记录 ⇒ 状态显示 `⚠无留痕`，来源无从考证。**未声明的字段一律拒绝**：工具会报错并指出（如「是不是想写 `exitCode`？」），不再静默丢弃 —— 「我记了」不能变成「其实没记」。
+9. **批准要留来源** —— `action:"approve"` **必须**带 `gate` 与 `via`（**工具层强制**）：`via:"human"`（人签）/ `via:"ai-hosted"`（AI 代签）。**正式开发只许 `human`**；`ai-hosted` **只许出现在验收 / 回归装置**（例：全新项目端到端跑通一个电商 app 的验收），且状态里必须显式标出（`gate2:approved🤖AI托管`），**不得冒充人签**。frontmatter 已 `approved` 而 journal 查不到批准记录 ⇒ 状态显示 `⚠无留痕`，来源无从考证。 **托管授权**：`gate0` 的 `approve` 带 `delegate:["gate1","gate2"]`；被授权的 Gate 不另写人签、显示 `delegated`，Gate4 仍必须人签。**未声明的字段一律拒绝**：工具会报错并指出（如「是不是想写 `exitCode`？」），不再静默丢弃 —— 「我记了」不能变成「其实没记」。
 10. **可验证性（链式指纹）** —— 旁挂 `<ID>.journal.jsonl.meta.json` 记 `{lines, lastHash, chainHash}`；`chainHash` 覆盖**任意一行**，读取侧（`process_status` / `gate_summary`）重算后如实报 `✓一致` / `🚨篡改嫌疑` / `⚠未校验`（无 meta 或旧格式 meta：后者只能验行数与末行，中间行不可验）。**「防篡改」是给人看的事实，不是承诺。**
 
 ---
@@ -582,15 +583,19 @@ dev 修复后置 `fixed` → test 复跑 → `verified`。`bugs.status=open` 时
 | 路径（`flow`） | 适用 | 走法 | 停点 |
 | --- | --- | --- | --- |
 | **全流程**（`full`，默认） | 新功能 / 多端改动 / 口径需人确认的任何改动；**动 schema / 动 RBAC / 动金额·分摊计算 / 新增对外接口**一律只能走这档 | intake → 核对件 → **Gate0** → pm 出 PRD + 契约 + 设计与说明（按需领域专家指导） → **Gate1** → test 写红 → **Gate2** → dev → test 独立复跑 → uat → pm 审核 → **Gate4** | Gate0 / 1 / 2 / 4 |
+| **托管全流程**（`managed`） | 简单但需要 PRD / 设计 / 测试的改动；**人在 Gate0 授权 Gate1/2 不停** | intake → 核对件 → **Gate0** → pm / architect / ui-designer 出件（Gate1 检查点）→ test 写红 + 归因（Gate2 检查点）→ dev → test 复跑 → uat → pm 审核 → **Gate4** | **Gate0 / 4**（Gate1/2 为授权检查点） |
 | **快速路径**（`fast`） | bugfix / 文案 / UI 微调 / 单点小改，且**口径无需人确认** | intake → 核对件 → **Gate0**（人确认「确实是快速路径」且不触红线）→ 直派 dev（按 §2.8 最小派单包）+ 存量回归，结论记 journal。**不做借鉴调研** | **仅 Gate0** |
 
+> **托管不是自动批准**：`managed` 只跳过 Gate1/2 的**停等**，不跳过检查点。人在 Gate0 用 `delegate: ["gate1","gate2"]` 预授权，journal 记 `delegated`，`gateHost` 显示 `delegated`；验收仍停 Gate4。没有这条授权，`managed` 不成立。
+>
 > **fast 路径不做借鉴调研**：它不建 PRD、不过 Gate1，承载不了「候选 → 裁定」这条链。**表达模糊就不要选 fast**（拿不准就 `full`）；若调研在 Gate0 前发现 schema / RBAC / 金额 / 对外接口影响，必须改回 `full`。
 
-**三条硬口径**：
+**四条硬口径**：
 
 1. **快速路径也必须走 Gate0。** 核对件与 `gate0: approved` 是快速路径的**前提**：`process_status` 只在「核对件已存在 + `gate0: approved` + `flow: fast`」三者同时成立时才给出「直派 dev」；缺核对件或未签，一律先停在 Gate0。**不存在绕过核对件的免流程路径** —— 没有核对件，就没有承载「这属于快速路径」这个人判结论的权威源。
 2. **未写 `flow` 视为 `full`**（`process_status` 也按 `full` 读）。
-3. **档位判错的代价不对称**：误判为 `fast` 会漏掉 PRD / 契约 / Gate1 / Gate2（补不回来），误判为 `full` 只是多走几步。**拿不准就 `full`。**
+3. **档位判错的代价不对称**：误判为 `fast` 会漏掉 PRD / 契约 / Gate1 / Gate2（补不回来），误判为 `full` 只是多走几步。**拿不准就 `full`（或 `managed`）。**
+4. **托管必须有 Gate0 授权**：`flow: managed` 的 Gate1/2 状态位由主控在检查点完成后置 `approved`，`gateHost` 为 `delegated`；**不得写成 `human`**，也不得在没有 `delegate` 记录时跳过停等。
 
 **定档与改档**：
 

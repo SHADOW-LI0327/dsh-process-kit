@@ -19,7 +19,7 @@ It also bundles 10 role subagents with hard boundaries between them: whoever wri
 ## Features
 
 - **File state machine**: progress lives in the frontmatter of `docs/process/**`. Calling `process_status` on every wake-up restores the context; no chat history required.
-- **Gate stops**: stop to confirm only at Gate0/1/2/4 (requirement check, design, development, acceptance), and print a two-part summary at each stop (✅ done / ❓ awaiting a decision).
+- **Gate stops (three tiers)**: `full` stops at Gate0/1/2/4; `managed` stops only at Gate0 + Gate4 (Gate1/2 delegated at Gate0, not human-signed); `fast` stops only at Gate0. Each stop prints a two-part summary (✅ done / ❓ awaiting a decision).
 - **Tamper-resistant journal**: chained fingerprints (any rewritten / deleted / reordered line is detectable), recomputed on the reading side and reported red honestly; both status bits and approval provenance can be verified after the fact.
 - **Role separation**: role skills are registered with the plugin; a same-named skill in the project's `.dsh/skills/**` overrides it.
 - **Requirement prior-art research (on demand)**: when the human cannot state the goal clearly, dispatch `product-manager` + `architect` in parallel before Gate0 to look at GitHub / public docs and turn implicit requirements / technical constraints into candidate `Q` items of the check; **parallelism MUST converge**, candidates MUST NOT enter an AC directly, the fast path skips it, and it is **not the default for every full package**.
@@ -45,7 +45,7 @@ One process, two languages. Language affects **wording** only — never **write 
 
 Effective immediately; restart the client only if the UI has not picked it up.
 
-> **Cannot install the latest version? It is not an installation failure.** pnpm ships a 24-hour supply-chain protection by default (`minimumReleaseAge = 1440`): a version published less than 24 hours ago is not selected by `^range` / `latest` resolution. **Wait 24 hours**, or **pin an exact version** (`dsh-process-kit@0.10.1` — an explicit pin bypasses the policy by design). Setting `minimumReleaseAge` to 0 is not recommended: that turns the whole protection off.
+> **Cannot install the latest version? It is not an installation failure.** pnpm ships a 24-hour supply-chain protection by default (`minimumReleaseAge = 1440`): a version published less than 24 hours ago is not selected by `^range` / `latest` resolution. **Wait 24 hours**, or **pin an exact version** (`dsh-process-kit@0.11.0` — an explicit pin bypasses the policy by design). Setting `minimumReleaseAge` to 0 is not recommended: that turns the whole protection off.
 
 ## Quick start
 
@@ -53,7 +53,7 @@ Effective immediately; restart the client only if the UI has not picked it up.
 1. Install the plugin (effective on install, usually no restart needed).
 2. Say what you want to build ("a website", "an app").
 3. The AI runs `process_init` to initialize the process in this repository.
-4. Work through the process; for the first package try the fast path: `flow: fast` in the requirement check, then after the human signs Gate0 dispatch dev + the existing regression suite.
+4. Work through the process; the tier is fixed at Gate0: `fast` (Gate0 only) / `managed` (Gate1/2 delegated, only acceptance stops) / `full` (step-by-step). The first package may trial `fast`.
 ```
 
 `process_init` generates: `docs/process/` (master doctrine, dispatch manual, `PROJECT.md`, templates), `docs/process/.process-kit.json` (uninstall manifest: what was created + hashes, for precise cleanup), `scripts/process/` (gate and journal scripts), and `AGENTS.md` (created only when absent, never rewritten; pass `agents: false` to skip).

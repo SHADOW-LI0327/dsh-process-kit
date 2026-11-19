@@ -175,7 +175,7 @@ id: <ID>
 kind: requirement-check
 status: draft        # draft / confirmed
 gate0: pending      # pending / approved / rejected
-flow: full          # full (full flow) / fast (fast path) —— fast builds no PRD and produces no Gate1 / Gate2
+flow: full          # full (step-by-step) / managed (Gate1/2 delegated) / fast (Gate0 only)
 ---
 ```
 
@@ -559,6 +559,7 @@ Every kind of process code (gap number / checklist number / defect number / crit
 {"at":"<ISO8601>","step":"architect","actor":"subagent:architect","action":"write","files":["docs/process/input/<ID>-tech-scan.md"]}
 {"at":"<ISO8601>","step":"test","actor":"subagent:test","action":"run","gate":"gate2","command":"<command>","exitCode":1,"artifact":"<report path>"}
 {"at":"<ISO8601>","step":"gate2","actor":"orchestrator","action":"approve","gate":"gate2","via":"human"}
+{"at":"<ISO8601>","step":"gate0","actor":"orchestrator","action":"approve","gate":"gate0","via":"human","delegate":["gate1","gate2"]}
 ```
 
 1. **append-only** — append only, **never overwrite the whole file**; never delete or edit historical lines either.
@@ -569,7 +570,7 @@ Every kind of process code (gap number / checklist number / defect number / crit
 6. **A missing journal counts as not delivered** — every subagent artifact write MUST append a journal record alongside; **the orchestrator's journal records only four kinds** (rulings / dispatches / close-outs / research convergence).
 7. **Metadata lag is tolerated** — tool-maintained metadata lagging behind the files is acceptable; **manual edits of the metadata are forbidden**.
 8. **Gate executions must keep the exit code** — `action:"run"` MUST carry `command` and `exitCode` (an integer; **enforced at the tool layer**: a missing one errors out immediately and does not leave half a record): **"I ran it" without an exit code is exactly the hiding forbidden by §5 item 3**. The "🔒 gate evidence for this round" section of the Gate summary takes its data only from here — **no record shows "not recorded", which MUST NOT be treated as covered**.
-9. **Approvals must keep their source** — `action:"approve"` **MUST** carry `gate` and `via` (**enforced at the tool layer**): `via:"human"` (human-signed) / `via:"ai-hosted"` (AI-signed). **Formal development allows `human` only**; `ai-hosted` **may only appear in acceptance / regression rigs** (e.g. running a brand-new project end to end to accept an e-commerce app), and the status MUST show it explicitly (`gate2:approved🤖AI-hosted`), **never posing as the human's signature**. If the frontmatter is already `approved` but the journal has no approval record ⇒ the status shows `⚠no trace` and the source cannot be established. **Undeclared fields are always rejected**: the tool errors out and points them out (e.g. "did you mean `exitCode`?") instead of silently dropping them — "I recorded it" must not become "actually not recorded".
+9. **Approvals must keep their source** — `action:"approve"` **MUST** carry `gate` and `via` (**enforced at the tool layer**): `via:"human"` (human-signed) / `via:"ai-hosted"` (AI-signed). **Formal development allows `human` only**; `ai-hosted` **may only appear in acceptance / regression rigs** (e.g. running a brand-new project end to end to accept an e-commerce app), and the status MUST show it explicitly (`gate2:approved🤖AI-hosted`), **never posing as the human's signature**. If the frontmatter is already `approved` but the journal has no approval record ⇒ the status shows `⚠no trace` and the source cannot be established. **Managed delegation**: a `gate0` `approve` may carry `delegate:["gate1","gate2"]`; the delegated gates get no separate human signature and display `delegated`; Gate4 still requires one. **Undeclared fields are always rejected**: the tool errors out and points them out (e.g. "did you mean `exitCode`?") instead of silently dropping them — "I recorded it" must not become "actually not recorded".
 10. **Verifiability (chained fingerprints)** — the side file `<ID>.journal.jsonl.meta.json` records `{lines, lastHash, chainHash}`; `chainHash` covers **any line**, and the reading side (`process_status` / `gate_summary`) recomputes and reports truthfully `✓consistent` / `🚨suspected tampering` / `⚠unverified` (no meta, or an old-format meta that can verify only the line count and the last line, not the middle lines). **"Tamper-proof" is a fact shown to the human, not a promise.**
 
 ## 8. Process grading
@@ -579,15 +580,19 @@ Not every change is worth three Gates and three artifacts. **The grade is decide
 | Path (`flow`) | Applies to | Walk | Stop points |
 | --- | --- | --- | --- |
 | **Full flow** (`full`, default) | new features / multi-app changes / any change whose semantics need human confirmation; **touching schema / RBAC / amounts·allocation computation / new external interfaces** may only take this grade | intake → requirement check → **Gate0** → pm produces PRD + contract + design notes (domain experts on demand) → **Gate1** → test writes red → **Gate2** → dev → test's independent re-run → uat → pm review → **Gate4** | Gate0 / 1 / 2 / 4 |
+| **Managed full flow** (`managed`) | simple changes that still need PRD / design / tests; **the human delegates Gate1/2 at Gate0** | intake → requirement check → **Gate0** → pm / architect / ui-designer produce the docs (Gate1 checkpoint) → test writes red + attributes (Gate2 checkpoint) → dev → test's independent re-run → uat → pm review → **Gate4** | **Gate0 / 4** (Gate1/2 are delegated checkpoints) |
 | **Fast path** (`fast`) | bugfix / copy / UI polish / single-point small changes whose **semantics need no human confirmation** | intake → requirement check → **Gate0** (the human confirms "it really is a fast path" and touches no red line) → dispatch dev directly (per the minimal dispatch package of §2.8) + existing regression, conclusion recorded in the journal. **No prior-art research** | **Gate0 only** |
 
+> **Managed is not automatic approval**: `managed` skips the Gate1/2 **stops**, not the checkpoints. The human pre-authorizes with `delegate: ["gate1","gate2"]` at Gate0; the journal records `delegated`, `gateHost` shows `delegated`, and Gate4 still stops. Without that delegation, `managed` does not hold.
+>
 > **The fast path runs no prior-art research**: it builds no PRD and passes no Gate1, so it cannot carry the "candidate → ruling" chain. **Do not choose fast for a vague expression** (when unsure, use `full`); if research before Gate0 finds impact on schema / RBAC / amounts / external interfaces, it MUST revert to `full`.
 
-**Three hard semantics**:
+**Four hard semantics**:
 
 1. **The fast path MUST go through Gate0 as well.** The requirement check and `gate0: approved` are the **prerequisite** of the fast path: `process_status` gives "dispatch dev" only when all three hold — "the check exists + `gate0: approved` + `flow: fast`"; a missing check or an unsigned one always stops at Gate0 first. **There is no process-free path that bypasses the check** — without a check there is no authoritative source to carry the human's ruling that "this is a fast path".
 2. **An unwritten `flow` is read as `full`** (`process_status` reads it as `full` too).
-3. **The cost of grading wrong is asymmetric**: misjudging a change as `fast` loses the PRD / contract / Gate1 / Gate2 (unrecoverable), while misjudging it as `full` merely takes a few extra steps. **When unsure, use `full`.**
+3. **The cost of grading wrong is asymmetric**: misjudging a change as `fast` loses the PRD / contract / Gate1 / Gate2 (unrecoverable), while misjudging it as `full` merely takes a few extra steps. **When unsure, use `full` (or `managed`).**
+4. **Managed requires Gate0 delegation**: under `flow: managed`, the orchestrator sets gate1/gate2 `approved` after each checkpoint with `gateHost = delegated`; it **must not write `human`**, and must not skip the stop without a `delegate` record.
 
 **Setting and changing the grade**:
 
