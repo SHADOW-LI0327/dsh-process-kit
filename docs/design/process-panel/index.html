@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>研发流程看板 · dsh-process-kit HTML 原型</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      /* 主题先于首屏确定：URL > 本地偏好 > 系统偏好。无外链、无依赖。 */
+      (function () {
+        try {
+          var q = new URLSearchParams(window.location.search).get('theme');
+          var saved = null;
+          try {
+            saved = window.localStorage.getItem('pp-theme');
+          } catch (err) {}
+          var system = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+          var theme = q === 'light' || q === 'dark' ? q : saved === 'light' || saved === 'dark' ? saved : system;
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (err) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <!-- 原型工具条：不属于产品 UI，仅用于逐个查看状态 / 主题 / 折叠。 -->
+    <header class="demo-bar">
+      <div class="demo-bar__brand">
+        <strong>研发流程看板 · HTML 原型</strong>
+        <span>dsh-process-kit · DSH Web 左栏 300px · 只读</span>
+      </div>
+      <div class="demo-bar__controls">
+        <div class="state-switch" role="group" aria-label="原型状态切换（非产品 UI）">
+          <button class="state-btn" type="button" data-demo-state="empty" aria-pressed="false">空态</button>
+          <button class="state-btn" type="button" data-demo-state="full-gate1" aria-pressed="true">逐步·Gate1</button>
+          <button class="state-btn" type="button" data-demo-state="managed-running" aria-pressed="false">托管·推进</button>
+          <button class="state-btn" type="button" data-demo-state="managed-gate4" aria-pressed="false">托管·Gate4</button>
+          <button class="state-btn" type="button" data-demo-state="fast" aria-pressed="false">快速</button>
+          <button class="state-btn" type="button" data-demo-state="tampered" aria-pressed="false">篡改</button>
+        </div>
+        <label class="tool-field" for="journal-override">
+          <span>journal</span>
+          <select class="select" id="journal-override">
+            <option value="auto">跟随状态</option>
+            <option value="verified">verified</option>
+            <option value="legacy">legacy</option>
+            <option value="unverified">unverified</option>
+          </select>
+        </label>
+        <button class="tool-btn" type="button" id="theme-toggle">切到浅色</button>
+      </div>
+    </header>
+
+    <main class="stage">
+      <div class="shell" id="shell">
+        <div class="sidebar">
+          <!-- UI-01 面板容器 -->
+          <aside
+            class="panel"
+            id="panel-region"
+            data-ui="UI-01"
+            data-testid="ui-01"
+            data-state="full-gate1"
+            aria-label="研发流程看板"
+          >
+            <header class="panel__header">
+              <!-- UI-03 标题 + 模式徽标 -->
+              <div class="panel__heading" data-ui="UI-03" data-testid="ui-03">
+                <svg class="panel__icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                  <rect x="2" y="2" width="7" height="7" rx="2" fill="currentColor" opacity=".45" />
+                  <rect x="11" y="2" width="7" height="7" rx="2" fill="currentColor" />
+                  <rect x="2" y="11" width="7" height="7" rx="2" fill="currentColor" opacity=".45" />
+                  <rect x="11" y="11" width="7" height="7" rx="2" fill="currentColor" opacity=".25" />
+                </svg>
+                <h1 class="panel__title">研发流程</h1>
+                <span class="mode-badge mode-badge--full" id="mode-badge" title="逐步：Gate0/1/2/4 都停下等你">逐步</span>
+                <!-- UI-02 折叠 -->
+                <button
+                  class="icon-btn"
+                  type="button"
+                  id="collapse-btn"
+                  data-ui="UI-02"
+                  data-testid="ui-02"
+                  aria-expanded="true"
+                  aria-controls="panel-region"
+                  aria-label="折叠研发流程看板"
+                  title="折叠"
+                >
+                  <span aria-hidden="true">«</span>
+                </button>
+              </div>
+              <!-- UI-04 包 ID + 状态 -->
+              <div class="pkg" id="pkg" data-ui="UI-04" data-testid="ui-04"></div>
+            </header>
+
+            <div class="panel__body">
+              <!-- UI-13 journal 篡改报警 -->
+              <div class="alert" id="alert" data-ui="UI-13" data-testid="ui-13" role="alert" hidden>
+                <p class="alert__title"><span aria-hidden="true">🚨</span> journal 篡改嫌疑</p>
+                <p class="alert__body" id="alert-body"></p>
+              </div>
+
+              <!-- UI-05 时间线容器；UI-06 四步时间线；UI-12 快速路径 -->
+              <section class="timeline-block" id="timeline-block" data-ui="UI-05" data-testid="ui-05" aria-label="流程时间线">
+                <ol class="timeline" id="timeline" data-ui="UI-06" data-testid="ui-06" aria-label="四步时间线"></ol>
+                <ol class="timeline timeline--fast" id="timeline-fast" data-ui="UI-12" data-testid="ui-12" aria-label="快速路径时间线" hidden></ol>
+              </section>
+
+              <!-- UI-07 托管授权说明 -->
+              <aside class="delegation" id="delegation" data-ui="UI-07" data-testid="ui-07" hidden>
+                <p class="delegation__title">托管怎么算数</p>
+                <p>Gate1/2 由你在 Gate0 授权，不是人签；验收仍由你签。</p>
+              </aside>
+
+              <p class="mode-note" id="mode-note" hidden></p>
+
+              <!-- UI-08 下一步 -->
+              <section class="next" id="next" data-ui="UI-08" data-testid="ui-08">
+                <div class="next__kicker">
+                  <span id="next-kicker">下一步</span>
+                  <span class="next__pulse" id="next-pulse" hidden aria-hidden="true"></span>
+                </div>
+                <p class="next__text" id="next-text"></p>
+                <p class="next__hint" id="next-hint"></p>
+              </section>
+
+              <div class="meta" id="meta">
+                <!-- UI-09 待确认 Q 数 -->
+                <span class="chip chip--q" id="q-chip" data-ui="UI-09" data-testid="ui-09" hidden>
+                  <span class="chip__glyph" aria-hidden="true">?</span>
+                  <span id="q-text"></span>
+                </span>
+                <!-- UI-10 journal 健康 -->
+                <span class="chip" id="journal-chip" data-ui="UI-10" data-testid="ui-10">
+                  <span class="chip__glyph" id="journal-glyph" aria-hidden="true"></span>
+                  <span id="journal-text"></span>
+                </span>
+              </div>
+
+              <!-- UI-11 空态 -->
+              <section class="empty" id="empty" data-ui="UI-11" data-testid="ui-11" aria-labelledby="empty-title" hidden>
+                <div class="empty__mark" aria-hidden="true">
+                  <span></span><span></span><span></span><span></span>
+                </div>
+                <h2 class="empty__title" id="empty-title">把需求一句话发我，我来建包</h2>
+                <p class="empty__example">例：给订单页加一个批量导出</p>
+                <p class="empty__lead">你只需要在 4 个拍板点回答「行 / 不行」：</p>
+                <ol class="empty__steps">
+                  <li>
+                    <span class="empty__num" aria-hidden="true">1</span>
+                    <div>
+                      <div class="empty__step-name">需求确认</div>
+                      <div class="empty__step-ask">这条需求要不要做</div>
+                    </div>
+                  </li>
+                  <li>
+                    <span class="empty__num" aria-hidden="true">2</span>
+                    <div>
+                      <div class="empty__step-name">方案确认</div>
+                      <div class="empty__step-ask">这么做行不行</div>
+                    </div>
+                  </li>
+                  <li>
+                    <span class="empty__num" aria-hidden="true">3</span>
+                    <div>
+                      <div class="empty__step-name">测试确认</div>
+                      <div class="empty__step-ask">测试够不够</div>
+                    </div>
+                  </li>
+                  <li>
+                    <span class="empty__num" aria-hidden="true">4</span>
+                    <div>
+                      <div class="empty__step-name">验收确认</div>
+                      <div class="empty__step-ask">验收过不过</div>
+                    </div>
+                  </li>
+                </ol>
+                <p class="empty__foot">第一次用不用记流程：把需求发我，每一步我会告诉你拍什么板。</p>
+              </section>
+            </div>
+          </aside>
+
+          <!-- UI-14 折叠态摘要栏 -->
+          <button
+            class="rail"
+            type="button"
+            id="rail"
+            data-ui="UI-14"
+            data-testid="ui-14"
+            aria-expanded="false"
+            aria-controls="panel-region"
+            aria-label="展开研发流程看板"
+            title="展开研发流程看板"
+            hidden
+          >
+            <span class="rail__expand" aria-hidden="true">»</span>
+            <span class="rail__title" aria-hidden="true">研发流程</span>
+            <span class="rail__dots" id="rail-dots" aria-hidden="true"></span>
+            <span class="rail__mode" id="rail-mode" aria-hidden="true">逐</span>
+            <span class="rail__journal" id="rail-journal" aria-hidden="true">✓</span>
+          </button>
+        </div>
+
+        <!-- 对话框（仅演示上下文，不属于产品 UI） -->
+        <section class="chat" aria-hidden="true">
+          <div class="chat__head"><span>DSH Web · 对话（示意）</span><span>只读预览</span></div>
+          <div class="chat__body">
+            <div class="msg msg--me">给订单页加一个批量导出</div>
+            <div class="msg">收到。我会先建包，再在拍板点停下来问你。</div>
+            <div class="msg">你可以随时叫停；验收一定由你签。</div>
+          </div>
+          <div class="chat__composer"><span>输入消息…</span><span aria-hidden="true">↵</span></div>
+        </section>
+      </div>
+
+      <p class="demo-note">
+        工具条与右侧对话区只是原型外壳，不属于产品 UI。产品里看板只占 DSH 左栏，主题跟随宿主，不出现这套工具条。
+      </p>
+    </main>
+
+    <p class="sr-only" id="live" aria-live="polite"></p>
+    <script src="app.js" defer></script>
+  </body>
+</html>
