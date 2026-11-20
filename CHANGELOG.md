@@ -2,6 +2,21 @@
 
 本插件自身的变更日志。按 GitHub 风格简要记录功能与行为变更，只记变更本身、不记开发过程。
 
+## 0.12.0
+
+> 同包内置「研发流程」看板：左侧图标进入，不再只是设计稿。
+
+### Added
+
+- **同包 Web 看板**（`client.js` + `dsh.client` + `./client` 导出）：左侧 `sidebar.panellist` 注册「研发流程」图标，点击打开 `main` 面板；四步时间线、模式徽标、下一步、journal 健康、托管授权说明一屏展示。
+- **只读状态 API**：Host 注册同源 `GET /process-kit/status?cwd=<绝对路径>`，只返回 `process_status` 的公开字段；不写文件、不提供批准入口。
+- **托管语义进面板**：`delegated` 用虚线空心 + 「Gate0 授权 / 不是人签」，绝不画成绿色人签；`tampered` 只报警、不推进。
+
+### Changed
+
+- `package.json` 增加 `exports["./client"]`、`files: client.js`、`dsh.client`（web / immediately）；版本 0.12.0。
+- DESIGN / ECOSYSTEM / README / 测试同步：不再声明「纯服务端、无页面」。
+
 ## 0.11.0
 
 > 托管档：Gate0 一次授权，Gate1/2 不停，验收再停。

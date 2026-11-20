@@ -187,7 +187,7 @@ await writeFile(
 
 // ---- 捕获注册，直接驱动工具 ----------------------------------------
 
-const registered = { tools: [], sections: [], providers: [] };
+const registered = { tools: [], sections: [], providers: [], routes: [] };
 const ctx = {
 	logger: { warn: () => {}, info: () => {} },
 	effect: (factory) => {
@@ -206,6 +206,12 @@ const ctx = {
 			return () => {};
 		},
 	},
+	webServer: {
+		register: (route) => {
+			registered.routes.push(route);
+			return () => {};
+		},
+	},
 };
 apply(ctx);
 
@@ -214,6 +220,19 @@ assert.equal(registered.sections.length, 1);
 assert.equal(registered.sections[0].name, 'process-kit-wake');
 assert.equal(registered.providers.length, 1);
 assert.equal(registered.providers[0].name, 'process-kit-skills');
+
+// ---- 看板状态 route（Host 半）---------------------------------------
+assert.equal(registered.routes.length, 1, '应注册 /process-kit/status route');
+assert.equal(registered.routes[0].path, '/process-kit/status');
+{
+	const ok = await registered.routes[0].resource(new Request(`http://local/process-kit/status?cwd=${encodeURIComponent(root)}`));
+	assert.equal(ok.status, 200);
+	const payload = await ok.json();
+	assert.equal(payload.found, true);
+	assert.ok(payload.packages.some((p) => p.id === 'FEAT-101'), 'route 应返回包状态');
+	const bad = await registered.routes[0].resource(new Request('http://local/process-kit/status'));
+	assert.equal(bad.status, 400, '缺 cwd 应 400');
+}
 
 const byName = Object.fromEntries(registered.tools.map((t) => [t.name, t]));
 const exec = { agent: undefined, signal: undefined };

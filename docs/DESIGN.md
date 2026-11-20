@@ -4,18 +4,19 @@
 
 ## 代码组成
 
-纯服务端插件（**没有页面部分**，不注册任何客户端 slot）：
+服务端 + 同包 Web 客户端（左侧「研发流程」入口 + 主面板看板）：
 
 ```
 dsh-process-kit/
-├── lib/index.js          4 个工具 + 角色技能注册 + 常驻提醒
+├── lib/index.js          5 个工具 + 角色技能注册 + 状态 API + 常驻提醒
+├── client.js             同包 Web 看板：sidebar.panellist 入口 + main 面板（无构建）
 ├── skills/               10 个通用角色技能（打包，rank 600）
 ├── scaffold/             流程骨架：装到目标仓库 docs/process/**
 ├── scripts/              门禁与流程脚本（零依赖 .mjs）
 └── test/                 冒烟测试（node test/*.test.mjs）
 ```
 
-改 `lib/index.js` 后必须重启 `dsh web`：Node 的 ESM 模块缓存不会重新加载已导入的模块。
+改 `lib/index.js` 后必须重启 `dsh web`：Node 的 ESM 模块缓存不会重新加载已导入的模块；`client.js` 由浏览器侧 ModuleLoader 加载，刷新页面或重开面板即可。
 
 ## 设计红线
 

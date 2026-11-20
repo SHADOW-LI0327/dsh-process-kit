@@ -954,5 +954,21 @@ const DEV_WRITE = {
 	console.log('✓ 10 通过明细可见；缺 automation 时 ①/⑪ 不渲染空括号');
 }
 
+// ── 11. 同包 client：manifest / ModuleLoader / 无外链 / 语法 ────────────
+
+{
+	const pkg = JSON.parse(await readFile(join(PKG, 'package.json'), 'utf8'));
+	assert.equal(pkg.exports['./client'], './client.js', 'package.json 必须导出 ./client');
+	assert.equal(pkg.dsh.client.platform, 'web', 'client 必须声明 web 平台');
+	assert.ok(pkg.files.includes('client.js'), 'client.js 必须在 files 白名单里');
+	const src = await readFile(join(PKG, 'client.js'), 'utf8');
+	assert.match(src, /__ModuleLoader__/, 'client 必须走 ModuleLoader');
+	assert.match(src, /sidebar\.panellist/, 'client 应注册左侧图标');
+	assert.match(src, /name: 'main'/, 'client 应注册同名主面板');
+	assert.doesNotMatch(src, /https?:\/\//, 'client 不得引用外部 URL');
+	execFileSync(process.execPath, ['--check', join(PKG, 'client.js')], { stdio: 'pipe' });
+	console.log('✓ 11 同包 client：manifest / ModuleLoader / 无外链 / 语法');
+}
+
 await Promise.all(temps.map((d) => rm(d, { recursive: true, force: true })));
 console.log('\nscripts.test.mjs 全部通过');

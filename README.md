@@ -17,6 +17,7 @@
 ## 特性
 
 - **文件状态机**：进度存在 `docs/process/**` 的 frontmatter 中。每轮唤醒调用 `process_status` 即可恢复上下文，不依赖聊天记录。
+- **研发流程看板**：左侧栏「研发流程」图标打开主面板，四步进度 / 模式 / 下一步 / journal 健康一屏看完；托管授权与人不签分开显示，只读、不提供批准入口。
 - **Gate 门禁（三档）**：`full` 在 Gate0/1/2/4 停；`managed` 只停 Gate0 + Gate4（Gate1/2 由 Gate0 授权，不是人签）；`fast` 只停 Gate0。每次停等输出两段式摘要（✅ 已完成 / ❓ 待裁定）。
 - **防篡改 journal**：链式指纹（任意一行被改 / 删行 / 换行都能发现），读取侧重算并如实报红；状态位与批准来源都可事后核验。
 - **角色分离**：角色技能随插件注册，项目内 `.dsh/skills/**` 的同名技能可覆盖。
@@ -43,7 +44,7 @@
 
 安装即生效；若界面没刷新，再重启客户端
 
-> **装不到最新版？不是安装故障。** pnpm 默认带 24 小时供应链保护（`minimumReleaseAge = 1440`）：发布不满 24 小时的版本不会被 `^范围` / `latest` 选中。**等 24 小时**，或**钉确切版本**（`dsh-process-kit@0.11.0`，显式钉版本按设计绕开该策略）；不建议把 `minimumReleaseAge` 置 0（等于关掉这道保护）。
+> **装不到最新版？不是安装故障。** pnpm 默认带 24 小时供应链保护（`minimumReleaseAge = 1440`）：发布不满 24 小时的版本不会被 `^范围` / `latest` 选中。**等 24 小时**，或**钉确切版本**（`dsh-process-kit@0.12.0`，显式钉版本按设计绕开该策略）；不建议把 `minimumReleaseAge` 置 0（等于关掉这道保护）。
 
 ## 快速开始
 
@@ -52,6 +53,7 @@
 2. 直接说想做什么（"做个网站"/"做个 app"）
 3. AI 调 `process_init` 初始化当前仓库的流程
 4. 按流程推进；档位在 Gate0 定：`fast`（仅 Gate0）/ `managed`（Gate0 授权 Gate1/2 不停，只停验收）/ `full`（逐步）。第一个包可先用 `fast` 试水
+5. 左侧栏「研发流程」图标打开只读看板：四步进度 / 模式 / 下一步 / journal 健康
 ```
 
 `process_init` 生成：`docs/process/`（总纲、调度手册、`PROJECT.md`、模板）、`docs/process/.process-kit.json`（卸载清单：创建过什么 + 哈希，供精确清理）、`scripts/process/`（门禁与 journal 脚本）、`AGENTS.md`（仅在缺失时创建，绝不改写；`agents: false` 可跳过）。
