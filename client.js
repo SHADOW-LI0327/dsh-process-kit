@@ -15,7 +15,7 @@ window.__ModuleLoader__.load({
     const TEXT = {
       zh: {
         title: '研发流程',
-        modeFull: '逐步',
+        modeFull: '全流程',
         modeManaged: '托管',
         modeFast: '快速',
         stepFull: ['需求确认', '方案确认', '测试确认', '验收确认'],

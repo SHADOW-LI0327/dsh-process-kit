@@ -11,7 +11,7 @@ kind: requirement-check
 title: <一句话标题>
 status: pending # pending / confirmed
 gate0: pending # pending / approved / rejected —— 人签后置 approved，才允许出 PRD
-flow: full # full（全流程）/ fast（快速路径）—— fast 时不建 PRD、不产生 Gate1/Gate2、不做借鉴调研，直派 dev + 存量回归
+flow: full # 全流程 full / 托管 managed / 快速 fast；快速不建 PRD、不产生 Gate1/Gate2、不做借鉴调研，直派 dev + 存量回归
 uiDesign: not-needed # required / not-needed —— required 才派 ui-designer 出 HTML 原型（prototypes/<ID>/index.html + handoff.md）与 UI 规格（prd/<ID>-ui-spec.md），随 Gate1 一并审
 author: <作者角色，通常为 orchestrator>
 createdAt: <YYYY-MM-DD>

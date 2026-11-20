@@ -176,7 +176,7 @@ id: <ID>
 kind: requirement-check
 status: draft        # draft / confirmed
 gate0: pending      # pending / approved / rejected
-flow: full          # full（逐步）/ managed（托管：Gate1/2 不停）/ fast（仅 Gate0）
+flow: full          # 全流程 full / 托管 managed（Gate1/2 不停）/ 快速 fast（仅 Gate0）
 ---
 ```
 
