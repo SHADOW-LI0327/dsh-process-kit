@@ -251,6 +251,26 @@ window.__ModuleLoader__.load({
       return h(Board, { cwd });
     }
 
+    class ViewBoundary extends React.Component {
+      constructor(props) {
+        super(props);
+        this.state = { error: null };
+      }
+      static getDerivedStateFromError(error) {
+        return { error };
+      }
+      render() {
+        if (this.state.error) {
+          return h('div', { className: 'pk-root' }, h('div', { className: 'pk-alert pk-alert--danger', role: 'alert' }, `看板加载失败：${this.state.error.message}`));
+        }
+        return this.props.children;
+      }
+    }
+
+    function SessionViewSafe(props) {
+      return h(ViewBoundary, null, h(SessionView, props));
+    }
+
     const CSS = `
 :root{--pk-text:#1f2328;--pk-muted:#656d76;--pk-border:#d0d7de;--pk-bg:#fff;--pk-card:#f6f8fa;--pk-accent:#0969da;--pk-ok:#1a7f37;--pk-warn:#9a6700;--pk-danger:#cf222e}
 body[data-ds-dark-theme]{--pk-text:#e6edf3;--pk-muted:#8d96a0;--pk-border:#30363d;--pk-bg:#0d1117;--pk-card:#161b22;--pk-accent:#2f81f7;--pk-ok:#3fb950;--pk-warn:#d29922;--pk-danger:#f85149}
@@ -300,8 +320,16 @@ body[data-ds-dark-theme]{--pk-text:#e6edf3;--pk-muted:#8d96a0;--pk-border:#30363
 `;
 
     return {
-      inject: ['slots'],
+      inject: ['slots', 'uiConversation'],
       apply(ctx) {
+        ctx.effect(() => ctx.uiConversation.views.register({
+          target: 'process',
+          create: () => ({
+            empty: null,
+            replace: () => null,
+            apply: () => null,
+          }),
+        }), 'process-kit: conversation view target');
         ctx.effect(() => {
           const style = document.createElement('style');
           style.id = 'process-kit-panel-styles';
@@ -314,7 +342,7 @@ body[data-ds-dark-theme]{--pk-text:#e6edf3;--pk-muted:#8d96a0;--pk-border:#30363
           id: 'process',
           order: 30,
           label: '研发流程',
-        }, SessionView));
+        }, SessionViewSafe));
       },
     };
   },
