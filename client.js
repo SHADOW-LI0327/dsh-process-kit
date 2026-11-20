@@ -39,6 +39,23 @@ window.__ModuleLoader__.load({
         blocked: '已冻结',
         tampered: 'journal 篡改嫌疑：看板只报警、不推进；修好前任何 Gate 都不算数。',
         emptyHint: '4 个拍板点：需求确认 → 方案确认 → 测试确认 → 验收确认。',
+        packages: '需求包',
+        path: '工作区',
+        updated: '更新',
+        approvals: '批准',
+        runs: '门禁执行',
+        artifacts: '产物',
+        warnings: '状态告警',
+        openBugs: 'open bugs',
+        release: '发布',
+        noRuns: '无执行记录',
+        noApprovals: '无批准记录',
+        aiHosted: 'AI 托管',
+        unrecorded: '⚠ 无留痕',
+        check: '核对件',
+        prd: 'PRD',
+        lines: '行数',
+        none: '—',
       },
       en: {
         title: 'Dev process',
@@ -66,6 +83,23 @@ window.__ModuleLoader__.load({
         blocked: 'blocked',
         tampered: 'Journal tamper suspected: the board only alerts; no Gate counts until it is fixed.',
         emptyHint: 'Four decision points: Requirement → Design → Tests → Acceptance.',
+        packages: 'Packages',
+        path: 'Workspace',
+        updated: 'Updated',
+        approvals: 'Approvals',
+        runs: 'Gate runs',
+        artifacts: 'Artifacts',
+        warnings: 'Status warnings',
+        openBugs: 'open bugs',
+        release: 'Release',
+        noRuns: 'no runs',
+        noApprovals: 'no approvals',
+        aiHosted: 'AI-hosted',
+        unrecorded: '⚠ no trace',
+        check: 'Check',
+        prd: 'PRD',
+        lines: 'lines',
+        none: '—',
       },
     };
 
@@ -123,7 +157,7 @@ window.__ModuleLoader__.load({
       return { tone: 'warn', text: '⚠ 未校验' };
     }
 
-    function Step({ step, t }) {
+    function Step({ step, t, detail }) {
       const note = stateNote(t, step.state);
       return h(
         'li',
@@ -134,8 +168,44 @@ window.__ModuleLoader__.load({
           { className: 'pk-step__body' },
           h('span', { className: 'pk-step__label' }, step.label),
           h('span', { className: 'pk-step__note' }, note),
+          detail ? h('span', { className: 'pk-step__detail' }, detail) : null,
         ),
       );
+    }
+
+    function fmtTime(value) {
+      if (!value) return '—';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      return date.toLocaleString(undefined, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function hostText(t, host) {
+      if (host === 'human') return t.done;
+      if (host === 'delegated') return `${t.delegated} · ${t.notHuman}`;
+      if (host === 'ai-hosted') return t.aiHosted;
+      if (host === 'unrecorded') return t.unrecorded;
+      return t.none;
+    }
+
+    function runsFor(pkg, gate) {
+      const key = String(gate).toLowerCase();
+      return (pkg.journal?.runs ?? []).filter((run) => String(run.gate ?? '').toLowerCase() === key);
+    }
+
+    function approvalsFor(pkg, gate) {
+      const key = String(gate).toLowerCase();
+      return (pkg.journal?.approvals ?? []).filter((approval) => String(approval.gate ?? '').toLowerCase() === key);
+    }
+
+    function artifactsOf(t, pkg) {
+      const rows = [];
+      if (pkg.check?.file) rows.push([t.check, pkg.check.file]);
+      if (pkg.prd?.file) rows.push([t.prd, pkg.prd.file]);
+      for (const [key, value] of Object.entries(pkg.artifacts ?? {})) {
+        if (typeof value === 'string' && value !== '') rows.push([key, value]);
+      }
+      return rows;
     }
 
     function Board({ cwd }) {
@@ -192,6 +262,12 @@ window.__ModuleLoader__.load({
       const steps = pkg ? stepsOf(pkg) : [];
       const labels = pkg?.flow === 'fast' ? t.stepFast : t.stepFull;
       const journal = pkg ? journalOf(t, pkg) : null;
+      const warnings = (data?.warnings ?? []).filter((warning) => !pkg || warning.includes(pkg.id));
+      const artifacts = pkg ? artifactsOf(t, pkg) : [];
+      const allRuns = pkg?.journal?.runs ?? [];
+      const allApprovals = pkg?.journal?.approvals ?? [];
+
+      const statusClassOf = (status) => (status === 'done' ? 'ok' : status === 'terminated' ? 'muted' : status === 'uat' || status === 'implementing' ? 'accent' : 'warn');
 
       return h(
         'div',
@@ -199,23 +275,18 @@ window.__ModuleLoader__.load({
         h(
           'header',
           { className: 'pk-head' },
-          h('div', null, h('h1', { className: 'pk-title' }, t.title), pkg ? h('div', { className: 'pk-sub' }, `${pkg.id} · ${pkg.status}`) : null),
+          h(
+            'div',
+            { className: 'pk-head__main' },
+            h('h1', { className: 'pk-title' }, t.title),
+            h('div', { className: 'pk-path', title: cwd }, cwd || t.none),
+          ),
           h(
             'div',
             { className: 'pk-controls' },
             pkg ? h('span', { className: modeClass(pkg.flow) }, modeText(t, pkg.flow)) : null,
-            packages.length > 1
-              ? h(
-                  'label',
-                  { className: 'pk-pick' },
-                  h('span', { className: 'pk-sr' }, t.package),
-                  h(
-                    'select',
-                    { value: pkg?.id ?? '', onChange: (event) => setPkgId(event.target.value), 'aria-label': t.package },
-                    packages.map((item) => h('option', { key: item.id, value: item.id }, item.id)),
-                  ),
-                )
-              : null,
+            pkg ? h('span', { className: `pk-badge pk-badge--${statusClassOf(pkg.status)}` }, pkg.status) : null,
+            data?.generatedAt ? h('span', { className: 'pk-muted' }, `${t.updated} ${fmtTime(data.generatedAt)}`) : null,
             h('button', { type: 'button', className: 'pk-btn', onClick: () => setTick((value) => value + 1) }, t.refresh),
           ),
         ),
@@ -227,33 +298,158 @@ window.__ModuleLoader__.load({
         pkg
           ? h(
               'div',
-              { className: 'pk-grid' },
+              { className: 'pk-layout' },
               h(
-                'section',
-                { className: 'pk-card' },
-                h('div', { className: 'pk-card__title' }, t.title),
+                'aside',
+                { className: 'pk-col pk-col--packages' },
+                h('div', { className: 'pk-col__title' }, `${t.packages} (${packages.length})`),
                 h(
-                  'ol',
-                  { className: 'pk-steps' },
-                  steps.map((step, index) => h(Step, { key: step.key, step: { ...step, label: labels[index] ?? step.label }, t })),
+                  'div',
+                  { className: 'pk-pkglist' },
+                  packages.map((item) =>
+                    h(
+                      'button',
+                      {
+                        key: item.id,
+                        type: 'button',
+                        className: `pk-pkg${item.id === pkg.id ? ' is-active' : ''}`,
+                        onClick: () => setPkgId(item.id),
+                      },
+                      h('span', { className: 'pk-pkg__id' }, item.id),
+                      h('span', { className: `pk-pkg__status pk-pkg__status--${statusClassOf(item.status)}` }, item.status),
+                      h('span', { className: 'pk-pkg__mode' }, modeText(t, item.flow)),
+                    ),
+                  ),
                 ),
               ),
               h(
-                'section',
-                { className: 'pk-card' },
-                tampered ? h('div', { className: 'pk-alert pk-alert--danger', role: 'alert' }, t.tampered) : null,
-                h('div', { className: 'pk-card__title' }, t.next),
-                h('div', { className: 'pk-next' }, pkg.next?.short ?? '—'),
-                h('div', { className: 'pk-next__action' }, pkg.next?.action ?? ''),
-                pkg.flow === 'managed' ? h('div', { className: 'pk-note' }, t.managedNote) : null,
+                'main',
+                { className: 'pk-col pk-col--main' },
                 h(
-                  'div',
-                  { className: 'pk-meta' },
-                  h('span', { className: `pk-chip pk-chip--${journal.tone}` }, `${t.journal} ${journal.text}`),
-                  h('span', { className: 'pk-chip' }, `${t.workspace}: ${pkg.prdVersion ? `v${pkg.prdVersion}` : '—'}`),
-                  pkg.openBugs?.length ? h('span', { className: 'pk-chip pk-chip--warn' }, `open bugs: ${pkg.openBugs.length}`) : null,
+                  'section',
+                  { className: 'pk-card pk-summary' },
+                  tampered ? h('div', { className: 'pk-alert pk-alert--danger', role: 'alert' }, t.tampered) : null,
+                  h(
+                    'div',
+                    { className: 'pk-summary__top' },
+                    h('span', { className: 'pk-kicker' }, pkg.id),
+                    h('span', { className: `pk-badge pk-badge--${statusClassOf(pkg.status)}` }, pkg.status),
+                    h('span', { className: modeClass(pkg.flow) }, modeText(t, pkg.flow)),
+                    pkg.prdVersion ? h('span', { className: 'pk-muted' }, `prdVersion v${pkg.prdVersion}`) : null,
+                  ),
+                  h('div', { className: 'pk-next' }, pkg.next?.short ?? '—'),
+                  h('div', { className: 'pk-next__action' }, pkg.next?.action ?? ''),
+                  h('div', { className: 'pk-progress' }, pkg.progress ?? ''),
+                  pkg.flow === 'managed' ? h('div', { className: 'pk-note' }, t.managedNote) : null,
                 ),
-                h('div', { className: 'pk-progress' }, pkg.progress ?? ''),
+                h(
+                  'section',
+                  { className: 'pk-card' },
+                  h('div', { className: 'pk-card__title' }, t.gateEvidence),
+                  h(
+                    'ol',
+                    { className: 'pk-steps' },
+                    steps.map((step, index) => {
+                      const runs = runsFor(pkg, step.key);
+                      const red = runs.filter((run) => run.exitCode !== null && run.exitCode !== 0).length;
+                      const approval = approvalsFor(pkg, step.key).at(-1);
+                      const bits = [hostText(t, pkg.gateHost?.[step.key])];
+                      bits.push(runs.length ? `run ${runs.length}${red ? ` · exit ${runs.at(-1).exitCode} 🚨` : ''}` : t.noRuns);
+                      if (approval) bits.push(`${fmtTime(approval.at)} ${approval.actor ?? ''}`.trim());
+                      return h(Step, {
+                        key: step.key,
+                        step: { ...step, label: labels[index] ?? step.label },
+                        t,
+                        detail: bits.join(' ｜ '),
+                      });
+                    }),
+                  ),
+                ),
+                warnings.length
+                  ? h(
+                      'section',
+                      { className: 'pk-card pk-card--warn' },
+                      h('div', { className: 'pk-card__title' }, t.warnings),
+                      warnings.map((warning) => h('div', { key: warning, className: 'pk-line' }, warning)),
+                    )
+                  : null,
+              ),
+              h(
+                'aside',
+                { className: 'pk-col pk-col--side' },
+                h(
+                  'section',
+                  { className: 'pk-card' },
+                  h('div', { className: 'pk-card__title' }, t.journal),
+                  h(
+                    'div',
+                    { className: 'pk-kv' },
+                    h('span', { className: `pk-chip pk-chip--${journal.tone}` }, journal.text),
+                    h('span', { className: 'pk-chip' }, `${t.lines} ${pkg.journal?.lines ?? 0}`),
+                    h('span', { className: 'pk-chip' }, `${t.updated} ${fmtTime(pkg.journal?.lastAt)}`),
+                  ),
+                  h('div', { className: 'pk-subtitle' }, t.approvals),
+                  allApprovals.length
+                    ? h(
+                        'div',
+                        { className: 'pk-rows' },
+                        allApprovals.slice(-5).reverse().map((approval, index) =>
+                          h(
+                            'div',
+                            { key: `${approval.at}-${index}`, className: 'pk-row' },
+                            h('span', { className: 'pk-row__gate' }, approval.gate ?? '?'),
+                            h('span', { className: 'pk-row__main' }, `${approval.actor ?? '—'} · ${approval.via ?? '?'}${Array.isArray(approval.delegate) && approval.delegate.length ? ` · delegate ${approval.delegate.join(',')}` : ''}`),
+                            h('span', { className: 'pk-row__time' }, fmtTime(approval.at)),
+                          ),
+                        ),
+                      )
+                    : h('div', { className: 'pk-muted' }, t.noApprovals),
+                  h('div', { className: 'pk-subtitle' }, t.runs),
+                  allRuns.length
+                    ? h(
+                        'div',
+                        { className: 'pk-rows' },
+                        allRuns.slice(-5).reverse().map((run, index) =>
+                          h(
+                            'div',
+                            { key: `${run.at}-${index}`, className: `pk-row${run.exitCode !== null && run.exitCode !== 0 ? ' pk-row--red' : ''}` },
+                            h('span', { className: 'pk-row__gate' }, run.gate ?? '?'),
+                            h('span', { className: 'pk-row__main', title: run.command ?? '' }, run.command ?? '—'),
+                            h('span', { className: 'pk-row__time' }, run.exitCode === null ? '—' : `exit ${run.exitCode}`),
+                          ),
+                        ),
+                      )
+                    : h('div', { className: 'pk-muted' }, t.noRuns),
+                ),
+                h(
+                  'section',
+                  { className: 'pk-card' },
+                  h('div', { className: 'pk-card__title' }, t.artifacts),
+                  artifacts.length
+                    ? h(
+                        'div',
+                        { className: 'pk-artifacts' },
+                        artifacts.map(([label, value]) =>
+                          h(
+                            'div',
+                            { key: `${label}-${value}`, className: 'pk-artifact' },
+                            h('span', { className: 'pk-artifact__label' }, label),
+                            h('code', { title: value }, value),
+                          ),
+                        ),
+                      )
+                    : h('div', { className: 'pk-muted' }, t.none),
+                ),
+                pkg.openBugs?.length || data?.releasePending || data?.doneCount
+                  ? h(
+                      'section',
+                      { className: 'pk-card' },
+                      h('div', { className: 'pk-card__title' }, t.release),
+                      pkg.openBugs?.length ? h('div', { className: 'pk-line' }, `${t.openBugs}: ${pkg.openBugs.join(', ')}`) : null,
+                      data?.doneCount ? h('div', { className: 'pk-line' }, `done: ${data.doneCount}`) : null,
+                      data?.releasePending ? h('div', { className: 'pk-line pk-line--warn' }, 'awaiting release regression') : null,
+                    )
+                  : null,
               ),
             )
           : null,
@@ -289,7 +485,7 @@ window.__ModuleLoader__.load({
     const CSS = `
 :root{--pk-text:#1f2328;--pk-muted:#656d76;--pk-border:#d0d7de;--pk-bg:#fff;--pk-card:#f6f8fa;--pk-accent:#0969da;--pk-ok:#1a7f37;--pk-warn:#9a6700;--pk-danger:#cf222e}
 body[data-ds-dark-theme]{--pk-text:#e6edf3;--pk-muted:#8d96a0;--pk-border:#30363d;--pk-bg:#0d1117;--pk-card:#161b22;--pk-accent:#2f81f7;--pk-ok:#3fb950;--pk-warn:#d29922;--pk-danger:#f85149}
-.pk-root{box-sizing:border-box;max-width:980px;margin:0 auto;padding:30px 32px 48px;color:var(--pk-text);font:14px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+.pk-root{box-sizing:border-box;max-width:1280px;margin:0 auto;padding:30px 32px 48px;color:var(--pk-text);font:14px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
 .pk-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap}
 .pk-title{margin:0;font-size:20px;font-weight:650;letter-spacing:.01em}
 .pk-sub{margin-top:4px;color:var(--pk-muted);font:12px ui-monospace,SFMono-Regular,Menlo,monospace}
@@ -332,6 +528,45 @@ body[data-ds-dark-theme]{--pk-text:#e6edf3;--pk-muted:#8d96a0;--pk-border:#30363
 .pk-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @media (max-width:760px){.pk-root{padding:20px 16px 36px}.pk-grid{grid-template-columns:1fr}.pk-pick select{max-width:210px}}
 @media (prefers-reduced-motion:reduce){.pk-mark{transition:none}}
+.pk-head__main{min-width:0}
+.pk-path{max-width:760px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--pk-muted);font:12px ui-monospace,SFMono-Regular,Menlo,monospace;margin-top:4px}
+.pk-layout{display:grid;grid-template-columns:220px minmax(0,1fr) 340px;gap:16px;align-items:start}
+.pk-col{min-width:0;display:flex;flex-direction:column;gap:12px}
+.pk-col__title{font-size:11px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--pk-muted);padding:0 2px}
+.pk-pkglist{display:flex;flex-direction:column;gap:4px}
+.pk-pkg{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;width:100%;text-align:left;border:1px solid var(--pk-border);background:var(--pk-bg);border-radius:9px;padding:9px 10px;color:var(--pk-text);cursor:pointer;font:13px/1.35 ui-sans-serif,system-ui,sans-serif}
+.pk-pkg:hover{background:var(--pk-card)}
+.pk-pkg.is-active{border-color:var(--pk-accent);box-shadow:0 0 0 1px var(--pk-accent) inset}
+.pk-pkg__id{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pk-pkg__mode{grid-column:2;grid-row:1;color:var(--pk-muted);font-size:11px}
+.pk-pkg__status{grid-column:1/-1;font-size:12px}
+.pk-pkg__status--ok{color:var(--pk-ok)}.pk-pkg__status--warn{color:var(--pk-warn)}.pk-pkg__status--danger{color:var(--pk-danger)}.pk-pkg__status--accent{color:var(--pk-accent)}.pk-pkg__status--muted{color:var(--pk-muted)}
+.pk-summary{padding:18px}
+.pk-summary__top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.pk-kicker{font:600 12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--pk-muted)}
+.pk-step__detail{display:block;color:var(--pk-muted);font-size:12px;margin-top:2px;word-break:break-word}
+.pk-badge--ok{color:var(--pk-ok);border-color:color-mix(in srgb,var(--pk-ok) 45%,transparent);background:color-mix(in srgb,var(--pk-ok) 10%,transparent)}
+.pk-badge--warn{color:var(--pk-warn);border-color:color-mix(in srgb,var(--pk-warn) 45%,transparent);background:color-mix(in srgb,var(--pk-warn) 10%,transparent)}
+.pk-badge--accent{color:var(--pk-accent);border-color:color-mix(in srgb,var(--pk-accent) 45%,transparent);background:color-mix(in srgb,var(--pk-accent) 10%,transparent)}
+.pk-badge--muted{color:var(--pk-muted)}
+.pk-kv{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.pk-subtitle{margin:12px 0 6px;color:var(--pk-muted);font-size:11px;font-weight:650;letter-spacing:.06em;text-transform:uppercase}
+.pk-rows{display:flex;flex-direction:column;gap:4px}
+.pk-row{display:grid;grid-template-columns:54px minmax(0,1fr) auto;gap:8px;align-items:baseline;padding:5px 0;border-top:1px solid color-mix(in srgb,var(--pk-border) 65%,transparent);font-size:12px}
+.pk-row__gate{font:600 11px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--pk-muted)}
+.pk-row__main{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pk-row__time{color:var(--pk-muted);white-space:nowrap}
+.pk-row--red .pk-row__time{color:var(--pk-danger)}
+.pk-artifacts{display:flex;flex-direction:column;gap:6px}
+.pk-artifact{display:grid;grid-template-columns:90px minmax(0,1fr);gap:8px;font-size:12px}
+.pk-artifact__label{color:var(--pk-muted)}
+.pk-artifact code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:11px ui-monospace,SFMono-Regular,Menlo,monospace}
+.pk-line{font-size:13px;padding:3px 0;word-break:break-word}
+.pk-line--warn{color:var(--pk-warn)}
+.pk-muted{color:var(--pk-muted);font-size:12px}
+.pk-card--warn{border-color:color-mix(in srgb,var(--pk-warn) 45%,transparent)}
+@media (max-width:1180px){.pk-layout{grid-template-columns:200px minmax(0,1fr)}.pk-col--side{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr}}
+@media (max-width:820px){.pk-layout{grid-template-columns:1fr}.pk-col--side{display:flex}}
 `;
 
     return {
