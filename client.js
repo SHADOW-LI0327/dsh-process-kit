@@ -170,14 +170,15 @@ window.__ModuleLoader__.load({
       }, [workspaces, latestCwd]);
 
       const [cwd, setCwd] = useState('');
+      const [picked, setPicked] = useState(false);
       const [pkgId, setPkgId] = useState('');
       const [data, setData] = useState(null);
       const [error, setError] = useState('');
       const [tick, setTick] = useState(0);
 
       useEffect(() => {
-        if (!cwd && latestCwd) setCwd(latestCwd);
-      }, [cwd, latestCwd]);
+        if (!picked && latestCwd) setCwd(latestCwd);
+      }, [latestCwd, picked]);
 
       useEffect(() => {
         if (!cwd) return undefined;
@@ -239,7 +240,7 @@ window.__ModuleLoader__.load({
               h('span', { className: 'pk-sr' }, t.workspace),
               h(
                 'select',
-                { value: cwd, onChange: (event) => setCwd(event.target.value), 'aria-label': t.workspace },
+                { value: cwd, onChange: (event) => { setPicked(true); setCwd(event.target.value); }, 'aria-label': t.workspace },
                 cwd === '' && paths.length === 0 ? h('option', { value: '' }, '—') : null,
                 paths.map((path) => h('option', { key: path, value: path }, path)),
               ),
