@@ -4,20 +4,20 @@ This file answers two things: **what changed and what you will notice**. Each re
 
 ## 0.11.0
 
-**Overview**: the process gains a "managed" tier, and the conversation gains a process board.
+**Overview**: adds "managed mode" and a dev-process board.
 
-### What you get
+### Added
 
 - **Simple work can enable managed mode**: after you confirm the goal at the first checkpoint (requirement), design and tests no longer stop for you; only acceptance stops once.
 - **Complex work stays step-by-step**: requirement, design, tests and acceptance all stop — for larger or ambiguous changes.
-- **See the process in the conversation**: a "Dev process" tab next to "Trajectory" shows where the package is, who signed each step, whether gates ran, and where artifacts are.
+- **See the process in the conversation**: a "Dev process" tab next to "Trajectory" shows the package's execution and artifacts.
 - **Key documents open in place**: the requirement check, PRD, design, prototype and reports open as read-only text in the panel.
-- **Managed is not the AI signing for you**: skipped gates are marked "delegated at Gate0 · not human-signed"; acceptance still needs you.
+- **Managed is not ignored**: skipped steps are marked "authorized by you at requirement confirmation · not human-signed"; final acceptance still requires human confirmation.
 
 ### Compatibility
 
-- Existing repositories and packages need no changes; `full` and `fast` still work.
-- To enable managed mode, ask the orchestrator to turn it on; it writes `flow: managed` in the requirement check.
+- Existing repositories and packages need no changes; the full flow and fast path still work.
+- To enable managed mode, tell the orchestrator "enable managed mode".
 
 ## 0.10.1
 
