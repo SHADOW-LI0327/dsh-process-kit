@@ -125,7 +125,7 @@ process_uninstall({ confirm: true, dryRun: false })  // 人明确确认后才真
 | `ui-designer` | 把《设计与说明》里触及 UI 的条目翻译成**可验收的 UI 规格**（组件判定 / 状态矩阵 / 文案定稿 / 字面数值），产出**可打开的 HTML/CSS 原型 + `handoff.md` 交接表**；dev 实现后、UAT 前做 **UI 还原核对**。是否派单由人在 Gate0 用 `uiDesign: required / not-needed` 显式决定；**不产出 PNG/PSD** | `0.2.0` |
 | `domain-expert` | 按需引入的**领域专家**（律师 / 教师 / 电商运营 / 建筑 / 电气 / 数据中心规划 / 暖通 / 算力集群 / 网络 / DCIM 等）：按专家卡或**派单内联设定**（默认**甲方 / 自建自用**视角），对单包 PRD / 设计 / 原型或**发布批次**给专业视角的风险与问题，可合并相邻子专业；只出建议、不替代持证专业人士 | `0.10.0` |
 
-> 完整版本沿革见 [CHANGELOG](./CHANGELOG.md)；npm 上的具体版本以 registry 为准。
+> 完整版本沿革见 [CHANGELOG](./CHANGELOG.md)（[English](./CHANGELOG.en.md)）；npm 上的具体版本以 registry 为准。
 
 **`ui-designer` 的边界**：**只翻译不发明**（上游没写的进「未定口径」清单交人裁）；**项目令牌优先**（`PROJECT.md` §4 配了项目令牌就必须照抄，不得自创配色/字号/间距）；**HTML 是交付主件**（`index.html` + `styles.css` + `handoff.md`，不产出 PNG/PSD）；**UI 还原核对在 dev 后、UAT 前**（逐条 `UI-NN` 出 `reports/ui-review/<ID>.md`，`pass` 才进 UAT）；**审美留给 Gate**（`check-ui-prototype` 只判交接完整性）。
 

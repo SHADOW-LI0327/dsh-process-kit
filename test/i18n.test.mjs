@@ -275,6 +275,7 @@ function runGate(cwd, script, args = [], env = {}) {
 {
 	const pairs = [
 		['README.md', 'README.en.md'],
+		['CHANGELOG.md', 'CHANGELOG.en.md'],
 		['docs/CONFIGURATION.md', 'docs/CONFIGURATION.en.md'],
 		['docs/CONTRACT.md', 'docs/CONTRACT.en.md'],
 		['docs/DESIGN.md', 'docs/DESIGN.en.md'],

@@ -46,6 +46,7 @@
     "AGENTS.template.en.md",
     "cordis.patch.yml",
     "CHANGELOG.md",
+    "CHANGELOG.en.md",
     "CONTRIBUTING.md"
   ],
   "scripts": {
