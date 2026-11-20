@@ -225,12 +225,12 @@ assert.equal(registered.providers[0].name, 'process-kit-skills');
 assert.equal(registered.routes.length, 1, '应注册 /process-kit/status route');
 assert.equal(registered.routes[0].path, '/process-kit/status');
 {
-	const ok = await registered.routes[0].resource(new Request(`http://local/process-kit/status?cwd=${encodeURIComponent(root)}`));
+	const ok = await registered.routes[0].resource(new Request(`http://127.0.0.1/process-kit/status?cwd=${encodeURIComponent(root)}`, { headers: { host: '127.0.0.1' } }));
 	assert.equal(ok.status, 200);
 	const payload = await ok.json();
 	assert.equal(payload.found, true);
 	assert.ok(payload.packages.some((p) => p.id === 'FEAT-101'), 'route 应返回包状态');
-	const bad = await registered.routes[0].resource(new Request('http://local/process-kit/status'));
+	const bad = await registered.routes[0].resource(new Request('http://127.0.0.1/process-kit/status', { headers: { host: '127.0.0.1' } }));
 	assert.equal(bad.status, 400, '缺 cwd 应 400');
 }
 
