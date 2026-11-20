@@ -353,7 +353,9 @@ window.__ModuleLoader__.load({
                       const runs = runsFor(pkg, step.key);
                       const red = runs.filter((run) => run.exitCode !== null && run.exitCode !== 0).length;
                       const approval = approvalsFor(pkg, step.key).at(-1);
-                      const bits = [hostText(t, pkg.gateHost?.[step.key])];
+                      const host = pkg.gateHost?.[step.key];
+                      const hostLabel = hostText(t, host);
+                      const bits = [hostLabel === t.none && step.state === 'delegated' ? `${t.delegated} · ${t.notHuman}` : hostLabel];
                       bits.push(runs.length ? `run ${runs.length}${red ? ` · exit ${runs.at(-1).exitCode} 🚨` : ''}` : t.noRuns);
                       if (approval) bits.push(`${fmtTime(approval.at)} ${approval.actor ?? ''}`.trim());
                       return h(Step, {
