@@ -150,38 +150,20 @@ window.__ModuleLoader__.load({
       );
     }
 
-    function Dashboard(props) {
-      const { useSessions, useWorkspaces } = props;
-      const latestCwd = useSessions((s) => {
-        let best;
-        for (const id of s.ids ?? []) {
-          const row = s.byId?.[id];
-          if (!row || !row.cwd || row.origin === 'subagent') continue;
-          if (!best || row.updatedAt > best.updatedAt) best = row;
-        }
-        return best?.cwd ?? '';
-      });
-      const workspaces = useWorkspaces((s) => s.items ?? []);
-      const paths = useMemo(() => {
-        const set = new Set();
-        for (const ws of workspaces) if (ws?.path) set.add(ws.path);
-        if (latestCwd) set.add(latestCwd);
-        return [...set].sort((a, b) => a.localeCompare(b));
-      }, [workspaces, latestCwd]);
-
-      const [cwd, setCwd] = useState('');
-      const [picked, setPicked] = useState(false);
+    function Board({ cwd, paths = [], onPick = () => {}, showPicker = false }) {
       const [pkgId, setPkgId] = useState('');
       const [data, setData] = useState(null);
       const [error, setError] = useState('');
       const [tick, setTick] = useState(0);
 
-      useEffect(() => {
-        if (!picked && latestCwd) setCwd(latestCwd);
-      }, [latestCwd, picked]);
+      useEffect(() => { setPkgId(''); }, [cwd]);
 
       useEffect(() => {
-        if (!cwd) return undefined;
+        if (!cwd) {
+          setData(null);
+          setError('');
+          return undefined;
+        }
         let alive = true;
         const controller = new AbortController();
         const load = async () => {
@@ -222,6 +204,7 @@ window.__ModuleLoader__.load({
       const steps = pkg ? stepsOf(pkg) : [];
       const labels = pkg?.flow === 'fast' ? t.stepFast : t.stepFull;
       const journal = pkg ? journalOf(t, pkg) : null;
+      const options = showPicker ? (cwd && !paths.includes(cwd) ? [cwd, ...paths] : paths) : [];
 
       return h(
         'div',
@@ -234,17 +217,23 @@ window.__ModuleLoader__.load({
             'div',
             { className: 'pk-controls' },
             pkg ? h('span', { className: modeClass(pkg.flow) }, modeText(t, pkg.flow)) : null,
-            h(
-              'label',
-              { className: 'pk-pick' },
-              h('span', { className: 'pk-sr' }, t.workspace),
-              h(
-                'select',
-                { value: cwd, onChange: (event) => { setPicked(true); setCwd(event.target.value); }, 'aria-label': t.workspace },
-                cwd === '' && paths.length === 0 ? h('option', { value: '' }, '—') : null,
-                paths.map((path) => h('option', { key: path, value: path }, path)),
-              ),
-            ),
+            showPicker
+              ? h(
+                  'label',
+                  { className: 'pk-pick' },
+                  h('span', { className: 'pk-sr' }, t.workspace),
+                  h(
+                    'select',
+                    {
+                      value: cwd,
+                      onChange: (event) => onPick(event.target.value),
+                      'aria-label': t.workspace,
+                    },
+                    cwd === '' && options.length === 0 ? h('option', { value: '' }, '—') : null,
+                    options.map((path) => h('option', { key: path, value: path }, path)),
+                  ),
+                )
+              : null,
             packages.length > 1
               ? h(
                   'label',
@@ -299,6 +288,48 @@ window.__ModuleLoader__.load({
             )
           : null,
       );
+    }
+
+    function MainDashboard(props) {
+      const { useSessions, useWorkspaces } = props;
+      const latestCwd = useSessions((s) => {
+        let best;
+        for (const id of s.ids ?? []) {
+          const row = s.byId?.[id];
+          if (!row || !row.cwd || row.origin === 'subagent') continue;
+          if (!best || row.updatedAt > best.updatedAt) best = row;
+        }
+        return best?.cwd ?? '';
+      });
+      const workspaces = useWorkspaces((s) => s.items ?? []);
+      const paths = useMemo(() => {
+        const set = new Set();
+        for (const ws of workspaces) if (ws?.path) set.add(ws.path);
+        if (latestCwd) set.add(latestCwd);
+        return [...set].sort((a, b) => a.localeCompare(b));
+      }, [workspaces, latestCwd]);
+      const [cwd, setCwd] = useState('');
+      const [picked, setPicked] = useState(false);
+
+      useEffect(() => {
+        if (!picked && latestCwd) setCwd(latestCwd);
+      }, [latestCwd, picked]);
+
+      return h(Board, {
+        cwd,
+        paths,
+        showPicker: true,
+        onPick: (value) => {
+          setPicked(true);
+          setCwd(value);
+        },
+      });
+    }
+
+    function SessionView(props) {
+      const { sessionId, useSessions } = props;
+      const cwd = useSessions((s) => (sessionId ? s.byId?.[sessionId]?.cwd ?? '' : ''));
+      return h(Board, { cwd, paths: [], showPicker: false });
     }
 
     const CSS = `
@@ -368,7 +399,13 @@ body[data-ds-dark-theme]{--pk-text:#e6edf3;--pk-muted:#8d96a0;--pk-border:#30363
         ctx.slots.inject('main', () => ctx.slots.register({
           name: 'main',
           key: PANEL_ID,
-        }, Dashboard));
+        }, MainDashboard));
+        ctx.slots.inject('conversation.view', () => ctx.slots.register({
+          name: 'conversation.view',
+          id: 'process',
+          order: 30,
+          label: '研发流程',
+        }, SessionView));
       },
     };
   },

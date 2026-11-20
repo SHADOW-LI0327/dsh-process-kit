@@ -965,6 +965,7 @@ const DEV_WRITE = {
 	assert.match(src, /__ModuleLoader__/, 'client 必须走 ModuleLoader');
 	assert.match(src, /sidebar\.panellist/, 'client 应注册左侧图标');
 	assert.match(src, /name: 'main'/, 'client 应注册同名主面板');
+	assert.match(src, /conversation\.view/, 'client 应注册对话视图标签');
 	assert.doesNotMatch(src, /https?:\/\//, 'client 不得引用外部 URL');
 	execFileSync(process.execPath, ['--check', join(PKG, 'client.js')], { stdio: 'pipe' });
 	console.log('✓ 11 同包 client：manifest / ModuleLoader / 无外链 / 语法');
