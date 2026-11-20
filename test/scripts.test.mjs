@@ -964,6 +964,7 @@ const DEV_WRITE = {
 	const src = await readFile(join(PKG, 'client.js'), 'utf8');
 	assert.match(src, /__ModuleLoader__/, 'client 必须走 ModuleLoader');
 	assert.match(src, /conversation\.view/, 'client 应注册对话视图标签');
+	assert.match(src, /function Step\(/, 'client 必须定义 Step 组件');
 	assert.match(src, /uiConversation\.views\.register/, 'client 应注册过程视图 target');
 	assert.doesNotMatch(src, /sidebar\.panellist/, 'client 不应再注册左侧图标');
 	assert.doesNotMatch(src, /name: 'main'/, 'client 不应再注册全局主面板');

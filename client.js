@@ -123,6 +123,21 @@ window.__ModuleLoader__.load({
       return { tone: 'warn', text: '⚠ 未校验' };
     }
 
+    function Step({ step, t }) {
+      const note = stateNote(t, step.state);
+      return h(
+        'li',
+        { className: `pk-step pk-step--${step.state}`, 'data-step': step.key, 'data-state': step.state },
+        h('span', { className: 'pk-mark', 'aria-hidden': true }, MARK[step.state] ?? '○'),
+        h(
+          'span',
+          { className: 'pk-step__body' },
+          h('span', { className: 'pk-step__label' }, step.label),
+          h('span', { className: 'pk-step__note' }, note),
+        ),
+      );
+    }
+
     function Board({ cwd }) {
       const [pkgId, setPkgId] = useState('');
       const [data, setData] = useState(null);
