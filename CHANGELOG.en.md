@@ -8,7 +8,7 @@ This file answers two things: **what changed and what you will notice**. Each re
 
 ### What you get
 
-- **Simple work can be managed**: after you confirm the goal at the first checkpoint (requirement), design and tests no longer stop for you; only acceptance stops once.
+- **Simple work can enable managed mode**: after you confirm the goal at the first checkpoint (requirement), design and tests no longer stop for you; only acceptance stops once.
 - **Complex work stays step-by-step**: requirement, design, tests and acceptance all stop — for larger or ambiguous changes.
 - **See the process in the conversation**: a "Dev process" tab next to "Trajectory" shows where the package is, who signed each step, whether gates ran, and where artifacts are.
 - **Key documents open in place**: the requirement check, PRD, design, prototype and reports open as read-only text in the panel.
@@ -17,7 +17,7 @@ This file answers two things: **what changed and what you will notice**. Each re
 ### Compatibility
 
 - Existing repositories and packages need no changes; `full` and `fast` still work.
-- To use managed mode, write `flow: managed` in the requirement check.
+- To enable managed mode, ask the orchestrator to turn it on; it writes `flow: managed` in the requirement check.
 
 ## 0.10.1
 

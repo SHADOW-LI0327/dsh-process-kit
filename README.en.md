@@ -20,7 +20,7 @@ It also bundles 10 role subagents with hard boundaries between them: whoever wri
 
 - **File state machine**: progress lives in the frontmatter of `docs/process/**`. Calling `process_status` on every wake-up restores the context; no chat history required.
 - **Dev-process board**: a "Dev process" tab sits next to Trajectory in the conversation header and follows the current session. The four-step timeline, mode, next action and journal health are on one screen; **key documents (requirement check / PRD / design / prototype / reports) open in a read-only viewer**; delegated vs human-signed are shown separately, and the board is read-only (no approval entry).
-- **Gate stops (three tiers)**: `full` stops at Gate0/1/2/4; `managed` stops only at Gate0 + Gate4 (Gate1/2 delegated at Gate0, not human-signed); `fast` stops only at Gate0. Each stop prints a two-part summary (✅ done / ❓ awaiting a decision).
+- **Gate stops (three tiers)**: the **full flow** stops at requirement, design, tests and acceptance; **managed mode** stops only at requirement and acceptance (design/tests are delegated at requirement confirmation, not human-signed); the **fast path** stops only at requirement. Each stop prints a two-part summary (✅ done / ❓ awaiting a decision).
 - **Tamper-resistant journal**: chained fingerprints (any rewritten / deleted / reordered line is detectable), recomputed on the reading side and reported red honestly; both status bits and approval provenance can be verified after the fact.
 - **Role separation**: role skills are registered with the plugin; a same-named skill in the project's `.dsh/skills/**` overrides it.
 - **Requirement prior-art research (on demand)**: when the human cannot state the goal clearly, dispatch `product-manager` + `architect` in parallel before Gate0 to look at GitHub / public docs and turn implicit requirements / technical constraints into candidate `Q` items of the check; **parallelism MUST converge**, candidates MUST NOT enter an AC directly, the fast path skips it, and it is **not the default for every full package**.
@@ -54,7 +54,7 @@ Effective immediately; restart the client only if the UI has not picked it up.
 1. Install the plugin (effective on install, usually no restart needed).
 2. Say what you want to build ("a website", "an app").
 3. The AI runs `process_init` to initialize the process in this repository.
-4. Work through the process; the tier is fixed at Gate0: `fast` (Gate0 only) / `managed` (Gate1/2 delegated, only acceptance stops) / `full` (step-by-step). The first package may trial `fast`.
+4. Work through the process; tell the orchestrator: **use the fast path** (requirement only) / **enable managed mode** (after requirement, only acceptance stops) / **run the full flow** (all four stops). The internal field is written by the orchestrator; the first package may use the fast path.
 5. The "Dev process" tab next to Trajectory opens a read-only board: four-step progress / mode / next action / journal health.
 ```
 
