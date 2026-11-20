@@ -19,7 +19,7 @@ It also bundles 10 role subagents with hard boundaries between them: whoever wri
 ## Features
 
 - **File state machine**: progress lives in the frontmatter of `docs/process/**`. Calling `process_status` on every wake-up restores the context; no chat history required.
-- **Dev-process board**: a "Dev process" tab sits next to Trajectory in the conversation header and follows the current session. The four-step timeline, mode, next action and journal health are on one screen; delegated vs human-signed are shown separately, and the board is read-only (no approval entry).
+- **Dev-process board**: a "Dev process" tab sits next to Trajectory in the conversation header and follows the current session. The four-step timeline, mode, next action and journal health are on one screen; **key documents (requirement check / PRD / design / prototype / reports) open in a read-only viewer**; delegated vs human-signed are shown separately, and the board is read-only (no approval entry).
 - **Gate stops (three tiers)**: `full` stops at Gate0/1/2/4; `managed` stops only at Gate0 + Gate4 (Gate1/2 delegated at Gate0, not human-signed); `fast` stops only at Gate0. Each stop prints a two-part summary (✅ done / ❓ awaiting a decision).
 - **Tamper-resistant journal**: chained fingerprints (any rewritten / deleted / reordered line is detectable), recomputed on the reading side and reported red honestly; both status bits and approval provenance can be verified after the fact.
 - **Role separation**: role skills are registered with the plugin; a same-named skill in the project's `.dsh/skills/**` overrides it.

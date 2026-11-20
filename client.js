@@ -56,6 +56,9 @@ window.__ModuleLoader__.load({
         prd: 'PRD',
         lines: '行数',
         none: '—',
+        open: '查看',
+        close: '关闭',
+        docError: '文档读取失败',
       },
       en: {
         title: 'Dev process',
@@ -100,6 +103,9 @@ window.__ModuleLoader__.load({
         prd: 'PRD',
         lines: 'lines',
         none: '—',
+        open: 'Open',
+        close: 'Close',
+        docError: 'Failed to read document',
       },
     };
 
@@ -213,6 +219,8 @@ window.__ModuleLoader__.load({
       const [data, setData] = useState(null);
       const [error, setError] = useState('');
       const [tick, setTick] = useState(0);
+      const [doc, setDoc] = useState(null);
+      const [docError, setDocError] = useState('');
 
       useEffect(() => { setPkgId(''); }, [cwd]);
 
@@ -248,6 +256,26 @@ window.__ModuleLoader__.load({
           clearInterval(timer);
         };
       }, [cwd, tick]);
+
+      const openDoc = async (path) => {
+        setDocError('');
+        try {
+          const response = await fetch(`/process-kit/doc?cwd=${encodeURIComponent(cwd)}&path=${encodeURIComponent(path)}`, { cache: 'no-store' });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload?.error ?? `HTTP ${response.status}`);
+          setDoc({ path: payload.path, text: payload.text });
+        } catch (err) {
+          setDoc({ path, text: '' });
+          setDocError(String(err?.message ?? err));
+        }
+      };
+
+      useEffect(() => {
+        if (!doc) return undefined;
+        const onKey = (event) => { if (event.key === 'Escape') setDoc(null); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+      }, [doc]);
 
       const packages = data?.found ? data.packages ?? [] : [];
       const pkg = packages.find((item) => item.id === pkgId) ?? packages[0];
@@ -433,8 +461,14 @@ window.__ModuleLoader__.load({
                         { className: 'pk-artifacts' },
                         artifacts.map(([label, value]) =>
                           h(
-                            'div',
-                            { key: `${label}-${value}`, className: 'pk-artifact' },
+                            'button',
+                            {
+                              key: `${label}-${value}`,
+                              type: 'button',
+                              className: 'pk-artifact',
+                              title: value,
+                              onClick: () => openDoc(value),
+                            },
                             h('span', { className: 'pk-artifact__label' }, label),
                             h('code', { title: value }, value),
                           ),
@@ -452,6 +486,24 @@ window.__ModuleLoader__.load({
                       data?.releasePending ? h('div', { className: 'pk-line pk-line--warn' }, 'awaiting release regression') : null,
                     )
                   : null,
+              ),
+            )
+          : null,
+        doc
+          ? h(
+              'div',
+              { className: 'pk-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': doc.path },
+              h(
+                'div',
+                { className: 'pk-modal__panel' },
+                h(
+                  'div',
+                  { className: 'pk-modal__head' },
+                  h('code', { title: doc.path }, doc.path),
+                  h('button', { type: 'button', className: 'pk-btn', onClick: () => setDoc(null) }, t.close),
+                ),
+                docError ? h('div', { className: 'pk-alert pk-alert--danger' }, `${t.docError}: ${docError}`) : null,
+                h('pre', { className: 'pk-modal__body' }, doc.text),
               ),
             )
           : null,
@@ -569,6 +621,14 @@ body[data-ds-dark-theme]{--pk-text:#e6edf3;--pk-muted:#8d96a0;--pk-border:#30363
 .pk-card--warn{border-color:color-mix(in srgb,var(--pk-warn) 45%,transparent)}
 @media (max-width:1180px){.pk-layout{grid-template-columns:200px minmax(0,1fr)}.pk-col--side{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr}}
 @media (max-width:820px){.pk-layout{grid-template-columns:1fr}.pk-col--side{display:flex}}
+.pk-artifact{border:0;background:transparent;padding:3px 0;text-align:left;color:var(--pk-text);cursor:pointer;font:inherit}
+.pk-artifact:hover code{color:var(--pk-accent);text-decoration:underline}
+.pk-artifact code{color:var(--pk-text)}
+.pk-modal{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);padding:24px}
+.pk-modal__panel{width:min(980px,100%);max-height:86vh;display:flex;flex-direction:column;background:var(--pk-bg);border:1px solid var(--pk-border);border-radius:12px;box-shadow:0 18px 60px rgba(0,0,0,.35);overflow:hidden}
+.pk-modal__head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-bottom:1px solid var(--pk-border)}
+.pk-modal__head code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px ui-monospace,SFMono-Regular,Menlo,monospace}
+.pk-modal__body{margin:0;padding:16px;overflow:auto;white-space:pre-wrap;word-break:break-word;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--pk-text)}
 `;
 
     return {

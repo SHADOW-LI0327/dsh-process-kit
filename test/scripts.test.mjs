@@ -966,6 +966,7 @@ const DEV_WRITE = {
 	assert.match(src, /conversation\.view/, 'client 应注册对话视图标签');
 	assert.match(src, /function Step\(/, 'client 必须定义 Step 组件');
 	assert.match(src, /uiConversation\.views\.register/, 'client 应注册过程视图 target');
+	assert.match(src, /process-kit\/doc/, 'client 应使用只读文档接口');
 	assert.doesNotMatch(src, /sidebar\.panellist/, 'client 不应再注册左侧图标');
 	assert.doesNotMatch(src, /name: 'main'/, 'client 不应再注册全局主面板');
 	assert.doesNotMatch(src, /https?:\/\//, 'client 不得引用外部 URL');

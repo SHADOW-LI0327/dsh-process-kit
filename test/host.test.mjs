@@ -222,16 +222,27 @@ assert.equal(registered.providers.length, 1);
 assert.equal(registered.providers[0].name, 'process-kit-skills');
 
 // ---- 看板状态 route（Host 半）---------------------------------------
-assert.equal(registered.routes.length, 1, '应注册 /process-kit/status route');
-assert.equal(registered.routes[0].path, '/process-kit/status');
+assert.equal(registered.routes.length, 2, '应注册 status / doc 两个 route');
+const statusRoute = registered.routes.find((route) => route.path === '/process-kit/status');
+const docRoute = registered.routes.find((route) => route.path === '/process-kit/doc');
+assert.ok(statusRoute && docRoute, 'status / doc route 都应存在');
 {
-	const ok = await registered.routes[0].resource(new Request(`http://127.0.0.1/process-kit/status?cwd=${encodeURIComponent(root)}`, { headers: { host: '127.0.0.1' } }));
+	const ok = await statusRoute.resource(new Request(`http://127.0.0.1/process-kit/status?cwd=${encodeURIComponent(root)}`, { headers: { host: '127.0.0.1' } }));
 	assert.equal(ok.status, 200);
 	const payload = await ok.json();
 	assert.equal(payload.found, true);
 	assert.ok(payload.packages.some((p) => p.id === 'FEAT-101'), 'route 应返回包状态');
-	const bad = await registered.routes[0].resource(new Request('http://127.0.0.1/process-kit/status', { headers: { host: '127.0.0.1' } }));
+	const bad = await statusRoute.resource(new Request('http://127.0.0.1/process-kit/status', { headers: { host: '127.0.0.1' } }));
 	assert.equal(bad.status, 400, '缺 cwd 应 400');
+
+	const doc = await docRoute.resource(new Request(`http://127.0.0.1/process-kit/doc?cwd=${encodeURIComponent(root)}&path=${encodeURIComponent('docs/process/README.md')}`, { headers: { host: '127.0.0.1' } }));
+	assert.equal(doc.status, 200);
+	const docPayload = await doc.json();
+	assert.match(docPayload.text, /单人开发流程/);
+	const outside = await docRoute.resource(new Request(`http://127.0.0.1/process-kit/doc?cwd=${encodeURIComponent(root)}&path=${encodeURIComponent('../outside.md')}`, { headers: { host: '127.0.0.1' } }));
+	assert.ok(outside.status === 400, '路径穿越应拒绝');
+	const notAllowed = await docRoute.resource(new Request(`http://127.0.0.1/process-kit/doc?cwd=${encodeURIComponent(root)}&path=README.md`, { headers: { host: '127.0.0.1' } }));
+	assert.equal(notAllowed.status, 403, '只允许 docs/process 与 reports');
 }
 
 const byName = Object.fromEntries(registered.tools.map((t) => [t.name, t]));
