@@ -2,12 +2,15 @@
 
 本插件自身的变更日志。按 GitHub 风格简要记录功能与行为变更，只记变更本身、不记开发过程。
 
-## 0.12.0
+## 0.11.0
 
-> 同包内置「研发流程」看板：左侧图标进入，不再只是设计稿。
+> 托管档 + 同包看板：Gate0 一次授权，Gate1/2 不停；看板就在对话轨迹旁。
 
 ### Added
 
+- **新增 `flow: managed`（托管全流程）**：Gate0 人签时用 `delegate: ["gate1","gate2"]` 预授权；PRD / 设计 / 原型 / 测试照做，但 Gate1/2 是不停的检查点；只停 Gate0 + Gate4。
+- **`process_status` / `gate_summary` 增加四步状态线**：`需求确认 → 方案确认 → 测试确认 → 验收确认`，并标出 `full / managed / fast`；托管包显示「Gate1/2 已在 Gate0 授权」。
+- **`gateHost: delegated`**：被 Gate0 授权的 Gate 不再显示 `⚠无留痕`，而是明确标成 `delegated`；Gate4 仍必须人签。
 - **同包 Web 看板**（`client.js` + `dsh.client` + `./client` 导出）：在对话视图 `conversation.view` 注册「研发流程」标签，就在轨迹旁边、跟随当前会话；四步时间线、模式徽标、下一步、journal 健康、托管授权说明一屏展示。
 - **只读状态 API**：Host 注册同源 `GET /process-kit/status?cwd=<绝对路径>`，只返回 `process_status` 的公开字段；不写文件、不提供批准入口。
 - **关键文档可看**：产物列表点击后在面板内打开只读查看器（核对件 / PRD / 设计 / arch / ui-spec / 原型 / 报告）；Host 仅允许 `<cwd>/docs/process/**` 与 `<cwd>/reports/**` 下的文本文件。
@@ -17,25 +20,11 @@
 
 ### Changed
 
-- `package.json` 增加 `exports["./client"]`、`files: client.js`、`dsh.client`（web / immediately）；版本 0.12.0。
-- DESIGN / ECOSYSTEM / README / 测试同步：不再声明「纯服务端、无页面」。
-
-## 0.11.0
-
-> 托管档：Gate0 一次授权，Gate1/2 不停，验收再停。
-
-### Added
-
-- **新增 `flow: managed`（托管全流程）**：Gate0 人签时用 `delegate: ["gate1","gate2"]` 预授权；PRD / 设计 / 原型 / 测试照做，但 Gate1/2 是不停的检查点；只停 Gate0 + Gate4。
-- **`process_status` / `gate_summary` 增加四步状态线**：`需求确认 → 方案确认 → 测试确认 → 验收确认`，并标出 `full / managed / fast`；托管包显示「Gate1/2 已在 Gate0 授权」。
-- **`gateHost: delegated`**：被 Gate0 授权的 Gate 不再显示 `⚠无留痕`，而是明确标成 `delegated`；Gate4 仍必须人签。
-
-- **流程看板设计原型**（`docs/design/process-panel/**`）：六态 HTML 原型 + 交接表，供后续 UI 插件落地；不在本版本运行。
-
-### Changed
-
 - **journal 新增 `delegate`**：仅 `action:"approve"` + `gate:"gate0"` + `via:"human"` 可用；`via:"ai-hosted"` 带 `delegate` 直接拒绝。契约 2 / 契约 6 同步。
 - **档位文档**：总纲 §8 / 调度手册 §2 / README 增补 `managed`；`flow` 允许 `full / managed / fast`。
+
+- `package.json` 增加 `exports["./client"]`、`files: client.js`、`dsh.client`（web / immediately）；版本 0.11.0。
+- DESIGN / ECOSYSTEM / README / 测试同步：不再声明「纯服务端、无页面」。
 
 ## 0.10.1
 

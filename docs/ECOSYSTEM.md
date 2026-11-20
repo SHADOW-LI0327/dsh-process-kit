@@ -28,7 +28,7 @@ DSH 官方**没有**插件市场或插件目录。在官方安装包（`@deepsee
 | Host-only bundle 无需依赖 / 安装脚本 / 构建工具 | `references/host-plugin.md:7` | ✅ 零依赖、无构建 |
 | `index.js` 导出 `apply(ctx, config)`（+ 可选 `inject` / `Config`），不得混用导出形态 | `references/host-plugin.md:49-52` | ✅ |
 | 资源注册走 `ctx.effect` / `ctx.on` 并返回清理 | `references/host-plugin.md:54` | ✅ |
-| 客户端 `exports["./client"]` + `dsh.client.platform`、`dsh.client.inject` | `references/ui-plugin.md:3`；`dsh-client-modules/lib/index.js:170,719` | ✅ 0.12.0 起同包 `client.js`（`conversation.view` 标签）；仅用 baseline React，不 import 客户端包 |
+| 客户端 `exports["./client"]` + `dsh.client.platform`、`dsh.client.inject` | `references/ui-plugin.md:3`；`dsh-client-modules/lib/index.js:170,719` | ✅ 0.11.0 起同包 `client.js`（`conversation.view` 标签）；仅用 baseline React，不 import 客户端包 |
 | 展示元数据：`locale/en.json` 的 `meta.title/description`、顶层 `icon` | `references/host-plugin.md:29-45`；`dsh-app-boot/lib/index.js` `readPluginMeta` | ⏸ 延期 |
 | 不 import Harness 客户端包（如 `dsh-client-ui-primitives`） | `SKILL.md:21` | ✅ `client.js` 只 `require('react')`（baseline），无客户端包 import |
 | 不替换 app root、不向 `document.body` 追加第二个应用 | `references/ui-plugin.md:13` | ✅ 无客户端代码 |
@@ -40,7 +40,7 @@ DSH 官方**没有**插件市场或插件目录。在官方安装包（`@deepsee
 - [x] 去掉 `private`，补 `publishConfig.access`，具备 `npm publish` 条件
 - [x] `files` 白名单（`npm pack` 此前会把 `test/**` 打进包里）
 - [x] `repository` / `homepage` / `bugs` / `keywords` / `engines` / `author`
-- [x] 0.4.0 移除旧页面；0.12.0 以同包 `client.js` 加回只读看板（`conversation.view` + `GET /process-kit/status`），不替换 app root
+- [x] 0.4.0 移除旧页面；0.11.0 以同包 `client.js` 加回只读看板（`conversation.view` + `GET /process-kit/status`），不替换 app root
 - [x] CI（`npm test` × node 22.19 / 24 + `npm pack` 内容核对）
 
 ## 4. 延期项（社区规范，非官方要求）

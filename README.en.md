@@ -46,7 +46,7 @@ One process, two languages. Language affects **wording** only — never **write 
 
 Effective immediately; restart the client only if the UI has not picked it up.
 
-> **Cannot install the latest version? It is not an installation failure.** pnpm ships a 24-hour supply-chain protection by default (`minimumReleaseAge = 1440`): a version published less than 24 hours ago is not selected by `^range` / `latest` resolution. **Wait 24 hours**, or **pin an exact version** (`dsh-process-kit@0.12.0` — an explicit pin bypasses the policy by design). Setting `minimumReleaseAge` to 0 is not recommended: that turns the whole protection off.
+> **Cannot install the latest version? It is not an installation failure.** pnpm ships a 24-hour supply-chain protection by default (`minimumReleaseAge = 1440`): a version published less than 24 hours ago is not selected by `^range` / `latest` resolution. **Wait 24 hours**, or **pin an exact version** (`dsh-process-kit@0.11.0` — an explicit pin bypasses the policy by design). Setting `minimumReleaseAge` to 0 is not recommended: that turns the whole protection off.
 
 ## Quick start
 
