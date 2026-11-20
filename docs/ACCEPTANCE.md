@@ -159,7 +159,7 @@ console.log(`✓ 链式指纹一致（${lines.length} 行）`);
 
 1. **工作区根 = 会话 cwd。** 插件的五个工具用**调用方 agent 会话的 cwd** 解析 `docs/process/**` 的位置（`rootOf()`）。因此「在别的新项目里跑」需要**那个会话的 cwd 就是新项目**——在本仓库的会话里驱动另一个目录是做不到的。
    - `PROCESS_KIT_ROOT` 这个环境变量能改根，但它读的是 **DSH 进程级** env，只能在启动 `dsh web` 时给，**且目前是未文档化的**（只存在于 `lib/index.js`）。
-2. **文件沙箱。** 本会话只允许写工作区内（`/Users/admin/workspace/dsh-plugins/dsh-process-kit`）与平台临时区（`/tmp` 可写、git 可用）；`/Users/admin/workspace/` 下的**同级目录被拒**（实测 `Operation not permitted`），且沙箱放宽是**逐命令一次性**的——不可能用它支撑一整条全流程的构建。
+2. **文件沙箱。** 本会话只允许写工作区内（当前仓库根目录）与平台临时区（可写、git 可用）；工作区的**同级目录被拒**（实测 `Operation not permitted`），且沙箱放宽是**逐命令一次性**的——不可能用它支撑一整条全流程的构建。
 
 3. **⑫（越界事后判定）依赖 git 基线。** 它比的是 `git diff` 的改动集；**全新空仓在没有任何提交时改动集恒为空** ⇒ ⑫ 只会如实显示「⚠ 跳过」，**不是判绿**。实测：空仓里写文件后 `git diff --name-only` 与 `--cached` 都是空的，`git add` 之后 `--cached` 才列出。所以 `process_init` 落地后要先提交一次，之后每个节点提交（这也正是流程要求的「先经人提交（默认归档 = git）」）。另一条已知边界：**未跟踪且未暂存的新文件不进改动集**，那批由落点门禁 `check-artifact-paths` 兜。
 
