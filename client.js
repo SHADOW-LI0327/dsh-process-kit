@@ -10,8 +10,7 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react');
     const h = React.createElement;
-    const { useEffect, useMemo, useState } = React;
-    const PANEL_ID = 'process-kit';
+    const { useEffect, useState } = React;
 
     const TEXT = {
       zh: {
@@ -124,33 +123,7 @@ window.__ModuleLoader__.load({
       return { tone: 'warn', text: '⚠ 未校验' };
     }
 
-    function Icon() {
-      return h(
-        'svg',
-        { viewBox: '0 0 20 20', width: 18, height: 18, 'aria-hidden': true, focusable: false },
-        h('circle', { cx: 5, cy: 5, r: 2.1, fill: 'currentColor' }),
-        h('circle', { cx: 5, cy: 15, r: 1.6, fill: 'none', stroke: 'currentColor', strokeWidth: 1.4 }),
-        h('path', { d: 'M5 7.2v5.4', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round' }),
-        h('path', { d: 'M9 5h7M9 15h7', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round' }),
-      );
-    }
-
-    function Step({ step, t }) {
-      const note = stateNote(t, step.state);
-      return h(
-        'li',
-        { className: `pk-step pk-step--${step.state}`, 'data-step': step.key, 'data-state': step.state },
-        h('span', { className: 'pk-mark', 'aria-hidden': true }, MARK[step.state] ?? '○'),
-        h(
-          'span',
-          { className: 'pk-step__body' },
-          h('span', { className: 'pk-step__label' }, step.label),
-          h('span', { className: 'pk-step__note' }, note),
-        ),
-      );
-    }
-
-    function Board({ cwd, paths = [], onPick = () => {}, showPicker = false }) {
+    function Board({ cwd }) {
       const [pkgId, setPkgId] = useState('');
       const [data, setData] = useState(null);
       const [error, setError] = useState('');
@@ -204,7 +177,6 @@ window.__ModuleLoader__.load({
       const steps = pkg ? stepsOf(pkg) : [];
       const labels = pkg?.flow === 'fast' ? t.stepFast : t.stepFull;
       const journal = pkg ? journalOf(t, pkg) : null;
-      const options = showPicker ? (cwd && !paths.includes(cwd) ? [cwd, ...paths] : paths) : [];
 
       return h(
         'div',
@@ -217,23 +189,6 @@ window.__ModuleLoader__.load({
             'div',
             { className: 'pk-controls' },
             pkg ? h('span', { className: modeClass(pkg.flow) }, modeText(t, pkg.flow)) : null,
-            showPicker
-              ? h(
-                  'label',
-                  { className: 'pk-pick' },
-                  h('span', { className: 'pk-sr' }, t.workspace),
-                  h(
-                    'select',
-                    {
-                      value: cwd,
-                      onChange: (event) => onPick(event.target.value),
-                      'aria-label': t.workspace,
-                    },
-                    cwd === '' && options.length === 0 ? h('option', { value: '' }, '—') : null,
-                    options.map((path) => h('option', { key: path, value: path }, path)),
-                  ),
-                )
-              : null,
             packages.length > 1
               ? h(
                   'label',
@@ -290,46 +245,10 @@ window.__ModuleLoader__.load({
       );
     }
 
-    function MainDashboard(props) {
-      const { useSessions, useWorkspaces } = props;
-      const latestCwd = useSessions((s) => {
-        let best;
-        for (const id of s.ids ?? []) {
-          const row = s.byId?.[id];
-          if (!row || !row.cwd || row.origin === 'subagent') continue;
-          if (!best || row.updatedAt > best.updatedAt) best = row;
-        }
-        return best?.cwd ?? '';
-      });
-      const workspaces = useWorkspaces((s) => s.items ?? []);
-      const paths = useMemo(() => {
-        const set = new Set();
-        for (const ws of workspaces) if (ws?.path) set.add(ws.path);
-        if (latestCwd) set.add(latestCwd);
-        return [...set].sort((a, b) => a.localeCompare(b));
-      }, [workspaces, latestCwd]);
-      const [cwd, setCwd] = useState('');
-      const [picked, setPicked] = useState(false);
-
-      useEffect(() => {
-        if (!picked && latestCwd) setCwd(latestCwd);
-      }, [latestCwd, picked]);
-
-      return h(Board, {
-        cwd,
-        paths,
-        showPicker: true,
-        onPick: (value) => {
-          setPicked(true);
-          setCwd(value);
-        },
-      });
-    }
-
     function SessionView(props) {
       const { sessionId, useSessions } = props;
       const cwd = useSessions((s) => (sessionId ? s.byId?.[sessionId]?.cwd ?? '' : ''));
-      return h(Board, { cwd, paths: [], showPicker: false });
+      return h(Board, { cwd });
     }
 
     const CSS = `
@@ -390,16 +309,6 @@ body[data-ds-dark-theme]{--pk-text:#e6edf3;--pk-muted:#8d96a0;--pk-border:#30363
           document.head.appendChild(style);
           return () => style.remove();
         }, 'process-kit: panel styles');
-        ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
-          name: 'sidebar.panellist',
-          id: PANEL_ID,
-          order: 20,
-          label: '研发流程',
-        }, Icon));
-        ctx.slots.inject('main', () => ctx.slots.register({
-          name: 'main',
-          key: PANEL_ID,
-        }, MainDashboard));
         ctx.slots.inject('conversation.view', () => ctx.slots.register({
           name: 'conversation.view',
           id: 'process',

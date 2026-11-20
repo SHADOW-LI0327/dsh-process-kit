@@ -4,12 +4,12 @@
 
 ## 代码组成
 
-服务端 + 同包 Web 客户端（左侧「研发流程」入口 + 主面板看板）：
+服务端 + 同包 Web 客户端（对话头部「研发流程」视图标签）：
 
 ```
 dsh-process-kit/
 ├── lib/index.js          5 个工具 + 角色技能注册 + 状态 API + 常驻提醒
-├── client.js             同包 Web 看板：sidebar.panellist 入口 + main 面板（无构建）
+├── client.js             同包 Web 看板：conversation.view 视图标签（无构建）
 ├── skills/               10 个通用角色技能（打包，rank 600）
 ├── scaffold/             流程骨架：装到目标仓库 docs/process/**
 ├── scripts/              门禁与流程脚本（零依赖 .mjs）

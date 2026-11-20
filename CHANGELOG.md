@@ -8,7 +8,7 @@
 
 ### Added
 
-- **同包 Web 看板**（`client.js` + `dsh.client` + `./client` 导出）：左侧 `sidebar.panellist` 注册「研发流程」图标，点击打开 `main` 面板；**对话视图 `conversation.view` 同时注册「研发流程」标签，就在轨迹旁边，跟随当前会话**；四步时间线、模式徽标、下一步、journal 健康、托管授权说明一屏展示。
+- **同包 Web 看板**（`client.js` + `dsh.client` + `./client` 导出）：在对话视图 `conversation.view` 注册「研发流程」标签，就在轨迹旁边、跟随当前会话；四步时间线、模式徽标、下一步、journal 健康、托管授权说明一屏展示。
 - **只读状态 API**：Host 注册同源 `GET /process-kit/status?cwd=<绝对路径>`，只返回 `process_status` 的公开字段；不写文件、不提供批准入口。
 - **托管语义进面板**：`delegated` 用虚线空心 + 「Gate0 授权 / 不是人签」，绝不画成绿色人签；`tampered` 只报警、不推进。
 - **状态 API 只允许本机回环**：`/process-kit/status` 校验 `Host` 为 127.0.0.1 / localhost / ::1，避免非回环绑定或反向代理把只读状态暴露到网络。

@@ -6,12 +6,12 @@ For people who are going to change this plugin. Users only need [README](../READ
 
 ## Code layout
 
-Server half plus an in-package Web client (a left-sidebar "Dev process" entry and a main-panel board):
+Server half plus an in-package Web client (a "Dev process" conversation-view tab):
 
 ```
 dsh-process-kit/
 ├── lib/index.js          5 tools + role-skill registration + status API + standing reminders
-├── client.js             in-package Web board: sidebar.panellist entry + main panel (no build)
+├── client.js             in-package Web board: conversation.view tab (no build)
 ├── skills/               10 generic role skills (bundled, rank 600)
 ├── scaffold/             the process scaffold: installed into the target repository's docs/process/**
 ├── scripts/              gate and process scripts (zero-dependency .mjs)
