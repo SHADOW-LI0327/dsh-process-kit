@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { detectHub, readHubMapping, renderHubContext, renderHubHealth, resolveFeature, writeHubMapping } from '../lib/hub.mjs';
+import { detectHub, loadHubConfig, readHubMapping, renderHubContext, renderHubHealth, resolveFeature, resolveHubConfig, saveHubConfig, writeHubMapping } from '../lib/hub.mjs';
 
 const repo = await mkdtemp(join(tmpdir(), 'process-kit-hub-'));
 try {
@@ -35,6 +35,15 @@ try {
   assert.equal(detection.configured, true);
   assert.equal(detection.projectId, 'shop');
   assert.equal(detection.featureId, 'FEAT-001');
+
+  await writeHubMapping(repo, { projectId: 'shop', featureId: 'FEAT-001', hubUrl: 'http://repo-hub:8787' });
+  assert.equal((await readHubMapping(repo)).hubUrl, 'http://repo-hub:8787');
+  assert.equal((await resolveHubConfig(repo)).hubUrl, 'http://repo-hub:8787');
+  assert.equal((await detectHub(repo)).hubUrl, 'http://repo-hub:8787');
+  await saveHubConfig({ hubUrl: 'http://server:8787' });
+  assert.equal((await loadHubConfig()).hubUrl, 'http://server:8787');
+  assert.equal((await loadHubConfig()).token, 'col_test');
+  assert.equal((await resolveHubConfig(repo)).hubUrl, 'http://repo-hub:8787');
   const healthText = renderHubHealth(detection, { ok: true, member: { name: 'A' }, project: { name: 'Shop' }, statuses: 1, artifacts: 2, questions: 3 });
   assert.match(healthText, /已连接/);
   assert.match(healthText, /1 个状态 \/ 2 个产物 \/ 3 个未决问题/);

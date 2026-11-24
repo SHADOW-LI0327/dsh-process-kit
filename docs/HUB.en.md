@@ -15,6 +15,16 @@ node bin/collab.mjs hub --host 0.0.0.0 --port 8787 --data ./data
 
 Open `http://<server>:8787` and paste a member token for a **read-only board**; projects, designs and answers are written by the CLI / agent, not by page controls.
 
+### Configure the server address
+
+When the Hub runs on another host, each member needs the address:
+
+- Local config: `hub_config(hubUrl="http://192.168.1.20:8787")`, writes `~/.dsh/collab.json` only;
+- Shared repo config: `hub_link(project=..., feature=..., hubUrl="http://192.168.1.20:8787")`, writes the address into `docs/process/.hub.json` (no token);
+- Environment: `COLLAB_HUB_URL` has the highest priority.
+
+Priority: `COLLAB_HUB_URL` > `hubUrl` in `docs/process/.hub.json` > `~/.dsh/collab.json` > `http://127.0.0.1:8787`.
+
 ## 2. Register each member
 
 ```bash
@@ -44,7 +54,7 @@ hub_link(project="shop", feature="FEAT-001")
 This writes `docs/process/.hub.json`:
 
 ```json
-{ "projectId": "shop", "featureId": "FEAT-001" }
+{ "hubUrl": "http://192.168.1.20:8787", "projectId": "shop", "featureId": "FEAT-001" }
 ```
 
 The file contains **no token** and can be committed. Bind once per repository; `hub_*` tools then default to it.
@@ -54,6 +64,7 @@ The file contains **no token** and can be committed. Bind once per repository; `
 | Moment | Tool |
 |---|---|
 | Start | `hub_context` (other side's status, open questions, latest artifacts); `hub_board` for the team view; `hub_health` if unsure the Hub is up |
+| Change Hub URL | `hub_config(hubUrl="http://server:8787")` |
 | No project/feature | `hub_project_create` → `hub_feature_create` (binds this repo by default) |
 | Progress | `hub_status(state, focus, blocker)` |
 | Publish | `hub_publish(path, kind, summary)` — summary required |

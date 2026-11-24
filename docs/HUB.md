@@ -15,6 +15,16 @@ node bin/collab.mjs hub --host 0.0.0.0 --port 8787 --data ./data
 
 打开 `http://<server>:8787`，粘贴成员 token 进入**只读看板**；项目/feature、设计产物和回答由 CLI / Agent 写入，网页不提供控制。
 
+### 配置服务器地址
+
+实际部署时 Hub 不在本机，先让每个成员知道地址：
+
+- 本机配置：`hub_config(hubUrl="http://192.168.1.20:8787")`，只写 `~/.dsh/collab.json`；
+- 仓库共享：`hub_link(project=..., feature=..., hubUrl="http://192.168.1.20:8787")`，把地址写进 `docs/process/.hub.json`（不含 token）；
+- 环境变量：`COLLAB_HUB_URL` 优先级最高。
+
+优先级：`COLLAB_HUB_URL` > `docs/process/.hub.json` 的 `hubUrl` > `~/.dsh/collab.json` > `http://127.0.0.1:8787`。
+
 ## 2. 每个成员注册
 
 ```bash
@@ -44,7 +54,7 @@ hub_link(project="shop", feature="FEAT-001")
 会写 `docs/process/.hub.json`：
 
 ```json
-{ "projectId": "shop", "featureId": "FEAT-001" }
+{ "hubUrl": "http://192.168.1.20:8787", "projectId": "shop", "featureId": "FEAT-001" }
 ```
 
 这个文件**不含 token**，可以提交；每个仓库只绑一次。之后 `hub_*` 工具默认使用它，不必每次传 feature。
@@ -54,6 +64,7 @@ hub_link(project="shop", feature="FEAT-001")
 | 时机 | 工具 |
 |---|---|
 | 开工 | `hub_context`（看对方状态、未决问题、最新产物）；团队总览用 `hub_board`；不确定连接时先 `hub_health` |
+| 换 Hub 地址 | `hub_config(hubUrl="http://server:8787")` |
 | 项目/feature 不存在 | `hub_project_create` → `hub_feature_create`（默认绑定本仓库） |
 | 更新状态 | `hub_status(state, focus, blocker)` |
 | 发布设计 | `hub_publish(path, kind, summary)`，摘要必填 |
