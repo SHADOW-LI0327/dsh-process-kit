@@ -8,10 +8,11 @@ This file answers two things: **what changed and what you will notice**. Each re
 
 ### Added
 
-- **Nine `hub_*` tools**: `hub_context` / `hub_board` / `hub_status` / `hub_publish` / `hub_question` / `hub_answer` / `hub_handoff` / `hub_link` / `hub_health`.
-- **Repository binding**: `hub_link(project, feature)` writes `docs/process/.hub.json` (project/feature only, no token); tools then default to it.
+- **Eleven `hub_*` tools**: `hub_context` / `hub_board` / `hub_status` / `hub_publish` / `hub_question` / `hub_answer` / `hub_handoff` / `hub_link` / `hub_health` / `hub_project_create` / `hub_feature_create`.
+- **Repository binding**: `hub_link(project, feature)` writes `docs/process/.hub.json` (project/feature only, no token); `hub_feature_create` binds by default.
+- **Hub card on the board**: the Dev-process board shows member status, open questions, latest artifacts and team features; an unreachable Hub is only a warning and never blocks the main flow.
 - **Member config**: reads `~/.dsh/collab.json` (hubUrl + token + name); `COLLAB_HUB_URL` / `COLLAB_TOKEN` also work.
-- **Working habit**: `hub_context` before starting, `hub_publish` + `hub_status` after a milestone, `hub_question` for disagreements, `hub_handoff` before stopping; call `hub_health` (non-blocking) when unsure whether the Hub is up; artifacts are append-only versions.
+- **Working habit**: `hub_context` before starting, `hub_publish` + `hub_status` after a milestone, `hub_question` for disagreements, `hub_handoff` before stopping; call `hub_health` (non-blocking) when unsure whether the Hub is up; create a missing project/feature with `hub_project_create` + `hub_feature_create`.
 
 ### Compatibility
 

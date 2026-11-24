@@ -215,7 +215,7 @@ const ctx = {
 };
 apply(ctx);
 
-assert.deepEqual(registered.tools.map((t) => t.name).sort(), ['gate_summary', 'hub_answer', 'hub_board', 'hub_context', 'hub_handoff', 'hub_health', 'hub_link', 'hub_publish', 'hub_question', 'hub_status', 'process_init', 'process_journal', 'process_status', 'process_uninstall']);
+assert.deepEqual(registered.tools.map((t) => t.name).sort(), ['gate_summary', 'hub_answer', 'hub_board', 'hub_context', 'hub_feature_create', 'hub_handoff', 'hub_health', 'hub_link', 'hub_project_create', 'hub_publish', 'hub_question', 'hub_status', 'process_init', 'process_journal', 'process_status', 'process_uninstall']);
 assert.equal(registered.sections.length, 2);
 assert.equal(registered.sections[0].name, 'process-kit-wake');
 assert.equal(registered.sections[1].name, 'process-kit-hub');
@@ -223,10 +223,11 @@ assert.equal(registered.providers.length, 1);
 assert.equal(registered.providers[0].name, 'process-kit-skills');
 
 // ---- 看板状态 route（Host 半）---------------------------------------
-assert.equal(registered.routes.length, 2, '应注册 status / doc 两个 route');
+assert.equal(registered.routes.length, 3, '应注册 status / doc / hub 三个 route');
 const statusRoute = registered.routes.find((route) => route.path === '/process-kit/status');
 const docRoute = registered.routes.find((route) => route.path === '/process-kit/doc');
-assert.ok(statusRoute && docRoute, 'status / doc route 都应存在');
+const hubRoute = registered.routes.find((route) => route.path === '/process-kit/hub');
+assert.ok(statusRoute && docRoute && hubRoute, 'status / doc / hub route 都应存在');
 {
 	const ok = await statusRoute.resource(new Request(`http://127.0.0.1/process-kit/status?cwd=${encodeURIComponent(root)}`, { headers: { host: '127.0.0.1' } }));
 	assert.equal(ok.status, 200);
@@ -244,6 +245,9 @@ assert.ok(statusRoute && docRoute, 'status / doc route 都应存在');
 	assert.ok(outside.status === 400, '路径穿越应拒绝');
 	const notAllowed = await docRoute.resource(new Request(`http://127.0.0.1/process-kit/doc?cwd=${encodeURIComponent(root)}&path=README.md`, { headers: { host: '127.0.0.1' } }));
 	assert.equal(notAllowed.status, 403, '只允许 docs/process 与 reports');
+	const hub = await hubRoute.resource(new Request(`http://127.0.0.1/process-kit/hub?cwd=${encodeURIComponent(root)}`, { headers: { host: '127.0.0.1' } }));
+	assert.equal(hub.status, 200);
+	assert.equal((await hub.json()).configured, false, '无 Hub 配置时应如实返回 configured:false');
 }
 
 const byName = Object.fromEntries(registered.tools.map((t) => [t.name, t]));

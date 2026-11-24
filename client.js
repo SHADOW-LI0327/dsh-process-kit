@@ -59,6 +59,19 @@ window.__ModuleLoader__.load({
         open: '查看',
         close: '关闭',
         docError: '文档读取失败',
+        hub: '协作 Hub',
+        openHub: '打开 Hub',
+        hubConnecting: '连接 Hub…',
+        hubUnbound: '已注册 Hub，但本仓库未绑定 feature；运行 hub_link 或 hub_feature_create。',
+        hubUnreachable: 'Hub 不可达（不影响主流程）',
+        hubMembers: '成员',
+        hubQuestions: '未决问题',
+        hubArtifacts: '最新产物',
+        hubTeam: '团队 feature',
+        hubNoMembers: '还没有成员状态',
+        hubNoQuestions: '没有未决问题',
+        hubNoArtifacts: '还没有产物',
+        hubNoTeam: '没有其他 feature',
       },
       en: {
         title: 'Dev process',
@@ -106,6 +119,19 @@ window.__ModuleLoader__.load({
         open: 'Open',
         close: 'Close',
         docError: 'Failed to read document',
+        hub: 'Collaboration Hub',
+        openHub: 'Open Hub',
+        hubConnecting: 'Connecting to Hub…',
+        hubUnbound: 'Hub is registered, but this repo has no feature binding; run hub_link or hub_feature_create.',
+        hubUnreachable: 'Hub unreachable (main flow unaffected)',
+        hubMembers: 'Members',
+        hubQuestions: 'Open questions',
+        hubArtifacts: 'Latest artifacts',
+        hubTeam: 'Team features',
+        hubNoMembers: 'no member status yet',
+        hubNoQuestions: 'no open questions',
+        hubNoArtifacts: 'no artifacts yet',
+        hubNoTeam: 'no other features',
       },
     };
 
@@ -214,6 +240,101 @@ window.__ModuleLoader__.load({
       return rows;
     }
 
+    function HubCard({ hub, error, t }) {
+      const title = h(
+        'div',
+        { className: 'pk-card__title' },
+        t.hub,
+        hub?.hubUrl ? h('a', { className: 'pk-hub__link', href: hub.hubUrl, target: '_blank', rel: 'noreferrer' }, t.openHub) : null,
+      );
+      if (error) {
+        return h('section', { className: 'pk-card pk-card--warn' }, title, h('div', { className: 'pk-alert pk-alert--danger' }, `${t.hubUnreachable}: ${error}`));
+      }
+      if (!hub) {
+        return h('section', { className: 'pk-card' }, title, h('div', { className: 'pk-muted' }, t.hubConnecting));
+      }
+      if (!hub.bound) {
+        return h('section', { className: 'pk-card pk-card--warn' }, title, h('div', { className: 'pk-line' }, t.hubUnbound));
+      }
+      if (!hub.reachable) {
+        return h('section', { className: 'pk-card pk-card--warn' }, title, h('div', { className: 'pk-alert pk-alert--danger' }, `${t.hubUnreachable}: ${hub.error ?? 'unknown error'}`));
+      }
+      const ctx = hub.context;
+      const statuses = ctx?.statuses ?? [];
+      const questions = (ctx?.questions ?? []).filter((question) => question.status === 'open');
+      const artifacts = (ctx?.artifacts ?? []).slice(0, 5);
+      const project = (hub.board?.projects ?? []).find((item) => item.id === hub.projectId);
+      const peers = (project?.features ?? []).filter((feature) => feature.id !== hub.featureId).slice(0, 6);
+      return h(
+        'section',
+        { className: 'pk-card' },
+        title,
+        h(
+          'div',
+          { className: 'pk-kv' },
+          h('span', { className: 'pk-chip' }, `${hub.projectId ?? '?'} / ${hub.featureId ?? '?'}`),
+          h('span', { className: 'pk-chip' }, hub.member ?? '?'),
+          h('span', { className: 'pk-chip' }, `${statuses.length} ${t.hubMembers}`),
+          h('span', { className: 'pk-chip' }, `${questions.length} ${t.hubQuestions}`),
+        ),
+        h('div', { className: 'pk-subtitle' }, t.hubMembers),
+        statuses.length
+          ? h(
+              'div',
+              { className: 'pk-hub__rows' },
+              statuses.map((status) =>
+                h(
+                  'div',
+                  { key: `${status.member}-${status.updatedAt}`, className: 'pk-hub__row' },
+                  h('span', { className: 'pk-hub__name' }, `${status.member}${status.role ? ` (${status.role})` : ''}`),
+                  h('span', { className: 'pk-hub__state' }, `${status.state}${status.focus ? ` · ${status.focus}` : ''}${status.blocker ? ` · ${status.blocker}` : ''}`),
+                ),
+              ),
+            )
+          : h('div', { className: 'pk-muted' }, t.hubNoMembers),
+        h('div', { className: 'pk-subtitle' }, t.hubQuestions),
+        questions.length
+          ? h(
+              'div',
+              { className: 'pk-hub__rows' },
+              questions.slice(0, 5).map((question) =>
+                h('div', { key: question.id, className: 'pk-hub__row' }, h('span', { className: 'pk-hub__name' }, question.author), h('span', { className: 'pk-hub__state' }, question.text)),
+              ),
+            )
+          : h('div', { className: 'pk-muted' }, t.hubNoQuestions),
+        h('div', { className: 'pk-subtitle' }, t.hubArtifacts),
+        artifacts.length
+          ? h(
+              'div',
+              { className: 'pk-hub__rows' },
+              artifacts.map((artifact) =>
+                h(
+                  'div',
+                  { key: artifact.id, className: 'pk-hub__row' },
+                  h('span', { className: 'pk-hub__name' }, `${artifact.kind} · ${artifact.filename} v${artifact.version}`),
+                  h('span', { className: 'pk-hub__state' }, `${artifact.author} · ${artifact.summary}`),
+                ),
+              ),
+            )
+          : h('div', { className: 'pk-muted' }, t.hubNoArtifacts),
+        peers.length ? h('div', { className: 'pk-subtitle' }, t.hubTeam) : null,
+        peers.length
+          ? h(
+              'div',
+              { className: 'pk-hub__rows' },
+              peers.map((feature) =>
+                h(
+                  'div',
+                  { key: feature.id, className: 'pk-hub__row' },
+                  h('span', { className: 'pk-hub__name' }, `${feature.id} · ${feature.title}`),
+                  h('span', { className: 'pk-hub__state' }, `${feature.statuses?.length ?? 0} status · ${feature.openQuestions ?? 0} questions`),
+                ),
+              ),
+            )
+          : null,
+      );
+    }
+
     function Board({ cwd }) {
       const [pkgId, setPkgId] = useState('');
       const [data, setData] = useState(null);
@@ -221,6 +342,8 @@ window.__ModuleLoader__.load({
       const [tick, setTick] = useState(0);
       const [doc, setDoc] = useState(null);
       const [docError, setDocError] = useState('');
+      const [hubView, setHubView] = useState(null);
+      const [hubError, setHubError] = useState('');
 
       useEffect(() => { setPkgId(''); }, [cwd]);
 
@@ -256,6 +379,29 @@ window.__ModuleLoader__.load({
           clearInterval(timer);
         };
       }, [cwd, tick]);
+
+      useEffect(() => {
+        if (!cwd || !data?.hub?.token) {
+          setHubView(null);
+          setHubError('');
+          return undefined;
+        }
+        let alive = true;
+        setHubView(null);
+        setHubError('');
+        fetch(`/process-kit/hub?cwd=${encodeURIComponent(cwd)}`, { cache: 'no-store' })
+          .then((response) => response.json().then((payload) => ({ response, payload })))
+          .then(({ response, payload }) => {
+            if (!alive) return;
+            if (!response.ok) throw new Error(payload?.error ?? `HTTP ${response.status}`);
+            setHubView(payload);
+            setHubError('');
+          })
+          .catch((error) => {
+            if (alive) setHubError(String(error?.message ?? error));
+          });
+        return () => { alive = false; };
+      }, [cwd, data?.hub?.token, tick]);
 
       const openDoc = async (path) => {
         setDocError('');
@@ -321,7 +467,11 @@ window.__ModuleLoader__.load({
                     className: `pk-badge${data.hub.configured ? ' pk-badge--accent' : ''}`,
                     title: data.hub.hubUrl ?? '',
                   },
-                  data.hub.configured ? `Hub ${data.hub.projectId ?? '?'}/${data.hub.featureId ?? '?'}` : 'Hub 未配置',
+                  data.hub.token
+                    ? data.hub.featureId
+                      ? `Hub ${data.hub.projectId ?? '?'}/${data.hub.featureId ?? '?'}`
+                      : 'Hub 未绑定'
+                    : 'Hub 未配置',
                 )
               : null,
             data?.generatedAt ? h('span', { className: 'pk-muted' }, `${t.updated} ${fmtTime(data.generatedAt)}`) : null,
@@ -380,6 +530,7 @@ window.__ModuleLoader__.load({
                   h('div', { className: 'pk-progress' }, pkg.progress ?? ''),
                   pkg.flow === 'managed' ? h('div', { className: 'pk-note' }, t.managedNote) : null,
                 ),
+                data?.hub?.token ? h(HubCard, { hub: hubView, error: hubError, t }) : null,
                 h(
                   'section',
                   { className: 'pk-card' },
@@ -639,6 +790,11 @@ body[data-ds-dark-theme]{--pk-text:#e6edf3;--pk-muted:#8d96a0;--pk-border:#30363
 .pk-modal__head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-bottom:1px solid var(--pk-border)}
 .pk-modal__head code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px ui-monospace,SFMono-Regular,Menlo,monospace}
 .pk-modal__body{margin:0;padding:16px;overflow:auto;white-space:pre-wrap;word-break:break-word;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--pk-text)}
+.pk-hub__link{margin-left:8px;color:var(--pk-accent);font-size:11px;letter-spacing:0;text-transform:none}
+.pk-hub__rows{display:grid;gap:3px;margin-bottom:8px}
+.pk-hub__row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:8px;padding:4px 0;border-top:1px solid color-mix(in srgb,var(--pk-border) 65%,transparent);font-size:12px}
+.pk-hub__name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pk-hub__state{color:var(--pk-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 `;
 
     return {

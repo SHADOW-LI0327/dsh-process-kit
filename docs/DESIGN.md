@@ -8,7 +8,7 @@
 
 ```
 dsh-process-kit/
-├── lib/index.js          5 个流程工具 + 9 个 Hub 工具 + 角色技能 + 状态 API + 常驻提醒
+├── lib/index.js          5 个流程工具 + 11 个 Hub 工具 + 角色技能 + 状态 API + 常驻提醒
 ├── lib/hub.mjs           Hub 客户端：配置 / 绑定 / context / publish / question
 ├── client.js             同包 Web 看板：conversation.view 视图标签（无构建）
 ├── skills/               10 个通用角色技能（打包，rank 600）

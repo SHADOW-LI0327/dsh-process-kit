@@ -54,6 +54,7 @@ hub_link(project="shop", feature="FEAT-001")
 | 时机 | 工具 |
 |---|---|
 | 开工 | `hub_context`（看对方状态、未决问题、最新产物）；团队总览用 `hub_board`；不确定连接时先 `hub_health` |
+| 项目/feature 不存在 | `hub_project_create` → `hub_feature_create`（默认绑定本仓库） |
 | 更新状态 | `hub_status(state, focus, blocker)` |
 | 发布设计 | `hub_publish(path, kind, summary)`，摘要必填 |
 | 有分歧 | `hub_question(text)`，不要自己猜 |
@@ -68,6 +69,7 @@ hub_link(project="shop", feature="FEAT-001")
 - Hub 没启动 / token 无效：`hub_*` 报错并提示检查 `~/.dsh/collab.json`；`process_status` 等原有工具不受影响。
 - 没有配置 Hub：本插件行为与之前完全一致；不会联网，也不会因为 Hub 不可用阻塞流程。
 - Hub 只做上下文，不替代 Gate 人签；`via: human` 仍然只在 `docs/process` 的 journal 里。
+- 对话里的「研发流程」看板会显示 Hub 协作卡（成员状态 / 未决问题 / 最新产物 / 团队 feature）；Hub 不可达只提示，不影响主流程。
 - HTML 产物以 sandbox 方式打开；不要把带密钥的页面传到 Hub。
 - 内网 HTTP 没有 TLS；跨网段/公网请加反向代理和 TLS，并限制上传大小。
 

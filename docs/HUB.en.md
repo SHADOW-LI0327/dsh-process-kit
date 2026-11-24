@@ -54,6 +54,7 @@ The file contains **no token** and can be committed. Bind once per repository; `
 | Moment | Tool |
 |---|---|
 | Start | `hub_context` (other side's status, open questions, latest artifacts); `hub_board` for the team view; `hub_health` if unsure the Hub is up |
+| No project/feature | `hub_project_create` → `hub_feature_create` (binds this repo by default) |
 | Progress | `hub_status(state, focus, blocker)` |
 | Publish | `hub_publish(path, kind, summary)` — summary required |
 | Disagreement | `hub_question(text)` — do not guess |
@@ -68,6 +69,7 @@ Artifacts are **append-only versions**: never overwrite the other side's file; p
 - Hub down / token invalid: `hub_*` fails with a message pointing at `~/.dsh/collab.json`; `process_status` and the rest of the process are unaffected.
 - No Hub config: the plugin behaves exactly as before; no network calls, no blocking.
 - The Hub is a context layer, not a Gate signer; `via: human` still lives only in `docs/process` journal.
+- The Dev-process board shows a Hub card (member status / open questions / latest artifacts / team features); an unreachable Hub is only a warning and never blocks the main flow.
 - HTML artifacts open in a sandbox; do not upload pages containing secrets.
 - Intranet HTTP has no TLS; add a reverse proxy with TLS before crossing networks, and limit upload size.
 
