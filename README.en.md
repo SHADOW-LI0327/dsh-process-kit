@@ -20,6 +20,7 @@ It also bundles 10 role subagents with hard boundaries between them: whoever wri
 
 - **File state machine**: progress lives in the frontmatter of `docs/process/**`. Calling `process_status` on every wake-up restores the context; no chat history required.
 - **Dev-process board**: a "Dev process" tab sits next to Trajectory in the conversation header and follows the current session. The four-step timeline, mode, next action and journal health are on one screen; **key documents (requirement check / PRD / design / prototype / reports) open in a read-only viewer**; delegated vs human-signed are shown separately, and the board is read-only (no approval entry).
+- **Collaboration Hub (optional)**: multiple local agents share one feature's status, design artifacts and questions through an intranet Hub; `hub_context` / `hub_status` / `hub_publish` / `hub_question` / `hub_handoff` read and write it directly, so designs do not have to be re-sent in chat. See [docs/HUB.en.md](./docs/HUB.en.md).
 - **Gate stops (three tiers)**: the **full flow** stops at requirement, design, tests and acceptance; **managed mode** stops only at requirement and acceptance (design/tests are delegated at requirement confirmation, not human-signed); the **fast path** stops only at requirement. Each stop prints a two-part summary (✅ done / ❓ awaiting a decision).
 - **Tamper-resistant journal**: chained fingerprints (any rewritten / deleted / reordered line is detectable), recomputed on the reading side and reported red honestly; both status bits and approval provenance can be verified after the fact.
 - **Role separation**: role skills are registered with the plugin; a same-named skill in the project's `.dsh/skills/**` overrides it.
@@ -46,7 +47,7 @@ One process, two languages. Language affects **wording** only — never **write 
 
 Effective immediately; restart the client only if the UI has not picked it up.
 
-> **Cannot install the latest version? It is not an installation failure.** pnpm ships a 24-hour supply-chain protection by default (`minimumReleaseAge = 1440`): a version published less than 24 hours ago is not selected by `^range` / `latest` resolution. **Wait 24 hours**, or **pin an exact version** (`dsh-process-kit@0.11.0` — an explicit pin bypasses the policy by design). Setting `minimumReleaseAge` to 0 is not recommended: that turns the whole protection off.
+> **Cannot install the latest version? It is not an installation failure.** pnpm ships a 24-hour supply-chain protection by default (`minimumReleaseAge = 1440`): a version published less than 24 hours ago is not selected by `^range` / `latest` resolution. **Wait 24 hours**, or **pin an exact version** (`dsh-process-kit@0.12.0` — an explicit pin bypasses the policy by design). Setting `minimumReleaseAge` to 0 is not recommended: that turns the whole protection off.
 
 ## Quick start
 
@@ -56,6 +57,7 @@ Effective immediately; restart the client only if the UI has not picked it up.
 3. The AI runs `process_init` to initialize the process in this repository.
 4. Work through the process; tell the orchestrator: **use the fast path** (requirement only) / **enable managed mode** (after requirement, only acceptance stops) / **run the full flow** (all four stops). The internal field is written by the orchestrator; the first package may use the fast path.
 5. The "Dev process" tab next to Trajectory opens a read-only board: four-step progress / mode / next action / journal health.
+6. Multi-person work (optional): run `dsh-collab-hub` on the server, each member runs `collab register`, and the repository binds once with `hub_link(project, feature)`; then call `hub_context` before starting and `hub_publish` + `hub_status` after a milestone.
 ```
 
 `process_init` generates: `docs/process/` (master doctrine, dispatch manual, `PROJECT.md`, templates), `docs/process/.process-kit.json` (uninstall manifest: what was created + hashes, for precise cleanup), `scripts/process/` (gate and journal scripts), and `AGENTS.md` (created only when absent, never rewritten; pass `agents: false` to skip).

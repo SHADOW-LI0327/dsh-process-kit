@@ -1,6 +1,6 @@
 {
   "name": "dsh-process-kit",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "通用单人开发流程框架：文件状态机 + Gate 必停 + 角色分离。自带 10 个角色 subagent（含按需领域专家）、流程骨架文档、门禁脚本与 process_init / process_uninstall 工具。",
   "type": "module",
   "license": "MIT",
@@ -50,7 +50,7 @@
     "CONTRIBUTING.md"
   ],
   "scripts": {
-    "test": "node test/host.test.mjs && node test/skill-registry.test.mjs && node test/scripts.test.mjs && node test/i18n.test.mjs"
+    "test": "node test/host.test.mjs && node test/skill-registry.test.mjs && node test/scripts.test.mjs && node test/i18n.test.mjs && node test/hub-tools.test.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/dsh": ">=0.1.7-rc.2 <0.3.0"

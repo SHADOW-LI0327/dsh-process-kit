@@ -2,6 +2,22 @@
 
 This file answers two things: **what changed and what you will notice**. Each release starts with an overview, then lists the actual changes; internal implementation details stay out.
 
+## 0.12.0
+
+**Overview**: adds Collaboration Hub support so multiple local agents share one feature's context.
+
+### Added
+
+- **Eight `hub_*` tools**: `hub_context` / `hub_board` / `hub_status` / `hub_publish` / `hub_question` / `hub_answer` / `hub_handoff` / `hub_link`.
+- **Repository binding**: `hub_link(project, feature)` writes `docs/process/.hub.json` (project/feature only, no token); tools then default to it.
+- **Member config**: reads `~/.dsh/collab.json` (hubUrl + token + name); `COLLAB_HUB_URL` / `COLLAB_TOKEN` also work.
+- **Working habit**: `hub_context` before starting, `hub_publish` + `hub_status` after a milestone, `hub_question` for disagreements, `hub_handoff` before stopping; artifacts are append-only versions.
+
+### Compatibility
+
+- Without Hub config, the existing `process_*` tools and board behave exactly as before and make no network calls.
+- The Hub is only a cross-repository context layer; each repository's `docs/process` and journal remain the truth, and human Gate signatures still live in the journal.
+
 ## 0.11.0
 
 **Overview**: adds "managed mode" and a dev-process board.

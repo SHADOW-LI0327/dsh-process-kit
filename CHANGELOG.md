@@ -2,6 +2,22 @@
 
 这个文件只回答两件事：**改了什么、你会感受到什么**。每个版本先一段概览，再列实际变化；内部实现细节不在这里展开。
 
+## 0.12.0
+
+**概览**：加入协作 Hub 支持，多个本地 Agent 共享同一个 feature 的上下文。
+
+### 新增
+
+- **8 个 `hub_*` 工具**：`hub_context` / `hub_board` / `hub_status` / `hub_publish` / `hub_question` / `hub_answer` / `hub_handoff` / `hub_link`。
+- **仓库绑定**：`hub_link(project, feature)` 写 `docs/process/.hub.json`，只含项目/feature，不含 token；之后工具默认用它。
+- **成员配置**：读 `~/.dsh/collab.json`（hubUrl + token + name），也支持 `COLLAB_HUB_URL` / `COLLAB_TOKEN`。
+- **协作习惯**：开工先 `hub_context`，阶段完成 `hub_publish` + `hub_status`，有分歧 `hub_question`，收工 `hub_handoff`；产物是只追加版本，不覆盖对方。
+
+### 兼容
+
+- 没配 Hub 时，原有 `process_*` 工具和看板行为完全不变，也不会联网。
+- Hub 只做跨仓库上下文；每个仓库的 `docs/process` 和 journal 仍是真源，Gate 人签仍以 journal 为准。
+
 ## 0.11.0
 
 **概览**：增加「托管模式」与研发看板。
