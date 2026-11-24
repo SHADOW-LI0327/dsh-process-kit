@@ -2,7 +2,7 @@
 
 This file answers two things: **what changed and what you will notice**. Each release starts with an overview, then lists the actual changes; internal implementation details stay out.
 
-## 0.13.0
+## 0.12.0
 
 **Overview**: adds Collaboration Hub support so multiple local agents share one feature's context.
 
