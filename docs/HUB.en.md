@@ -94,7 +94,7 @@ dependsOn: shop/FEAT-002@contract, shop/FEAT-003@done
 
 ## 8. Related pieces
 
-- Hub service: `dsh-collab-hub` (a separate project);
+- Hub service: [dsh-collab-hub](https://github.com/SHADOW-LI0327/dsh-collab-hub) (separate repository);
 - MCP: `collab-mcp` for Claude / Codex / other MCP clients;
 - DSH: this plugin's `hub_*` tools (0.12.0+).
 

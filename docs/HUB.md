@@ -94,7 +94,7 @@ dependsOn: shop/FEAT-002@contract, shop/FEAT-003@done
 
 ## 8. 相关工具
 
-- Hub 服务：`dsh-collab-hub`（本仓库外独立项目）；
+- Hub 服务：[dsh-collab-hub](https://github.com/SHADOW-LI0327/dsh-collab-hub)（独立仓库）；
 - MCP：`collab-mcp`（给 Claude / Codex / 其他 MCP 客户端）；
 - DSH：本插件的 `hub_*` 工具（0.12.0 起）。
 
