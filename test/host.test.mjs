@@ -35,7 +35,7 @@ await writeFile(join(dir, 'README.md'), '# 单人开发流程\n', 'utf8');
 
 await writeFile(
 	join(dir, 'input', 'FEAT-101-需求核对件.md'),
-	`<!-- 注释在前 -->\n\n---\nid: FEAT-101\nkind: requirement-check\nstatus: confirmed\ngate0: approved # 人签\n---\n\n# 内容\n`,
+	`<!-- 注释在前 -->\n\n---\nid: FEAT-101\nkind: requirement-check\nstatus: confirmed\ngate0: approved # 人签\ndependsOn: shop/FEAT-002@contract, shop/FEAT-003@done\n---\n\n# 内容\n`,
 	'utf8',
 );
 await writeFile(
@@ -215,7 +215,7 @@ const ctx = {
 };
 apply(ctx);
 
-assert.deepEqual(registered.tools.map((t) => t.name).sort(), ['gate_summary', 'hub_answer', 'hub_board', 'hub_context', 'hub_feature_create', 'hub_handoff', 'hub_health', 'hub_link', 'hub_project_create', 'hub_publish', 'hub_question', 'hub_status', 'process_init', 'process_journal', 'process_status', 'process_uninstall']);
+assert.deepEqual(registered.tools.map((t) => t.name).sort(), ['gate_summary', 'hub_answer', 'hub_board', 'hub_context', 'hub_feature_create', 'hub_gate_check', 'hub_handoff', 'hub_health', 'hub_link', 'hub_project_create', 'hub_publish', 'hub_question', 'hub_status', 'process_init', 'process_journal', 'process_status', 'process_uninstall']);
 assert.equal(registered.sections.length, 2);
 assert.equal(registered.sections[0].name, 'process-kit-wake');
 assert.equal(registered.sections[1].name, 'process-kit-hub');
@@ -276,6 +276,10 @@ assert.equal(pkg101.gates.gate0, 'approved');
 assert.equal(pkg101.gates.gate2, 'approved');
 assert.equal(pkg101.prdVersion, '2');
 assert.deepEqual(pkg101.openBugs, ['FEAT-101-01']);
+assert.deepEqual(pkg101.dependsOn, [
+	{ projectId: 'shop', featureId: 'FEAT-002', condition: 'contract' },
+	{ projectId: 'shop', featureId: 'FEAT-003', condition: 'done' },
+]);
 assert.equal(pkg101.next.short, '调 dev 实现');
 
 // 同 ID 从件不得遮蔽主件：主件 done / gate2+gate4 approved 必须胜出
@@ -384,6 +388,8 @@ assert.match(summary.skeleton, /❓ 还需要裁定什么/);
 assert.match(summary.skeleton, /📎 依据/);
 assert.match(summary.skeleton, /gate0=approved gate1=approved gate2=approved gate4=pending/);
 assert.match(summary.skeleton, /open bugs 1：FEAT-101-01/);
+assert.match(summary.skeleton, /前置依赖/);
+assert.match(summary.skeleton, /shop\/FEAT-002@contract/);
 assert.match(summary.skeleton, /prdVersion 2/);
 
 await assert.rejects(

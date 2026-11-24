@@ -60,11 +60,30 @@ hub_link(project="shop", feature="FEAT-001")
 | 有分歧 | `hub_question(text)`，不要自己猜 |
 | 回答 | `hub_answer(question, text)` |
 | 收工 / 换人 | `hub_handoff(note)` |
+| Gate 前有前置 | `hub_gate_check(package="FEAT-001", gate="Gate1")` |
 | 中途看变化 | `hub_context(since=cursor)` |
 
 产物是**只追加版本**：不要覆盖对方的文件，发新版本并说明变化。Agent 默认只读摘要；需要细节再打开原文件。
 
-## 6. 失败与边界
+## 6. Gate 前置依赖
+
+需求核对件可以声明前置 Hub feature：
+
+```yaml
+dependsOn: shop/FEAT-002@contract, shop/FEAT-003@done
+```
+
+- 格式：`project/feature@condition`，逗号分隔；
+- `condition` 支持 `contract` / `design` / `report` / `note` / `done` /
+  `artifact:<kind>` / `status:<state>`；
+- `process_status` 和 `gate_summary` 会显示这份清单，但**不自动联网**；
+- 到 Gate 前，主控调 `hub_gate_check`，它读取 Hub 后给出：
+  - `READY`：所有前置满足；
+  - `BLOCKED`：至少一个明确未满足；
+  - `UNKNOWN`：Hub 不可达、feature 不存在或条件无法判断；
+- 这个结果**只是证据，不自动放行 Gate**；最终仍由人签；UNKNOWN 不得说成 ready。
+
+## 7. 失败与边界
 
 - Hub 没启动 / token 无效：`hub_*` 报错并提示检查 `~/.dsh/collab.json`；`process_status` 等原有工具不受影响。
 - 没有配置 Hub：本插件行为与之前完全一致；不会联网，也不会因为 Hub 不可用阻塞流程。
@@ -73,7 +92,7 @@ hub_link(project="shop", feature="FEAT-001")
 - HTML 产物以 sandbox 方式打开；不要把带密钥的页面传到 Hub。
 - 内网 HTTP 没有 TLS；跨网段/公网请加反向代理和 TLS，并限制上传大小。
 
-## 7. 相关工具
+## 8. 相关工具
 
 - Hub 服务：`dsh-collab-hub`（本仓库外独立项目）；
 - MCP：`collab-mcp`（给 Claude / Codex / 其他 MCP 客户端）；

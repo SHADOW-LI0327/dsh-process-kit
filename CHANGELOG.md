@@ -8,9 +8,10 @@
 
 ### 新增
 
-- **11 个 `hub_*` 工具**：`hub_context` / `hub_board` / `hub_status` / `hub_publish` / `hub_question` / `hub_answer` / `hub_handoff` / `hub_link` / `hub_health` / `hub_project_create` / `hub_feature_create`。
+- **12 个 `hub_*` 工具**：`hub_context` / `hub_board` / `hub_status` / `hub_publish` / `hub_question` / `hub_answer` / `hub_handoff` / `hub_link` / `hub_health` / `hub_project_create` / `hub_feature_create` / `hub_gate_check`。
 - **仓库绑定**：`hub_link(project, feature)` 写 `docs/process/.hub.json`，只含项目/feature，不含 token；`hub_feature_create` 默认创建后直接绑定。
 - **看板 Hub 状态**：对话里的「研发流程」看板增加 Hub 协作卡，显示成员状态、未决问题、最新产物和团队 feature；Hub 不可达只提示，不影响主流程。
+- **Gate 前置依赖**：需求核对件可写 `dependsOn: shop/FEAT-002@contract`（逗号分隔）；`process_status` / `gate_summary` 会带出前置清单，Gate 前用 `hub_gate_check` 读取 Hub 判断 READY / BLOCKED / UNKNOWN。它只提供证据，不自动放行，仍由人签。
 - **成员配置**：读 `~/.dsh/collab.json`（hubUrl + token + name），也支持 `COLLAB_HUB_URL` / `COLLAB_TOKEN`。
 - **协作习惯**：开工先 `hub_context`，阶段完成 `hub_publish` + `hub_status`，有分歧 `hub_question`，收工 `hub_handoff`；不确定 Hub 是否可用时先 `hub_health`（非阻塞）；项目/feature 不存在时 `hub_project_create` + `hub_feature_create` 自动创建并绑定。
 

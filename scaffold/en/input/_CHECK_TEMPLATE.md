@@ -12,6 +12,7 @@ title: <one-line title>
 status: pending # pending / confirmed
 gate0: pending # pending / approved / rejected —— set approved after the human signs; only then may a PRD be produced
 flow: full # full (full flow) / fast (fast path) —— fast builds no PRD, produces no Gate1/Gate2, runs no prior-art research, and dispatches dev directly + existing regression
+# dependsOn: shop/FEAT-002@contract   # optional: prerequisite Hub feature, comma-separated; contract / design / done / artifact:<kind> / status:<state>
 uiDesign: not-needed # required / not-needed —— only required dispatches ui-designer to produce the HTML prototype (prototypes/<ID>/index.html + handoff.md) and the UI spec (prd/<ID>-ui-spec.md), reviewed together with Gate1
 author: <author role, usually orchestrator>
 createdAt: <YYYY-MM-DD>

@@ -72,6 +72,7 @@ window.__ModuleLoader__.load({
         hubNoQuestions: '没有未决问题',
         hubNoArtifacts: '还没有产物',
         hubNoTeam: '没有其他 feature',
+        dependencies: '前置 Hub',
       },
       en: {
         title: 'Dev process',
@@ -132,6 +133,7 @@ window.__ModuleLoader__.load({
         hubNoQuestions: 'no open questions',
         hubNoArtifacts: 'no artifacts yet',
         hubNoTeam: 'no other features',
+        dependencies: 'Hub prerequisites',
       },
     };
 
@@ -529,6 +531,15 @@ window.__ModuleLoader__.load({
                   h('div', { className: 'pk-next__action' }, pkg.next?.action ?? ''),
                   h('div', { className: 'pk-progress' }, pkg.progress ?? ''),
                   pkg.flow === 'managed' ? h('div', { className: 'pk-note' }, t.managedNote) : null,
+                  pkg.dependsOn?.length
+                    ? h(
+                        'div',
+                        { className: 'pk-deps' },
+                        `${t.dependencies}: ${pkg.dependsOn
+                          .map((dep) => (dep.invalid ? `invalid:${dep.raw}` : `${dep.projectId}/${dep.featureId}@${dep.condition}`))
+                          .join(', ')} · Gate → hub_gate_check`,
+                      )
+                    : null,
                 ),
                 data?.hub?.token ? h(HubCard, { hub: hubView, error: hubError, t }) : null,
                 h(
@@ -795,6 +806,7 @@ body[data-ds-dark-theme]{--pk-text:#e6edf3;--pk-muted:#8d96a0;--pk-border:#30363
 .pk-hub__row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:8px;padding:4px 0;border-top:1px solid color-mix(in srgb,var(--pk-border) 65%,transparent);font-size:12px}
 .pk-hub__name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pk-hub__state{color:var(--pk-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pk-deps{margin:8px 0 0;padding:8px 10px;border:1px dashed color-mix(in srgb,var(--pk-warn) 55%,transparent);border-radius:8px;color:var(--pk-warn);font-size:12px;word-break:break-word}
 `;
 
     return {

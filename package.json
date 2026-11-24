@@ -50,7 +50,7 @@
     "CONTRIBUTING.md"
   ],
   "scripts": {
-    "test": "node test/host.test.mjs && node test/skill-registry.test.mjs && node test/scripts.test.mjs && node test/i18n.test.mjs && node test/hub-tools.test.mjs"
+    "test": "node test/host.test.mjs && node test/skill-registry.test.mjs && node test/scripts.test.mjs && node test/i18n.test.mjs && node test/hub-tools.test.mjs && node test/hub-gate.test.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/dsh": ">=0.1.7-rc.2 <0.3.0"

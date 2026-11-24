@@ -10,7 +10,7 @@ Server half plus an in-package Web client (a "Dev process" conversation-view tab
 
 ```
 dsh-process-kit/
-├── lib/index.js          5 process tools + 11 Hub tools + role-skill registration + status API + standing reminders
+├── lib/index.js          5 process tools + 12 Hub tools + role-skill registration + status API + standing reminders
 ├── lib/hub.mjs           Hub client: config / binding / context / publish / question
 ├── client.js             in-package Web board: conversation.view tab (no build)
 ├── skills/               10 generic role skills (bundled, rank 600)
