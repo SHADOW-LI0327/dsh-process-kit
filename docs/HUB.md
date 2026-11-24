@@ -53,7 +53,7 @@ hub_link(project="shop", feature="FEAT-001")
 
 | 时机 | 工具 |
 |---|---|
-| 开工 | `hub_context`（看对方状态、未决问题、最新产物）；团队总览用 `hub_board` |
+| 开工 | `hub_context`（看对方状态、未决问题、最新产物）；团队总览用 `hub_board`；不确定连接时先 `hub_health` |
 | 更新状态 | `hub_status(state, focus, blocker)` |
 | 发布设计 | `hub_publish(path, kind, summary)`，摘要必填 |
 | 有分歧 | `hub_question(text)`，不要自己猜 |

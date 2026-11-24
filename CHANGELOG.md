@@ -8,10 +8,10 @@
 
 ### 新增
 
-- **8 个 `hub_*` 工具**：`hub_context` / `hub_board` / `hub_status` / `hub_publish` / `hub_question` / `hub_answer` / `hub_handoff` / `hub_link`。
+- **9 个 `hub_*` 工具**：`hub_context` / `hub_board` / `hub_status` / `hub_publish` / `hub_question` / `hub_answer` / `hub_handoff` / `hub_link` / `hub_health`。
 - **仓库绑定**：`hub_link(project, feature)` 写 `docs/process/.hub.json`，只含项目/feature，不含 token；之后工具默认用它。
 - **成员配置**：读 `~/.dsh/collab.json`（hubUrl + token + name），也支持 `COLLAB_HUB_URL` / `COLLAB_TOKEN`。
-- **协作习惯**：开工先 `hub_context`，阶段完成 `hub_publish` + `hub_status`，有分歧 `hub_question`，收工 `hub_handoff`；产物是只追加版本，不覆盖对方。
+- **协作习惯**：开工先 `hub_context`，阶段完成 `hub_publish` + `hub_status`，有分歧 `hub_question`，收工 `hub_handoff`；不确定 Hub 是否可用时先 `hub_health`（非阻塞）；产物是只追加版本，不覆盖对方。
 
 ### 兼容
 

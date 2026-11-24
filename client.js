@@ -314,6 +314,16 @@ window.__ModuleLoader__.load({
             { className: 'pk-controls' },
             pkg ? h('span', { className: modeClass(pkg.flow) }, modeText(t, pkg.flow)) : null,
             pkg ? h('span', { className: `pk-badge pk-badge--${statusClassOf(pkg.status)}` }, pkg.status) : null,
+            data?.hub
+              ? h(
+                  'span',
+                  {
+                    className: `pk-badge${data.hub.configured ? ' pk-badge--accent' : ''}`,
+                    title: data.hub.hubUrl ?? '',
+                  },
+                  data.hub.configured ? `Hub ${data.hub.projectId ?? '?'}/${data.hub.featureId ?? '?'}` : 'Hub 未配置',
+                )
+              : null,
             data?.generatedAt ? h('span', { className: 'pk-muted' }, `${t.updated} ${fmtTime(data.generatedAt)}`) : null,
             h('button', { type: 'button', className: 'pk-btn', onClick: () => setTick((value) => value + 1) }, t.refresh),
           ),

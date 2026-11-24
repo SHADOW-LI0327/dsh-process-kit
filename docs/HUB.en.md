@@ -53,7 +53,7 @@ The file contains **no token** and can be committed. Bind once per repository; `
 
 | Moment | Tool |
 |---|---|
-| Start | `hub_context` (other side's status, open questions, latest artifacts); `hub_board` for the team view |
+| Start | `hub_context` (other side's status, open questions, latest artifacts); `hub_board` for the team view; `hub_health` if unsure the Hub is up |
 | Progress | `hub_status(state, focus, blocker)` |
 | Publish | `hub_publish(path, kind, summary)` — summary required |
 | Disagreement | `hub_question(text)` — do not guess |

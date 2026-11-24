@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readHubMapping, renderHubContext, resolveFeature, writeHubMapping } from '../lib/hub.mjs';
+import { detectHub, readHubMapping, renderHubContext, renderHubHealth, resolveFeature, writeHubMapping } from '../lib/hub.mjs';
 
 const repo = await mkdtemp(join(tmpdir(), 'process-kit-hub-'));
 try {
@@ -28,7 +28,17 @@ try {
   assert.match(text, /A \(frontend\): designing/);
   assert.match(text, /q_1/);
   assert.match(text, /art_1/);
-  console.log('✓ hub-tools：映射读写 / 默认 feature / context 渲染');
+
+  process.env.COLLAB_CONFIG = join(repo, 'collab.json');
+  await writeFile(process.env.COLLAB_CONFIG, JSON.stringify({ hubUrl: 'http://127.0.0.1:8787', token: 'col_test', name: 'A' }));
+  const detection = await detectHub(repo);
+  assert.equal(detection.configured, true);
+  assert.equal(detection.projectId, 'shop');
+  assert.equal(detection.featureId, 'FEAT-001');
+  const healthText = renderHubHealth(detection, { ok: true, member: { name: 'A' }, project: { name: 'Shop' }, statuses: 1, artifacts: 2, questions: 3 });
+  assert.match(healthText, /已连接/);
+  assert.match(healthText, /1 个状态 \/ 2 个产物 \/ 3 个未决问题/);
+  console.log('✓ hub-tools：映射读写 / 默认 feature / context 渲染 / 检测');
 } finally {
   await rm(repo, { recursive: true, force: true });
 }

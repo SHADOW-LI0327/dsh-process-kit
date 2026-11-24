@@ -215,7 +215,7 @@ const ctx = {
 };
 apply(ctx);
 
-assert.deepEqual(registered.tools.map((t) => t.name).sort(), ['gate_summary', 'hub_answer', 'hub_board', 'hub_context', 'hub_handoff', 'hub_link', 'hub_publish', 'hub_question', 'hub_status', 'process_init', 'process_journal', 'process_status', 'process_uninstall']);
+assert.deepEqual(registered.tools.map((t) => t.name).sort(), ['gate_summary', 'hub_answer', 'hub_board', 'hub_context', 'hub_handoff', 'hub_health', 'hub_link', 'hub_publish', 'hub_question', 'hub_status', 'process_init', 'process_journal', 'process_status', 'process_uninstall']);
 assert.equal(registered.sections.length, 2);
 assert.equal(registered.sections[0].name, 'process-kit-wake');
 assert.equal(registered.sections[1].name, 'process-kit-hub');

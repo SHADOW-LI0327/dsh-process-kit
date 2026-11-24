@@ -8,10 +8,10 @@ This file answers two things: **what changed and what you will notice**. Each re
 
 ### Added
 
-- **Eight `hub_*` tools**: `hub_context` / `hub_board` / `hub_status` / `hub_publish` / `hub_question` / `hub_answer` / `hub_handoff` / `hub_link`.
+- **Nine `hub_*` tools**: `hub_context` / `hub_board` / `hub_status` / `hub_publish` / `hub_question` / `hub_answer` / `hub_handoff` / `hub_link` / `hub_health`.
 - **Repository binding**: `hub_link(project, feature)` writes `docs/process/.hub.json` (project/feature only, no token); tools then default to it.
 - **Member config**: reads `~/.dsh/collab.json` (hubUrl + token + name); `COLLAB_HUB_URL` / `COLLAB_TOKEN` also work.
-- **Working habit**: `hub_context` before starting, `hub_publish` + `hub_status` after a milestone, `hub_question` for disagreements, `hub_handoff` before stopping; artifacts are append-only versions.
+- **Working habit**: `hub_context` before starting, `hub_publish` + `hub_status` after a milestone, `hub_question` for disagreements, `hub_handoff` before stopping; call `hub_health` (non-blocking) when unsure whether the Hub is up; artifacts are append-only versions.
 
 ### Compatibility
 
