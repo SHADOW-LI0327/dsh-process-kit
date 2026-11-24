@@ -13,7 +13,7 @@ cd dsh-collab-hub
 node bin/collab.mjs hub --host 0.0.0.0 --port 8787 --data ./data
 ```
 
-Open `http://<server>:8787` to register, create projects, upload designs and answer questions.
+Open `http://<server>:8787` and paste a member token for a **read-only board**; projects, designs and answers are written by the CLI / agent, not by page controls.
 
 ## 2. Register each member
 

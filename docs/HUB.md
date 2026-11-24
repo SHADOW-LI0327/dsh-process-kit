@@ -13,7 +13,7 @@ cd dsh-collab-hub
 node bin/collab.mjs hub --host 0.0.0.0 --port 8787 --data ./data
 ```
 
-打开 `http://<server>:8787` 可以看板注册、建项目、上传设计、回答问题。
+打开 `http://<server>:8787`，粘贴成员 token 进入**只读看板**；项目/feature、设计产物和回答由 CLI / Agent 写入，网页不提供控制。
 
 ## 2. 每个成员注册
 
