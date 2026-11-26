@@ -18,8 +18,8 @@
 
 - **文件状态机**：进度存在 `docs/process/**` 的 frontmatter 中。每轮唤醒调用 `process_status` 即可恢复上下文，不依赖聊天记录。
 - **研发流程看板**：对话头部的「研发流程」标签就在**轨迹旁边**，跟随当前会话。四步进度 / 模式 / 下一步 / journal 健康一屏看完；**核对件 / PRD / 设计 / 原型 / 报告等关键文档点击即可在面板内只读查看**；托管授权与人签分开显示，只读、不提供批准入口。
-- **协作 Hub（可选）**：多个本地 Agent 通过同一个 feature 共享状态、设计产物和问题；`hub_context` / `hub_status` / `hub_publish` / `hub_question` / `hub_handoff` 直接读写内网 Hub，不需要把设计文件在聊天里反复发。**Hub 地址可用 `hub_config` / `.hub.json` / `COLLAB_HUB_URL` 配置，token 只留在本机。** 见 [docs/HUB.md](./docs/HUB.md)。
-- **Gate 前置依赖**：需求核对件可声明 `dependsOn: shop/FEAT-002@contract`；`process_status` / `gate_summary` 会带出清单，Gate 前用 `hub_gate_check` 读取 Hub 判断 READY / BLOCKED / UNKNOWN。它只提供证据，不自动放行，仍由人签。
+- **协作 Hub（通过 MCP，可选）**：Hub 是独立项目；DSH 配好 Hub MCP 后，Agent 用 `mcp__collab__collab_*` 共享状态、设计产物和问题。**插件不内置 Hub HTTP 客户端，Hub 升级不需要同步插件。** 见 [docs/HUB.md](./docs/HUB.md)。
+- **Gate 前置依赖**：需求核对件可声明 `dependsOn: shop/FEAT-002@contract`；`process_status` / `gate_summary` 会带出清单，Gate 前用 Hub MCP 的 `collab_context` 读取前置 feature。READY / BLOCKED / UNKNOWN 只提供证据，不自动放行，仍由人签。
 - **Gate 门禁（三档）**：**全流程**在需求、方案、测试、验收四个点停；**开启托管**后只停需求确认和验收（方案/测试由你在需求确认时授权跳过，不是人签）；**走快速**只停需求确认。每次停等输出两段式摘要（✅ 已完成 / ❓ 待裁定）。
 - **防篡改 journal**：链式指纹（任意一行被改 / 删行 / 换行都能发现），读取侧重算并如实报红；状态位与批准来源都可事后核验。
 - **角色分离**：角色技能随插件注册，项目内 `.dsh/skills/**` 的同名技能可覆盖。
@@ -56,7 +56,7 @@
 3. AI 调 `process_init` 初始化当前仓库的流程
 4. 按流程推进；跟主控说：**走快速**（只确认需求）/ **开启托管**（确认需求后只在验收停）/ **走全流程**（四个点都停）。内部字段由主控写，不用记；第一个包可先走快速
 5. 对话标签「研发流程」（轨迹旁边）打开只读看板：四步进度 / 模式 / 下一步 / journal 健康
-6. 多人协作（可选）：服务器跑 `dsh-collab-hub`，成员各自 `collab register`；仓库里 `hub_link(project, feature)` 绑定一次，之后开工先 `hub_context`，做完 `hub_publish` + `hub_status`
+6. 多人协作（可选）：服务器跑 `dsh-collab-hub`，DSH 里配置 Hub MCP（`/mcp` 或 stdio）；之后用 `mcp__collab__collab_context` / `collab_publish` / `collab_status` 协作
 ```
 
 `process_init` 生成：`docs/process/`（总纲、调度手册、`PROJECT.md`、模板）、`docs/process/.process-kit.json`（卸载清单：创建过什么 + 哈希，供精确清理）、`scripts/process/`（门禁与 journal 脚本）、`AGENTS.md`（仅在缺失时创建，绝不改写；`agents: false` 可跳过）。

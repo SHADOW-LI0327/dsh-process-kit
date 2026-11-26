@@ -1,112 +1,85 @@
-# Collaboration Hub (optional)
+# Collaboration Hub (via MCP, outside the plugin)
 
-When every member runs DSH locally, `docs/process/**` only exists in each repository; A's design and B's current state are invisible to the other side's agent. The Hub adds exactly that layer:
+`dsh-process-kit` does **not** ship a Hub HTTP client. The Hub is a separate project and is connected through MCP; this plugin only owns the process and its Gates.
 
-- **Repository**: `docs/process`, journal and Gates remain that repository's truth.
-- **Hub**: cross-repository feature context — member status, design artifact index, open questions, change feed.
-- **Agent**: reads and writes the Hub through `hub_*` tools; the server runs no agent and never touches code.
+## 1. Connect the Hub MCP server in DSH
 
-## 1. Start the Hub on the server
+The recommended transport is the Hub's Streamable HTTP endpoint:
 
-```bash
-cd dsh-collab-hub
-node bin/collab.mjs hub --host 0.0.0.0 --port 8787 --data ./data
+```yaml
+- id: mcp-collab
+  name: '@deepseek-ai/dsh-mcp-client'
+  config:
+    serverName: collab
+    transport: streamable-http
+    url: http://<server>:8787/mcp
+    headers:
+      Authorization: 'Bearer ${credential:COLLAB_TOKEN}'
+    toolCallTimeoutMs: 60000
 ```
 
-Open `http://<server>:8787` and paste a member token for a **read-only board**; projects, designs and answers are written by the CLI / agent, not by page controls.
+The stdio server is still available:
 
-### Configure the server address
-
-When the Hub runs on another host, each member needs the address:
-
-- Local config: `hub_config(hubUrl="http://192.168.1.20:8787")`, writes `~/.dsh/collab.json` only;
-- Shared repo config: `hub_link(project=..., feature=..., hubUrl="http://192.168.1.20:8787")`, writes the address into `docs/process/.hub.json` (no token);
-- Environment: `COLLAB_HUB_URL` has the highest priority.
-
-Priority: `COLLAB_HUB_URL` > `hubUrl` in `docs/process/.hub.json` > `~/.dsh/collab.json` > `http://127.0.0.1:8787`.
-
-## 2. Register each member
-
-```bash
-node bin/collab.mjs register --name A --role frontend --hub http://<server>:8787
+```yaml
+- id: mcp-collab
+  name: '@deepseek-ai/dsh-mcp-client'
+  config:
+    serverName: collab
+    transport: stdio
+    command: node
+    args: ['/path/to/dsh-collab-hub/mcp/server.mjs']
+    env:
+      COLLAB_HUB_URL: http://<server>:8787
+      COLLAB_TOKEN: '${credential:COLLAB_TOKEN}'
 ```
 
-The token is stored in `~/.dsh/collab.json` (0600); `dsh-process-kit` reads the same file. Without a token the `hub_*` tools fail with a clear message.
-
-## 3. Create a project and a feature
-
-```bash
-node bin/collab.mjs project create shop --name "Shop" --repos web,api
-node bin/collab.mjs feature create shop FEAT-001 --title "Refund" --brief "full/partial refund"
-```
-
-- **Project**: product-level container; it may include frontend and backend repositories.
-- **Feature**: the shared unit of work; `FEAT-001` is the handle both sides use.
-
-## 4. Bind the repository once
-
-In DSH:
+Tools appear as:
 
 ```text
-hub_link(project="shop", feature="FEAT-001")
+mcp__collab__collab_context
+mcp__collab__collab_publish
+mcp__collab__collab_status
+mcp__collab__collab_question
+mcp__collab__collab_answer
+mcp__collab__collab_handoff
 ```
 
-This writes `docs/process/.hub.json`:
+The Hub's `/api` catalog or MCP `tools/list` is the source of truth; a Hub upgrade does not require a plugin change.
 
-```json
-{ "hubUrl": "http://192.168.1.20:8787", "projectId": "shop", "featureId": "FEAT-001" }
-```
+## 2. What the agent does
 
-The file contains **no token** and can be committed. Bind once per repository; `hub_*` tools then default to it.
-
-## 5. What the agent does
-
-| Moment | Tool |
+| Moment | Hub MCP tool |
 |---|---|
-| Start | `hub_context` (other side's status, open questions, latest artifacts); `hub_board` for the team view; `hub_health` if unsure the Hub is up |
-| Change Hub URL | `hub_config(hubUrl="http://server:8787")` |
-| No project/feature | `hub_project_create` → `hub_feature_create` (binds this repo by default) |
-| Progress | `hub_status(state, focus, blocker)` |
-| Publish | `hub_publish(path, kind, summary)` — summary required |
-| Disagreement | `hub_question(text)` — do not guess |
-| Answer | `hub_answer(question, text)` |
-| Stop / handoff | `hub_handoff(note)` |
-| Before a Gate with dependencies | `hub_gate_check(package="FEAT-001", gate="Gate1")` |
-| Check changes | `hub_context(since=cursor)` |
+| Start | `collab_context` (other side's status, open questions, latest artifacts); team overview in the Hub Web |
+| Progress | `collab_status(state, focus, blocker)` |
+| Publish | `collab_publish(path, kind, summary)` |
+| Disagreement | `collab_question(text)` |
+| Answer | `collab_answer(question, text)` |
+| Stop / handoff | `collab_handoff(note)` |
 
-Artifacts are **append-only versions**: never overwrite the other side's file; publish a new version and explain the change. Agents read summaries by default and open the original only when needed.
+Artifacts are append-only versions; never overwrite the other side's file. The Hub web board is read-only; writes go through MCP / CLI.
 
-## 6. Gate dependencies
+## 3. Gate dependencies
 
-A requirement check may declare prerequisite Hub features:
+A requirement check may still declare:
 
 ```yaml
 dependsOn: shop/FEAT-002@contract, shop/FEAT-003@done
 ```
 
-- Format: `project/feature@condition`, comma-separated;
-- `condition` supports `contract` / `design` / `report` / `note` / `done` /
-  `artifact:<kind>` / `status:<state>`;
-- `process_status` and `gate_summary` surface the list but do **not** go online;
-- before a Gate, the orchestrator calls `hub_gate_check`, which reads the Hub and reports:
-  - `READY`: every prerequisite is satisfied;
-  - `BLOCKED`: at least one is explicitly unmet;
-  - `UNKNOWN`: Hub unreachable, feature missing, or condition not decidable;
-- the result is **evidence only**; it never auto-passes the Gate. The human still signs, and UNKNOWN must not be described as ready.
+- `process_status` / `gate_summary` show this local list without network access;
+- before a Gate, the orchestrator reads each prerequisite feature with the Hub MCP `collab_context`;
+- `READY` / `BLOCKED` / `UNKNOWN` is evidence only; it never auto-passes the Gate, and UNKNOWN is not ready;
+- the human still signs.
 
-## 7. Failure and boundaries
+## 4. Archive / delete
 
-- Hub down / token invalid: `hub_*` fails with a message pointing at `~/.dsh/collab.json`; `process_status` and the rest of the process are unaffected.
-- No Hub config: the plugin behaves exactly as before; no network calls, no blocking.
-- The Hub is a context layer, not a Gate signer; `via: human` still lives only in `docs/process` journal.
-- The Dev-process board shows a Hub card (member status / open questions / latest artifacts / team features); an unreachable Hub is only a warning and never blocks the main flow.
-- HTML artifacts open in a sandbox; do not upload pages containing secrets.
-- Intranet HTTP has no TLS; add a reverse proxy with TLS before crossing networks, and limit upload size.
+- The Hub supports project / feature **archive / restore** (`collab project archive` / MCP `collab_project_archive`);
+- there is no hard delete; archived features are read-only and keep their data;
+- archive operations live in the Hub CLI / MCP, not in this plugin.
 
-## 8. Related pieces
+## 5. Related projects
 
-- Hub service: [dsh-collab-hub](https://github.com/SHADOW-LI0327/dsh-collab-hub) (separate repository);
-- MCP: `collab-mcp` for Claude / Codex / other MCP clients;
-- DSH: this plugin's `hub_*` tools (0.12.0+).
-
-See the Hub project README for the full API and data model.
+- Hub service: [dsh-collab-hub](https://github.com/SHADOW-LI0327/dsh-collab-hub)
+- API catalog: `GET /api`; OpenAPI: `GET /api/openapi.json`; MCP: `POST /mcp`
+- This plugin owns only `process_*` tools and `dependsOn` metadata; it does not keep a copy of the Hub API.
