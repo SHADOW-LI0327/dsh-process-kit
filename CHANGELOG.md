@@ -2,20 +2,39 @@
 
 这个文件只回答两件事：**改了什么、你会感受到什么**。每个版本先一段概览，再列实际变化；内部实现细节不在这里展开。
 
+## 0.13.0
+
+**概览**：Hub 协作改为通过 MCP 接入，插件不再内置 Hub HTTP 客户端。
+
+### 变更
+
+- **移除插件内置 Hub 客户端**：删除 `lib/hub.mjs`、13 个 `hub_*` 工具、`/process-kit/hub` 看板路由和 Hub 协作卡。
+- **Hub 走 MCP**：在 DSH 配置 Hub MCP（Streamable HTTP `POST /mcp` 或 stdio）后，Agent 用 `mcp__collab__collab_*` 共享状态、产物和问题；Hub 升级不再需要同步插件。
+- **Gate 前置依赖保留**：`dependsOn` 仍在核对件里声明，`process_status` / `gate_summary` 展示清单；Gate 前用 MCP `collab_context` 读取前置 feature，READY / BLOCKED / UNKNOWN 只是证据，仍由人签。
+
+### 兼容
+
+- 这是相对已发布 `0.12.0` 的破坏性调整：`hub_*` 工具不再存在，需要用 Hub MCP 替代。
+- `process_*` 工具、journal、Gate 和看板的主流程不受影响。
+
 ## 0.12.0
 
-**概览**：协作 Hub 改为通过 MCP 接入，插件不再内置 Hub HTTP 客户端。
+**概览**：加入协作 Hub 支持，多个本地 Agent 共享同一个 feature 的上下文。
 
 ### 新增
 
-- **Gate 前置依赖**：需求核对件可写 `dependsOn: shop/FEAT-002@contract`（逗号分隔）；`process_status` / `gate_summary` 展示清单，Gate 前用 Hub MCP 的 `collab_context` 读取前置 feature。READY / BLOCKED / UNKNOWN 只是证据，不自动放行，仍由人签。
-- **Hub 接入文档**：说明如何在 DSH 里配置 Hub MCP（Streamable HTTP `/mcp` 或 stdio），以及 `mcp__collab__collab_*` 的日常用法。
+- **13 个 `hub_*` 工具**：`hub_context` / `hub_board` / `hub_status` / `hub_publish` / `hub_question` / `hub_answer` / `hub_handoff` / `hub_link` / `hub_health` / `hub_project_create` / `hub_feature_create` / `hub_gate_check` / `hub_config`。
+- **仓库绑定**：`hub_link(project, feature)` 写 `docs/process/.hub.json`，只含项目/feature，不含 token；`hub_feature_create` 默认创建后直接绑定。
+- **看板 Hub 状态**：对话里的「研发流程」看板增加 Hub 协作卡，显示成员状态、未决问题、最新产物和团队 feature；Hub 不可达只提示，不影响主流程。
+- **Gate 前置依赖**：需求核对件可写 `dependsOn: shop/FEAT-002@contract`（逗号分隔）；`process_status` / `gate_summary` 会带出前置清单，Gate 前用 `hub_gate_check` 读取 Hub 判断 READY / BLOCKED / UNKNOWN。它只提供证据，不自动放行，仍由人签。
+- **成员配置**：读 `~/.dsh/collab.json`（hubUrl + token + name），也支持 `COLLAB_HUB_URL` / `COLLAB_TOKEN`。
+- **Hub 地址可配置**：`hub_config(hubUrl="http://server:8787")` 写本机配置；`hub_link(..., hubUrl=...)` 把服务器地址写进 `docs/process/.hub.json`，团队共享。优先级：`COLLAB_HUB_URL` > `.hub.json` > `~/.dsh/collab.json`。
+- **协作习惯**：开工先 `hub_context`，阶段完成 `hub_publish` + `hub_status`，有分歧 `hub_question`，收工 `hub_handoff`；不确定 Hub 是否可用时先 `hub_health`（非阻塞）；项目/feature 不存在时 `hub_project_create` + `hub_feature_create` 自动创建并绑定。
 
-### Changed
+### 兼容
 
-- **移除插件内置 Hub 客户端**：删除 `lib/hub.mjs`、13 个 `hub_*` 工具、`/process-kit/hub` 看板路由和 Hub 协作卡。Hub 是独立项目，升级只改 Hub / MCP，不再要求插件同步。
-- **看板只保留流程信息**：四步进度、journal、产物、依赖声明；团队协作状态去 Hub Web 或 MCP 看。
-- 版本仍为 `0.12.0`；没有跳过版本。
+- 没配 Hub 时，原有 `process_*` 工具和看板行为完全不变，也不会联网。
+- Hub 只做跨仓库上下文；每个仓库的 `docs/process` 和 journal 仍是真源，Gate 人签仍以 journal 为准。
 
 ## 0.11.0
 

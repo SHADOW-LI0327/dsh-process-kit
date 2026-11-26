@@ -2,20 +2,39 @@
 
 This file answers two things: **what changed and what you will notice**. Each release starts with an overview, then lists the actual changes; internal implementation details stay out.
 
-## 0.12.0
+## 0.13.0
 
-**Overview**: the collaboration Hub is now reached through MCP; the plugin no longer embeds a Hub HTTP client.
-
-### Added
-
-- **Gate dependencies**: a requirement check may declare `dependsOn: shop/FEAT-002@contract` (comma-separated); `process_status` / `gate_summary` surface the list, and the Hub MCP `collab_context` is read before a Gate. READY / BLOCKED / UNKNOWN is evidence only; the human still signs.
-- **Hub setup docs**: how to configure the Hub MCP server in DSH (Streamable HTTP `/mcp` or stdio) and use `mcp__collab__collab_*`.
+**Overview**: the Hub is now reached through MCP; the plugin no longer embeds a Hub HTTP client.
 
 ### Changed
 
-- **Removed the embedded Hub client**: `lib/hub.mjs`, 13 `hub_*` tools, the `/process-kit/hub` board route and the Hub card are gone. The Hub is a separate project; Hub upgrades now change only the Hub / MCP, not this plugin.
-- **The board keeps process facts only**: timeline, journal, artifacts and dependency declarations; team collaboration lives in the Hub Web / MCP.
-- Version stays `0.12.0`; no version is skipped.
+- **Removed the embedded Hub client**: `lib/hub.mjs`, 13 `hub_*` tools, the `/process-kit/hub` board route and the Hub card are gone.
+- **Hub via MCP**: after configuring the Hub MCP server in DSH (Streamable HTTP `POST /mcp` or stdio), agents use `mcp__collab__collab_*` for status, artifacts and questions; Hub upgrades no longer require a plugin change.
+- **Gate dependencies remain**: `dependsOn` is still declared in the requirement check and surfaced by `process_status` / `gate_summary`; before a Gate the orchestrator uses the MCP `collab_context` to read prerequisite features. READY / BLOCKED / UNKNOWN is evidence only; the human still signs.
+
+### Compatibility
+
+- This is a breaking change from the published `0.12.0`: the `hub_*` tools no longer exist and are replaced by Hub MCP.
+- The `process_*` tools, journal, Gates and the main board flow are unaffected.
+
+## 0.12.0
+
+**Overview**: adds Collaboration Hub support so multiple local agents share one feature's context.
+
+### Added
+
+- **Thirteen `hub_*` tools**: `hub_context` / `hub_board` / `hub_status` / `hub_publish` / `hub_question` / `hub_answer` / `hub_handoff` / `hub_link` / `hub_health` / `hub_project_create` / `hub_feature_create` / `hub_gate_check` / `hub_config`.
+- **Repository binding**: `hub_link(project, feature)` writes `docs/process/.hub.json` (project/feature only, no token); `hub_feature_create` binds by default.
+- **Hub card on the board**: the Dev-process board shows member status, open questions, latest artifacts and team features; an unreachable Hub is only a warning and never blocks the main flow.
+- **Gate dependencies**: the requirement check may declare `dependsOn: shop/FEAT-002@contract` (comma-separated); `process_status` / `gate_summary` surface the list, and `hub_gate_check` reads the Hub before a Gate to report READY / BLOCKED / UNKNOWN. It is evidence only; the human still signs.
+- **Member config**: reads `~/.dsh/collab.json` (hubUrl + token + name); `COLLAB_HUB_URL` / `COLLAB_TOKEN` also work.
+- **Configurable Hub URL**: `hub_config(hubUrl="http://server:8787")` writes the local config; `hub_link(..., hubUrl=...)` commits the server URL in `docs/process/.hub.json` for the team. Priority: `COLLAB_HUB_URL` > `.hub.json` > `~/.dsh/collab.json`.
+- **Working habit**: `hub_context` before starting, `hub_publish` + `hub_status` after a milestone, `hub_question` for disagreements, `hub_handoff` before stopping; call `hub_health` (non-blocking) when unsure whether the Hub is up; create a missing project/feature with `hub_project_create` + `hub_feature_create`.
+
+### Compatibility
+
+- Without Hub config, the existing `process_*` tools and board behave exactly as before and make no network calls.
+- The Hub is only a cross-repository context layer; each repository's `docs/process` and journal remain the truth, and human Gate signatures still live in the journal.
 
 ## 0.11.0
 
