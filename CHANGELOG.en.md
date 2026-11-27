@@ -2,6 +2,18 @@
 
 This file answers two things: **what changed and what you will notice**. Each release starts with an overview, then lists the actual changes; internal implementation details stay out.
 
+## 0.15.0
+
+**Overview**: ⑫ now reads `RELEASE.journal.jsonl`, so release regression no longer produces a fixed false red.
+
+### Fixed
+
+- **Release detection**: when `RELEASE.journal.jsonl` has a later timestamp than the package journal, release regression is active and the closed package journal's step is no longer used as the sole basis.
+- **RELEASE files coverage**: changes named in RELEASE journal `files` are treated as declared.
+- **Unnamed changes are explicitly skipped**: during release, an undeclared change that also does not match the release step is reported as `⚠` skipped, not red; the Gate still reviews the diff and can add a release approve.
+- **Keeps the 0.14.0 fix**: a package journal `step: verify` is still normalized to test.
+- Existing initialized repositories need `process_init(upgrade: true)` to update `scripts/process/check-rules.mjs`.
+
 ## 0.14.0
 
 **Overview**: fixes the release-regression `verify` step being falsely reported as out of bounds by ⑫.

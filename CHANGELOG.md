@@ -2,6 +2,18 @@
 
 这个文件只回答两件事：**改了什么、你会感受到什么**。每个版本先一段概览，再列实际变化；内部实现细节不在这里展开。
 
+## 0.15.0
+
+**概览**：⑫ 采信 `RELEASE.journal.jsonl`，发布回归期不再固定报假红。
+
+### 修复
+
+- **发布回归期识别**：当 `RELEASE.journal.jsonl` 的最后时间晚于包 journal 时，视为发布回归进行中；不再拿已收口的包 journal 环节硬判。
+- **RELEASE files 覆盖**：RELEASE journal 里 `files` 点名的改动视为已声明。
+- **未点名改动明确跳过**：发布期未在 RELEASE files 中声明、也不匹配 release 末条环节的改动，只打 `⚠` 跳过，不判红；Gate 上仍看 diff，必要时补 release approve。
+- **保留 0.14.0 的修复**：包 journal 自己的 `step: verify` 仍归一为 test。
+- 已初始化流程的仓库需要运行 `process_init(upgrade: true)` 更新 `scripts/process/check-rules.mjs`。
+
 ## 0.14.0
 
 **概览**：修复发布回归的 `verify` 环节被 ⑫ 误判为越界。

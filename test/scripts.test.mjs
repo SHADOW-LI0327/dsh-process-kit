@@ -516,7 +516,7 @@ async function makeRulesFixture() {
  * §3 填真值：dev 管 `src/**`、test 管 `test/**`、uat 管 `e2e/**`、orchestrator 管 `docs/process/**`。
  * `extra`：额外改动（对象或数组），用于验证豁免边界 —— 新文件要 add 才进改动集。
  */
-async function makeBoundaryFixture({ journal = [], placeholderS3 = false, change = 'test', extra = null } = {}) {
+async function makeBoundaryFixture({ journal = [], placeholderS3 = false, change = 'test', extra = null, releaseJournal = null } = {}) {
 	const root = await makeTemplateRepo();
 	const projectPath = join(root, projectRel);
 	const md = await readFile(projectPath, 'utf8');
@@ -537,6 +537,13 @@ async function makeBoundaryFixture({ journal = [], placeholderS3 = false, change
 		journal.map((e) => JSON.stringify(e)).join('\n') + (journal.length ? '\n' : ''),
 		'utf8',
 	);
+	if (releaseJournal !== null) {
+		await writeFile(
+			join(root, 'docs/process/prd/RELEASE.journal.jsonl'),
+			releaseJournal.map((e) => JSON.stringify(e)).join('\n') + (releaseJournal.length ? '\n' : ''),
+			'utf8',
+		);
+	}
 	await mkdir(join(root, 'test'), { recursive: true });
 	await mkdir(join(root, 'src'), { recursive: true });
 	// 测试文件**不带** @prd：否则 ② 会因为「没有 rules/FEAT-01.yaml」先判红，⑫ 就不是唯一的 ❌ 了
@@ -609,6 +616,43 @@ const DEV_WRITE = {
 	assert.equal(status, 0, `verify 环节改 test 属主文件不应判红\n${out}`);
 	assert.doesNotMatch(out, /❌ ⑫/, `verify 应归一成 test，不得假红\n${out}`);
 	console.log('✓ 8m ⑫ verify 环节归一成 test，发布回归报告不假红');
+}
+
+{
+	// 8n. 发布回归期：包 journal 已 uat 收口，RELEASE.journal 末条是 verify；
+	//     未在 RELEASE files 点名的源码改动只跳过，不拿旧包环节判红。
+	const root = await makeBoundaryFixture({
+		journal: [{ at: '2026-01-01T00:00:00Z', actor: 'subagent:uat', step: 'uat', action: 'write' }],
+		releaseJournal: [{ at: '2026-01-02T00:00:00Z', actor: 'subagent:test-release', step: 'verify', action: 'run' }],
+		change: 'src',
+	});
+	const { status, out } = runGate(root, 'check-rules.mjs', ['--id', 'FEAT-01']);
+	assert.equal(status, 0, `发布回归期未点名的源码改动不得假红\n${out}`);
+	assert.doesNotMatch(out, /❌ ⑫/, `发布回归期不得判越界\n${out}`);
+	assert.match(out, /发布回归进行中：src\/keep\.ts/, `应明确说清是发布期跳过\n${out}`);
+	assert.match(out, /发布期跳过 1/, `统计应记发布期跳过\n${out}`);
+	console.log('✓ 8n ⑫ 发布回归期：包 journal 已收口，未点名改动跳过而非假红');
+}
+
+{
+	// 8o. RELEASE.journal 的 files 点名覆盖：算已声明，不跳过、不判红。
+	const root = await makeBoundaryFixture({
+		journal: [{ at: '2026-01-01T00:00:00Z', actor: 'subagent:uat', step: 'uat', action: 'write' }],
+		releaseJournal: [{
+			at: '2026-01-02T00:00:00Z',
+			actor: 'subagent:test-release',
+			step: 'verify',
+			action: 'run',
+			files: ['src/keep.ts'],
+		}],
+		change: 'src',
+	});
+	const { status, out } = runGate(root, 'check-rules.mjs', ['--id', 'FEAT-01']);
+	assert.equal(status, 0, `RELEASE files 点名的改动应放行\n${out}`);
+	assert.doesNotMatch(out, /❌ ⑫/, `release 覆盖不得判红\n${out}`);
+	assert.doesNotMatch(out, /发布回归进行中/, `已被 release files 覆盖就不应再打发布期跳过\n${out}`);
+	assert.match(out, /release 覆盖 1/, `统计应记 release 覆盖\n${out}`);
+	console.log('✓ 8o ⑫ RELEASE.journal files 点名覆盖 ⇒ 放行');
 }
 
 {

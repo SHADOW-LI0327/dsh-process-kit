@@ -869,6 +869,35 @@ function readJournalLines(id) {
   return entries;
 }
 
+/** journal 里最后一条带合法时间戳的 `at`（毫秒）；没有则 null。 */
+function lastJournalAt(entries) {
+  let latest = null;
+  for (const entry of entries) {
+    const ms = Date.parse(String(entry?.at ?? ''));
+    if (Number.isFinite(ms) && (latest === null || ms > latest)) latest = ms;
+  }
+  return latest;
+}
+
+/**
+ * 发布回归是否仍在进行：RELEASE.journal 的最后一条比该包 journal 更新。
+ * 这是「发布期优先」的判据：包已 done/uat 收口后，发布回归会继续往 RELEASE
+ * journal 追加 verify/review/dev 记录；旧包 journal 的末条环节就不能再代表现场。
+ */
+function releaseIsActive(packageJournal, releaseJournal) {
+  const packageAt = lastJournalAt(packageJournal);
+  const releaseAt = lastJournalAt(releaseJournal);
+  return packageAt !== null && releaseAt !== null && releaseAt > packageAt;
+}
+
+/** RELEASE.journal 里 files 是否点名了该文件（write / run / approve 都算声明）。 */
+function releaseCovers(releaseJournal, file) {
+  return releaseJournal.some((entry) => {
+    const files = Array.isArray(entry?.files) ? entry.files : typeof entry?.files === 'string' ? [entry.files] : [];
+    return files.some((f) => globToRegExp(String(f)).test(file));
+  });
+}
+
 /** journal 的「当前环节」：末条带 step 的记录；全都没有 step 时回落末条 actor；都没有 ⇒ null。 */
 function lastStep(entries) {
   for (let i = entries.length - 1; i >= 0; i -= 1) {
@@ -1034,6 +1063,9 @@ function candidatePackageIds(changed) {
     const picked = candidatePackageIds(changed);
     const journal = picked.error ? null : readJournalLines(picked.id);
     const step = journal === null ? null : lastStep(journal);
+    const releaseJournal = picked.error ? null : readJournalLines('RELEASE');
+    const releaseActive = journal !== null && step !== null && releaseJournal !== null && releaseIsActive(journal, releaseJournal);
+    const releaseStep = releaseJournal === null ? null : lastStep(releaseJournal);
     if (picked.error) {
       warn(msg(`⑫ 跳过：${picked.error}`, `⑫ skipped: ${picked.error}`));
     } else if (journal === null) {
@@ -1062,8 +1094,10 @@ function candidatePackageIds(changed) {
     } else {
       const violations = [];
       const noOwner = [];
+      const releaseSkipped = [];
       let consistent = 0;
       let covered = 0;
+      let releaseCovered = 0;
       let exempt = 0;
       for (const f of changed) {
         // 流程目录（`docs/process/**`）整棵树先豁免掉 —— 它是流程自己的载体，不是交付物
@@ -1080,12 +1114,25 @@ function candidatePackageIds(changed) {
           continue;
         }
         const roles = [...new Set(hits.flatMap((r) => r.roles))];
-        if (roles.some((r) => sameRole(step.key, r))) {
+        const matchesPackageStep = roles.some((r) => sameRole(step.key, r));
+        const matchesReleaseStep =
+          releaseActive && releaseStep !== null && roles.some((r) => sameRole(releaseStep.key, r));
+        if (matchesPackageStep || matchesReleaseStep) {
           consistent += 1;
           continue;
         }
         if (approveCovers(journal, f)) {
           covered += 1;
+          continue;
+        }
+        if (releaseActive && releaseCovers(releaseJournal, f)) {
+          releaseCovered += 1;
+          continue;
+        }
+        if (releaseActive) {
+          // 发布期包 journal 已收口：未在 RELEASE.journal 里点名的文件不拿旧环节判红，
+          // 只明确跳过，让 Gate 上的人看 diff / 要求补 release approve。
+          releaseSkipped.push(f);
           continue;
         }
         violations.push({ path: f, roles });
@@ -1095,6 +1142,17 @@ function candidatePackageIds(changed) {
           msg(
             `⑫ 无法判定 ${f} 的归属（§3 属主表里没有匹配的类别）—— 按 fail-open 不判`,
             `⑫ cannot determine who owns ${f} (no matching category in the §3 owner table) — not judged, per fail-open`,
+          ),
+        );
+      }
+      for (const f of releaseSkipped) {
+        warn(
+          msg(
+            `⑫ 发布回归进行中：${f} 未在 RELEASE.journal 的 files 中声明，且包 ${picked.id} 的 journal ` +
+              `末条「${step.label}」已收口 —— 跳过角色边界判定，不判红（请在 Gate 看 diff，必要时补 release approve）`,
+            `⑫ release regression active: ${f} is not named in RELEASE.journal files, and package ${picked.id}'s ` +
+              `last step "${step.label}" is closed — role-boundary check skipped, not failed ` +
+              `(inspect the diff at the Gate or add a release approve if needed)`,
           ),
         );
       }
@@ -1128,12 +1186,14 @@ function candidatePackageIds(changed) {
       }
       ok(
         msg(
-          `⑫ 越界事后判定（包 ${picked.id} / 环节 ${step.label}）：改动 ${changed.length} 个 · ` +
+          `⑫ 越界事后判定（包 ${picked.id} / 环节 ${step.label}${releaseActive ? ` / 发布回归 ${releaseStep?.label ?? '?'}` : ''}）：改动 ${changed.length} 个 · ` +
             `流程簿记豁免 ${exempt} · 归属一致 ${consistent} · approve 覆盖 ${covered} · ` +
+            `release 覆盖 ${releaseCovered} · 发布期跳过 ${releaseSkipped.length} · ` +
             `越界 ${violations.length} · 无法判定 ${noOwner.length}`,
-          `⑫ role boundary post-hoc check (package ${picked.id} / step ${step.label}): ` +
+          `⑫ role boundary post-hoc check (package ${picked.id} / step ${step.label}${releaseActive ? ` / release ${releaseStep?.label ?? '?'}` : ''}): ` +
             `${changed.length} changed · ${exempt} process bookkeeping exempt · ` +
             `${consistent} owner-consistent · ${covered} approve-covered · ` +
+            `${releaseCovered} release-covered · ${releaseSkipped.length} release-skipped · ` +
             `${violations.length} out-of-bounds · ${noOwner.length} undeterminable`,
         ),
       );
