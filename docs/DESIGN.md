@@ -33,7 +33,7 @@ dsh-process-kit/
 2. **仲裁者在人**。dev 动了测试，正确处置是让人在 Gate2 **知道并裁定**，不是让宿主拒绝这次写入。实时拦截会把「可裁定」变成「死锁」—— hotfix 确实要动测试、spike 确实要 PM 写代码，而 Gate 摘要的 ❓ 栏本来就是承载这类裁定的。
 3. **正面战场打不赢**。比实时强制，对手有中间件、权限矩阵和 preset 机制，我们没有也不该有。我们的位置在「阶段推进权由人签 + 状态入仓 + 防篡改 journal」。
 
-**如果要补，补的是「事后判定」而不是「实时拦截」**：把机械可判的越界（如 dev 环节的 diff 触及测试文件）交给已有门禁脚本 `scripts/process/check-rules.mjs` 在 Gate 时判、`exit 1` 并把该条塞进 Gate 摘要 ❓ 栏；**默认 fail-open**，未初始化 `docs/process`、快速路径、未配 §3 一律跳过；越界允许「人 approve 留痕」而不是禁止。**已实施（0.5.0）**：`check-rules.mjs` 判据 ⑫（含子条 ⑫a）就按这条路做 —— 判据级 fail-open、越界可经 journal 的 `approve` 留痕放行、脚本级前置条件仍如实退出 1。**判定边界硬性限定在 `docs/process/` 之外**：流程目录整棵树豁免，否则「主控每次 Gate 后改状态位」会把 ⑫ 变成恒红项（总纲 §5 第 4 条禁止恒红）。
+**如果要补，补的是「事后判定」而不是「实时拦截」**：把机械可判的越界（如 dev 环节的 diff 触及测试文件）交给已有门禁脚本 `scripts/process/check-rules.mjs` 在 Gate 时判、`exit 1` 并把该条塞进 Gate 摘要 ❓ 栏；**默认 fail-open**，未初始化 `docs/process`、快速路径、未配 §3 一律跳过；越界允许「人 approve 留痕」而不是禁止。**已实施（0.5.0）**：`check-rules.mjs` 判据 ⑫（含子条 ⑫a）就按这条路做 —— 判据级 fail-open、越界可经 journal 的 `approve` 留痕放行、脚本级前置条件仍如实退出 1。 **0.15.0 起**：⑫ 还读 `RELEASE.journal.jsonl`；发布回归期 release 末条环节参与匹配，RELEASE `files` 点名的改动算已声明，未点名且不匹配的改动明确跳过、不判红。**判定边界硬性限定在 `docs/process/` 之外**：流程目录整棵树豁免，否则「主控每次 Gate 后改状态位」会把 ⑫ 变成恒红项（总纲 §5 第 4 条禁止恒红）。
 
 ## 为什么借鉴调研放在 Gate0 前、且 pm / architect 并行
 

@@ -369,7 +369,7 @@ dev 修复后置 `fixed` → test 复跑 → `verified`。`bugs.status=open` 时
 | 用途 | 说明 |
 | --- | --- |
 | **journal 追加** | 锁 + 指纹校验 + 原子替换；**禁止手工读-改-写**（§7） |
-| **台账门禁** | 校验台账与测试用例双向配对、测试 import 白名单、`prdVersion` 一致性（§6.7）；**越界事后判定**（⑫：改动集 × 属主表 × journal 当前环节，**只判 `docs/process/` 之外的交付物**，fail-open，见 §5 第 7 条） |
+| **台账门禁** | 校验台账与测试用例双向配对、测试 import 白名单、`prdVersion` 一致性（§6.7）；**越界事后判定**（⑫：改动集 × 属主表 × 包 / RELEASE journal 当前环节，**只判 `docs/process/` 之外的交付物**，fail-open，见 §5 第 7 条） |
 | **落点门禁** | 按 `PROJECT.md` §3 属主表 + `PROJECT.md` §4 登记区判定「会进下一次提交」的**新增**文件落点（§2.3）。**三种模式**：默认判未跟踪（`git add` 之后就看不见了）、`--staged` 判暂存区新增、`--committed[=<rev>]` 事后审计已入库提交新增；**受检 0 个时只报 ⚠ 空转、不打绿**（一条都没判过就不算判过）。**临时件不判**：`process_init(upgrade)` 产生的 `<文件>.bak-<时间戳>` 升级备份自动排除（它由框架产生、核对完即删，判它等于框架自伤），门禁会报「已排除临时件 N 个」提醒你删 |
 | **UI 原型门禁**（HTML 主路径） | 检查 `index.html` / `data-ui` 覆盖 / `handoff.md` / 外部网络 / 本地链接；**只判交接完整性，不判审美**；调用：`node scripts/process/check-ui-prototype.mjs --pkg <ID>` |
 | **版本同步** | 同步 PRD frontmatter `prdVersion` 与测试头标注，防漂移；`--check` 下**产物存在却缺 `prdVersion` 字段行 ⇒ 判不一致、退出 1**（缺整个文件才跳过） |
