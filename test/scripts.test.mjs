@@ -597,6 +597,21 @@ const DEV_WRITE = {
 }
 
 {
+	// 8m. `verify` 是 test 的验收环节：发布回归改 reports/**（test 属主）时不得假红。
+	//     ⑫ 读 journal 的 step；若 `verify` 不被归一成 test，就会把发布回归报告判成越界。
+	const root = await makeBoundaryFixture({
+		journal: [
+			{ at: '2026-01-01T01:00:00Z', actor: 'subagent:test-agent', step: 'verify', action: 'run', note: '发布回归 verify' },
+		],
+		change: 'test',
+	});
+	const { status, out } = runGate(root, 'check-rules.mjs', ['--id', 'FEAT-01']);
+	assert.equal(status, 0, `verify 环节改 test 属主文件不应判红\n${out}`);
+	assert.doesNotMatch(out, /❌ ⑫/, `verify 应归一成 test，不得假红\n${out}`);
+	console.log('✓ 8m ⑫ verify 环节归一成 test，发布回归报告不假红');
+}
+
+{
 	// 8b. 反向绿：同样的改动集，journal 里有一条 approve **点名覆盖**该文件 ⇒ 放行。
 	//     关键：approve 记在**中间**、末条仍是 dev —— 绿必须来自「approve 覆盖」，
 	//     而不是末条环节碰巧变成了 test（那样这条用例就什么都没验）。

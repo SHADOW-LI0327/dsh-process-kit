@@ -777,8 +777,12 @@ function roleKey(s) {
     .trim();
 }
 
-/** 角色别名：技能名 `product-manager` 与 §3 里的 `pm` 是同一个人。 */
-const ROLE_ALIAS = { "product-manager": "pm" };
+/**
+ * 角色别名：技能名 `product-manager` 与 §3 里的 `pm` 是同一个人。
+ * `verify` 是 test 的验收环节（总纲 §2.2：verify 归 test），发布回归 journal 以
+ * `step: verify` 记录时不能按「未知角色」判成越界。
+ */
+const ROLE_ALIAS = { "product-manager": "pm", verify: "test" };
 
 /** 环节与归属角色是否算同一个：`review` 环节兼容 code-review / logic-review / security-review。 */
 function sameRole(a, b) {

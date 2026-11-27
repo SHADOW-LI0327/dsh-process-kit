@@ -12,6 +12,10 @@
 - **Hub 走 MCP**：在 DSH 配置 Hub MCP（Streamable HTTP `POST /mcp` 或 stdio）后，Agent 用 `mcp__collab__collab_*` 共享状态、产物和问题；Hub 升级不再需要同步插件。
 - **Gate 前置依赖保留**：`dependsOn` 仍在核对件里声明，`process_status` / `gate_summary` 展示清单；Gate 前用 MCP `collab_context` 读取前置 feature，READY / BLOCKED / UNKNOWN 只是证据，仍由人签。
 
+### 修复
+
+- **⑫ 不再把发布回归的 `verify` 环节判成越界**：`verify` 是 test 的验收环节（总纲 §2.2），现在归一为 `test`；`step: verify` 时改 `reports/**` 等 test/uat 属主文件不再固定报假红。
+
 ### 兼容
 
 - 这是相对已发布 `0.12.0` 的破坏性调整：`hub_*` 工具不再存在，需要用 Hub MCP 替代。

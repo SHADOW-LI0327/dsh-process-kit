@@ -12,6 +12,10 @@ This file answers two things: **what changed and what you will notice**. Each re
 - **Hub via MCP**: after configuring the Hub MCP server in DSH (Streamable HTTP `POST /mcp` or stdio), agents use `mcp__collab__collab_*` for status, artifacts and questions; Hub upgrades no longer require a plugin change.
 - **Gate dependencies remain**: `dependsOn` is still declared in the requirement check and surfaced by `process_status` / `gate_summary`; before a Gate the orchestrator uses the MCP `collab_context` to read prerequisite features. READY / BLOCKED / UNKNOWN is evidence only; the human still signs.
 
+### Fixed
+
+- **⑫ no longer reports the release-regression `verify` step as out of bounds**: `verify` belongs to test (doctrine §2.2) and is now normalized to `test`; a `step: verify` run that touches test/uat-owned files such as `reports/**` no longer fails with a fixed false red.
+
 ### Compatibility
 
 - This is a breaking change from the published `0.12.0`: the `hub_*` tools no longer exist and are replaced by Hub MCP.
