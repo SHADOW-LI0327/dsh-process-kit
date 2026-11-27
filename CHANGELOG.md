@@ -2,6 +2,15 @@
 
 这个文件只回答两件事：**改了什么、你会感受到什么**。每个版本先一段概览，再列实际变化；内部实现细节不在这里展开。
 
+## 0.14.0
+
+**概览**：修复发布回归的 `verify` 环节被 ⑫ 误判为越界。
+
+### 修复
+
+- **⑫ 将 `verify` 归一为 `test`**：`verify` 是 test 的验收环节（总纲 §2.2）；`step: verify` 时修改 `reports/**` 等 test/uat 属主文件，不再固定报假红。
+- 已初始化流程的仓库需要运行 `process_init(upgrade: true)` 更新 `scripts/process/check-rules.mjs`。
+
 ## 0.13.0
 
 **概览**：Hub 协作改为通过 MCP 接入，插件不再内置 Hub HTTP 客户端。
@@ -11,10 +20,6 @@
 - **移除插件内置 Hub 客户端**：删除 `lib/hub.mjs`、13 个 `hub_*` 工具、`/process-kit/hub` 看板路由和 Hub 协作卡。
 - **Hub 走 MCP**：在 DSH 配置 Hub MCP（Streamable HTTP `POST /mcp` 或 stdio）后，Agent 用 `mcp__collab__collab_*` 共享状态、产物和问题；Hub 升级不再需要同步插件。
 - **Gate 前置依赖保留**：`dependsOn` 仍在核对件里声明，`process_status` / `gate_summary` 展示清单；Gate 前用 MCP `collab_context` 读取前置 feature，READY / BLOCKED / UNKNOWN 只是证据，仍由人签。
-
-### 修复
-
-- **⑫ 不再把发布回归的 `verify` 环节判成越界**：`verify` 是 test 的验收环节（总纲 §2.2），现在归一为 `test`；`step: verify` 时改 `reports/**` 等 test/uat 属主文件不再固定报假红。
 
 ### 兼容
 

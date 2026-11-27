@@ -2,6 +2,15 @@
 
 This file answers two things: **what changed and what you will notice**. Each release starts with an overview, then lists the actual changes; internal implementation details stay out.
 
+## 0.14.0
+
+**Overview**: fixes the release-regression `verify` step being falsely reported as out of bounds by ⑫.
+
+### Fixed
+
+- **⑫ normalizes `verify` to `test`**: `verify` is test's acceptance step (doctrine §2.2); a `step: verify` run that touches test/uat-owned files such as `reports/**` no longer fails with a fixed false red.
+- Existing initialized repositories need `process_init(upgrade: true)` to update `scripts/process/check-rules.mjs`.
+
 ## 0.13.0
 
 **Overview**: the Hub is now reached through MCP; the plugin no longer embeds a Hub HTTP client.
@@ -11,10 +20,6 @@ This file answers two things: **what changed and what you will notice**. Each re
 - **Removed the embedded Hub client**: `lib/hub.mjs`, 13 `hub_*` tools, the `/process-kit/hub` board route and the Hub card are gone.
 - **Hub via MCP**: after configuring the Hub MCP server in DSH (Streamable HTTP `POST /mcp` or stdio), agents use `mcp__collab__collab_*` for status, artifacts and questions; Hub upgrades no longer require a plugin change.
 - **Gate dependencies remain**: `dependsOn` is still declared in the requirement check and surfaced by `process_status` / `gate_summary`; before a Gate the orchestrator uses the MCP `collab_context` to read prerequisite features. READY / BLOCKED / UNKNOWN is evidence only; the human still signs.
-
-### Fixed
-
-- **⑫ no longer reports the release-regression `verify` step as out of bounds**: `verify` belongs to test (doctrine §2.2) and is now normalized to `test`; a `step: verify` run that touches test/uat-owned files such as `reports/**` no longer fails with a fixed false red.
 
 ### Compatibility
 
